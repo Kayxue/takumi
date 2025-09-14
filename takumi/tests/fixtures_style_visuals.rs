@@ -75,8 +75,8 @@ fn test_style_border_width() {
       .width(Percentage(100.0))
       .height(Percentage(100.0))
       .background_color(Color::white())
-      .border_width(Sides([Px(10.0); 4]))
-      .border_color(Color([255, 0, 0, 255]))
+      .border_width(Some(Sides([Px(10.0); 4])))
+      .border_color(Some(Color([255, 0, 0, 255])))
       .build()
       .unwrap(),
     children: None,
@@ -93,7 +93,7 @@ fn test_style_border_width_with_radius() {
       .height(Percentage(100.0))
       .padding(Sides([Rem(4.0); 4]))
       .background_color(Color::white())
-      .border_color(Color([255, 0, 0, 255]))
+      .border_color(Some(Color([255, 0, 0, 255])))
       .build()
       .unwrap(),
     children: Some(vec![
@@ -102,7 +102,7 @@ fn test_style_border_width_with_radius() {
           .width(Rem(16.0))
           .height(Rem(8.0))
           .border_radius(Sides([Px(10.0); 4]))
-          .border_width(Sides([Px(4.0); 4]))
+          .border_width(Some(Sides([Px(4.0); 4])))
           .build()
           .unwrap(),
         children: None,
@@ -253,9 +253,9 @@ fn test_style_border_radius_width_offset() {
           .width(Percentage(100.0))
           .height(Percentage(100.0))
           .background_color(Color::white())
-          .border_width(Sides([Px(1.0); 4]))
+          .border_width(Some(Sides([Px(1.0); 4])))
           .border_radius(Sides([Px(24.0); 4]))
-          .border_color(Color([0, 0, 0, 255]))
+          .border_color(Some(Color([0, 0, 0, 255])))
           .build()
           .unwrap(),
         children: Some(vec![

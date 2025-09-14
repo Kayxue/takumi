@@ -65,7 +65,11 @@ impl BorderProperties {
       width: layout.border,
       offset: Point::ZERO,
       size: layout.size,
-      color: context.style.border_color,
+      color: context
+        .style
+        .border_color
+        .or_else(|| context.style.border.and_then(|border| border.color))
+        .unwrap_or(Color::black()),
       radius: Sides([top_left, top_right, bottom_right, bottom_left]),
       transform: context.transform,
     }

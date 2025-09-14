@@ -89,7 +89,7 @@ fn create_rotated_container(angle: f32, transform_origin: Option<BackgroundPosit
       .width(Px(200.0))
       .height(Px(200.0))
       .background_color(Color([255, 0, 0, 30]))
-      .border_width(Sides([Px(1.0); 4]))
+      .border_width(Some(Sides([Px(1.0); 4])))
       .border_radius(Sides([Px(12.0); 4]))
       .build()
       .unwrap(),
@@ -133,7 +133,7 @@ fn test_style_transform_translate_and_scale() {
     style: StyleBuilder::default()
       .width(Px(300.0))
       .height(Px(300.0))
-      .border_width(Sides([Px(1.0); 4]))
+      .border_width(Some(Sides([Px(1.0); 4])))
       .transform(Some(Transforms(smallvec![
         Transform::Translate(Px(-100.0), Px(100.0)),
         Transform::Rotate(Angle::new(90.0)),
@@ -165,7 +165,7 @@ fn test_style_transform_translate_and_scale() {
       .background_color(Color([0, 255, 0, 255]))
       .width(Px(100.0))
       .height(Px(100.0))
-      .border_width(Sides([Px(1.0); 4]))
+      .border_width(Some(Sides([Px(1.0); 4])))
       .font_size(Px(12.0))
       .build()
       .unwrap(),
@@ -186,7 +186,7 @@ fn test_style_transform_translate_and_scale() {
       .background_color(Color([0, 0, 255, 255]))
       .width(Px(200.0))
       .height(Px(200.0))
-      .border_width(Sides([Px(1.0); 4]))
+      .border_width(Some(Sides([Px(1.0); 4])))
       .color(Color::white())
       .build()
       .unwrap(),

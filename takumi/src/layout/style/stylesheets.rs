@@ -109,11 +109,12 @@ define_style!(
   border_top_right_radius: Option<LengthUnit> = None => None,
   border_bottom_right_radius: Option<LengthUnit> = None => None,
   border_bottom_left_radius: Option<LengthUnit> = None => None,
-  border_width: Sides<LengthUnit> = Sides::zero() => Sides::zero(),
+  border_width: Option<Sides<LengthUnit>> = None => None,
   border_top_width: Option<LengthUnit> = None => None,
   border_right_width: Option<LengthUnit> = None => None,
   border_bottom_width: Option<LengthUnit> = None => None,
   border_left_width: Option<LengthUnit> = None => None,
+  border: Option<Border> = None => None,
   object_fit: ObjectFit = CssValue::Inherit => Default::default(),
   object_position: BackgroundPosition = CssValue::Inherit => BackgroundPosition::default(),
   background_image: Option<BackgroundImages> = None => None,
@@ -133,7 +134,7 @@ define_style!(
   text_overflow: TextOverflow = CssValue::Inherit => Default::default(),
   text_transform: TextTransform = CssValue::Inherit => Default::default(),
   font_style: FontStyle = CssValue::Inherit => Default::default(),
-  border_color: Color = CssValue::Inherit => Color::black(),
+  border_color: Option<Color> = CssValue::Inherit => None,
   color: Color = CssValue::Inherit => Color::black(),
   font_size: LengthUnit = CssValue::Inherit => LengthUnit::Px(DEFAULT_FONT_SIZE),
   font_family: Option<FontFamily> = CssValue::Inherit => None,
@@ -292,7 +293,10 @@ impl InheritedStyle {
   #[inline]
   fn resolved_border_width(&self) -> taffy::Rect<LengthUnit> {
     Self::resolve_rect_with_longhands(
-      self.border_width,
+      self
+        .border_width
+        .or_else(|| self.border.and_then(|border| border.width.map(Into::into)))
+        .unwrap_or(Sides::zero()),
       self.border_top_width,
       self.border_right_width,
       self.border_bottom_width,
