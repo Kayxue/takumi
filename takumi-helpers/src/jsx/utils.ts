@@ -1,7 +1,11 @@
 import type { ComponentProps, JSX, ReactElement, ReactNode } from "react";
 
 export type ReactElementLike = {
-  type: string | ((props: unknown) => ReactElementLike) | ReactElementLike;
+  type:
+    | string
+    | symbol
+    | ((props: unknown) => ReactElementLike)
+    | ReactElementLike;
   props: unknown;
   $$typeof?: symbol;
 };
@@ -29,6 +33,7 @@ export function isFunctionComponent(
 
 export const REACT_FORWARD_REF_TYPE = Symbol.for("react.forward_ref");
 export const REACT_MEMO_TYPE = Symbol.for("react.memo");
+export const REACT_FRAGMENT_TYPE = Symbol.for("react.fragment");
 
 export function isReactForwardRef(element: ReactElementLike): boolean {
   return element.$$typeof === REACT_FORWARD_REF_TYPE;
@@ -36,4 +41,8 @@ export function isReactForwardRef(element: ReactElementLike): boolean {
 
 export function isReactMemo(element: ReactElementLike): boolean {
   return element.$$typeof === REACT_MEMO_TYPE;
+}
+
+export function isReactFragment(element: ReactElementLike): boolean {
+  return element.type === REACT_FRAGMENT_TYPE;
 }

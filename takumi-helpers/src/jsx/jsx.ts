@@ -13,6 +13,7 @@ import {
   isFunctionComponent,
   isHtmlElement,
   isReactForwardRef,
+  isReactFragment,
   isReactMemo,
   isValidElement,
   type ReactElementLike,
@@ -60,26 +61,21 @@ async function fromJsxInternal(
   return [text(String(element))];
 }
 
-function tryHandleForwardRef(
+function tryHandleComponentWrapper(
   element: ReactElementLike,
 ): Promise<Node[]> | undefined {
   if (typeof element.type !== "object" || element.type === null)
     return undefined;
 
-  // Check if this is a forwardRef component
+  // Handle forwardRef components
   if (isReactForwardRef(element.type) && "render" in element.type) {
     const forwardRefType = element.type as {
       render: (props: unknown, ref: unknown) => ReactNode;
     };
     return fromJsxInternal(forwardRefType.render(element.props, null));
   }
-}
 
-function tryHandleMemo(element: ReactElementLike): Promise<Node[]> | undefined {
-  if (typeof element.type !== "object" || element.type === null)
-    return undefined;
-
-  // Check if this is a memo component
+  // Handle memo components
   if (isReactMemo(element.type) && "type" in element.type) {
     const memoType = element.type as { type: unknown };
     const innerType = memoType.type;
@@ -97,22 +93,70 @@ function tryHandleMemo(element: ReactElementLike): Promise<Node[]> | undefined {
   }
 }
 
+function tryCollectTextChildren(
+  element: ReactElementLike,
+): Promise<string | undefined> {
+  if (!isValidElement(element)) return Promise.resolve(undefined);
+
+  const children =
+    typeof element.props === "object" &&
+    element.props !== null &&
+    "children" in element.props
+      ? element.props.children
+      : undefined;
+
+  if (typeof children === "string") return Promise.resolve(children);
+  if (typeof children === "number") return Promise.resolve(String(children));
+
+  if (Array.isArray(children)) {
+    return Promise.resolve(collectTextFromChildren(children));
+  }
+
+  if (
+    typeof children === "object" &&
+    children !== null &&
+    Symbol.iterator in children
+  ) {
+    return Promise.resolve(
+      collectTextFromChildren(
+        Array.from(children as Iterable<ReactElementLike>) as ReactNode[],
+      ),
+    );
+  }
+
+  if (isValidElement(children) && isReactFragment(children)) {
+    return tryCollectTextChildren(children);
+  }
+
+  return Promise.resolve(undefined);
+}
+
+// Collects pure text children to prevent unnecessary container nodes
+function collectTextFromChildren(children: ReactNode[]): string | undefined {
+  // If any child is a React element, this is not pure text
+  if (children.some((child) => isValidElement(child))) return;
+
+  // All children are strings/numbers, concatenate them
+  return children
+    .map((child) => {
+      if (typeof child === "string") return child;
+      if (typeof child === "number") return String(child);
+      // This shouldn't happen since we checked for elements above
+      return "";
+    })
+    .join("");
+}
+
 async function processReactElement(element: ReactElementLike): Promise<Node[]> {
   if (isFunctionComponent(element.type)) {
     return fromJsxInternal(element.type(element.props));
   }
 
-  const forwardRefResult = tryHandleForwardRef(element);
-  if (forwardRefResult !== undefined) return forwardRefResult;
-
-  const memoResult = tryHandleMemo(element);
-  if (memoResult !== undefined) return memoResult;
+  const wrapperResult = tryHandleComponentWrapper(element);
+  if (wrapperResult !== undefined) return wrapperResult;
 
   // Handle React fragments <></>
-  if (
-    typeof element.type === "symbol" &&
-    element.type === Symbol.for("react.fragment")
-  ) {
+  if (isReactFragment(element)) {
     const children = await collectChildren(element);
     return children || [];
   }
@@ -125,7 +169,6 @@ async function processReactElement(element: ReactElementLike): Promise<Node[]> {
     return [createSvgElement(element)];
   }
 
-  const children = await collectChildren(element);
   const style = extractStyleFromProps(element.props) as PartialStyle;
 
   if (typeof element.type === "string" && element.type in stylePresets) {
@@ -134,6 +177,11 @@ async function processReactElement(element: ReactElementLike): Promise<Node[]> {
       stylePresets[element.type as keyof JSX.IntrinsicElements],
     );
   }
+
+  const textChildren = await tryCollectTextChildren(element);
+  if (textChildren !== undefined) return [text(textChildren, style)];
+
+  const children = await collectChildren(element);
 
   return [
     container({
@@ -160,12 +208,11 @@ function createImageElement(
 
 function createSvgElement(element: ReactElement<ComponentProps<"svg">, "svg">) {
   const style = extractStyleFromProps(element.props) as PartialStyle;
-
   const svg = serializeSvg(element);
 
   return image({
-    src: svg,
     style,
+    src: svg,
   });
 }
 
@@ -188,8 +235,8 @@ function collectChildren(element: ReactElementLike): Promise<Node[]> {
   return fromJsxInternal(element.props.children as ReactNode);
 }
 
-async function collectIterable(iterable: Iterable<ReactNode>): Promise<Node[]> {
-  const children = await Promise.all(Array.from(iterable).map(fromJsxInternal));
-
-  return children.flat();
+function collectIterable(iterable: Iterable<ReactNode>): Promise<Node[]> {
+  return Promise.all(Array.from(iterable).map(fromJsxInternal)).then(
+    (results) => results.flat(),
+  );
 }

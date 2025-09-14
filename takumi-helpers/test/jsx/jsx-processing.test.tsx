@@ -15,9 +15,9 @@ describe("fromJsx", () => {
     });
 
     expect(result).toEqual({
-      type: "container",
-      children: [{ type: "text", text: "Hello World" }],
-    } satisfies ContainerNode);
+      type: "text",
+      text: "Hello World",
+    } satisfies TextNode);
   });
 
   test("converts text to TextNode", async () => {
@@ -48,14 +48,9 @@ describe("fromJsx", () => {
   test("converts simple div to ContainerNode", async () => {
     const result = await fromJsx(<div>Hello</div>);
     expect(result).toEqual({
-      type: "container",
-      children: [
-        {
-          type: "text",
-          text: "Hello",
-        },
-      ],
-    } satisfies ContainerNode);
+      type: "text",
+      text: "Hello",
+    } satisfies TextNode);
   });
 
   test("handles function components", async () => {
@@ -63,12 +58,9 @@ describe("fromJsx", () => {
 
     const result = await fromJsx(<MyComponent name="World" />);
     expect(result).toEqual({
-      type: "container",
-      children: [
-        { type: "text", text: "Hello " },
-        { type: "text", text: "World" },
-      ],
-    } satisfies ContainerNode);
+      type: "text",
+      text: "Hello World",
+    } satisfies TextNode);
   });
 
   test("handles async function components", async () => {
@@ -78,12 +70,9 @@ describe("fromJsx", () => {
 
     const result = await fromJsx(<AsyncComponent name="Async" />);
     expect(result).toEqual({
-      type: "container",
-      children: [
-        { type: "text", text: "Hello " },
-        { type: "text", text: "Async" },
-      ],
-    } satisfies ContainerNode);
+      type: "text",
+      text: "Hello Async",
+    } satisfies TextNode);
   });
 
   test("handles fragments", async () => {
@@ -97,10 +86,13 @@ describe("fromJsx", () => {
     expect(result).toEqual({
       type: "container",
       children: [
-        { type: "container", children: [{ type: "text", text: "First" }] },
-        { type: "container", children: [{ type: "text", text: "Second" }] },
+        { type: "text", text: "First" },
+        { type: "text", text: "Second" },
       ],
-      style: { width: { percentage: 100 }, height: { percentage: 100 } },
+      style: {
+        width: { percentage: 100 },
+        height: { percentage: 100 },
+      },
     } satisfies ContainerNode);
   });
 
@@ -118,16 +110,16 @@ describe("fromJsx", () => {
       type: "container",
       children: [
         {
-          type: "container",
-          children: [{ type: "text", text: "First" }],
+          type: "text",
+          text: "First",
         },
         {
-          type: "container",
-          children: [{ type: "text", text: "Second" }],
+          type: "text",
+          text: "Second",
         },
         {
-          type: "container",
-          children: [{ type: "text", text: "Third" }],
+          type: "text",
+          text: "Third",
         },
       ],
     } satisfies ContainerNode);
@@ -173,8 +165,8 @@ describe("fromJsx", () => {
       type: "container",
       children: [
         {
-          type: "container",
-          children: [{ type: "text", text: "Title" }],
+          type: "text",
+          text: "Title",
           style: {
             fontSize: { em: 2 },
             fontWeight: 700,
@@ -189,8 +181,8 @@ describe("fromJsx", () => {
               children: [
                 { type: "text", text: "Paragraph with " },
                 {
-                  type: "container",
-                  children: [{ type: "text", text: "bold" }],
+                  type: "text",
+                  text: "bold",
                   style: {
                     fontWeight: 700,
                   },
@@ -205,12 +197,12 @@ describe("fromJsx", () => {
               type: "container",
               children: [
                 {
-                  type: "container",
-                  children: [{ type: "text", text: "Item 1" }],
+                  type: "text",
+                  text: "Item 1",
                 },
                 {
-                  type: "container",
-                  children: [{ type: "text", text: "Item 2" }],
+                  type: "text",
+                  text: "Item 2",
                 },
               ],
             },
@@ -227,56 +219,6 @@ describe("fromJsx", () => {
       type: "text",
       text: "Resolved text",
     } satisfies TextNode);
-  });
-
-  test("fromJsx result can be used as container() children", async () => {
-    // Test single node result
-    const jsxResult = await fromJsx(<div>Hello World</div>);
-    const containerWithSingleChild = container({ children: [jsxResult] });
-
-    expect(containerWithSingleChild).toEqual({
-      type: "container",
-      children: [
-        {
-          type: "container",
-          children: [{ type: "text", text: "Hello World" }],
-        },
-      ],
-    } satisfies ContainerNode);
-
-    // Test array result (from fragments)
-    const fragmentResult = await fromJsx(
-      <>
-        <div>First</div>
-        <div>Second</div>
-      </>,
-    );
-    const containerWithMultipleChildren = container({
-      children: [fragmentResult],
-    });
-
-    expect(containerWithMultipleChildren).toEqual({
-      type: "container",
-      children: [
-        {
-          type: "container",
-          children: [
-            { type: "container", children: [{ type: "text", text: "First" }] },
-            { type: "container", children: [{ type: "text", text: "Second" }] },
-          ],
-          style: { width: { percentage: 100 }, height: { percentage: 100 } },
-        },
-      ],
-    } satisfies ContainerNode);
-
-    // Test empty array for null/undefined
-    const emptyResult = await fromJsx(null);
-    const containerWithEmpty = container({ children: [emptyResult] });
-
-    expect(containerWithEmpty).toEqual({
-      type: "container",
-      children: [{ type: "container" }],
-    } satisfies ContainerNode);
   });
 
   test("integration: fromJsx result as container children with complex JSX", async () => {
@@ -303,8 +245,8 @@ describe("fromJsx", () => {
           type: "container",
           children: [
             {
-              type: "container",
-              children: [{ type: "text", text: "Welcome" }],
+              type: "text",
+              text: "Welcome",
               style: {
                 fontSize: { em: 2 },
                 fontWeight: 700,
@@ -315,12 +257,12 @@ describe("fromJsx", () => {
               type: "container",
               children: [
                 {
-                  type: "container",
-                  children: [{ type: "text", text: "Item 1" }],
+                  type: "text",
+                  text: "Item 1",
                 },
                 {
-                  type: "container",
-                  children: [{ type: "text", text: "Item 2" }],
+                  type: "text",
+                  text: "Item 2",
                 },
               ],
             },
