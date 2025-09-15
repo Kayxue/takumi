@@ -216,12 +216,31 @@ function createSvgElement(element: ReactElement<ComponentProps<"svg">, "svg">) {
   });
 }
 
-function extractStyleFromProps(props: unknown): CSSProperties {
+// Takumi support the following WebKit features without the `Webkit` prefix
+const webkitPropertiesMapping = {
+  WebkitTextStroke: "textStroke",
+  WebkitTextStrokeWidth: "textStrokeWidth",
+  WebkitTextStrokeColor: "textStrokeColor",
+} satisfies Partial<Record<keyof CSSProperties, keyof PartialStyle>>;
+
+function extractStyleFromProps(props: unknown): PartialStyle {
   if (typeof props !== "object" || props === null) return {};
 
-  return "style" in props && typeof props.style === "object"
-    ? (props.style as CSSProperties)
-    : {};
+  const style =
+    "style" in props && typeof props.style === "object" && props.style !== null
+      ? props.style
+      : {};
+
+  if (Object.keys(style).length > 0) {
+    for (const [from, to] of Object.entries(webkitPropertiesMapping)) {
+      if (from in style) {
+        style[to as keyof typeof style] = style[from as keyof typeof style];
+        delete style[from as keyof typeof style];
+      }
+    }
+  }
+
+  return style;
 }
 
 function collectChildren(element: ReactElementLike): Promise<Node[]> {

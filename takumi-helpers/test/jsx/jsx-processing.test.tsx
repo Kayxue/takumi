@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { User2 } from "lucide-react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { container } from "../../src/helpers";
+import { container, em } from "../../src/helpers";
 import { fromJsx } from "../../src/jsx/jsx";
 import type { ContainerNode, ImageNode, TextNode } from "../../src/types";
 
@@ -60,6 +60,27 @@ describe("fromJsx", () => {
     expect(result).toEqual({
       type: "text",
       text: "Hello World",
+    } satisfies TextNode);
+  });
+
+  test("handles style casing correctly", async () => {
+    const result = await fromJsx(
+      <p
+        style={{
+          WebkitTextStroke: "1px red",
+        }}
+      >
+        Hello
+      </p>,
+    );
+
+    expect(result).toEqual({
+      type: "text",
+      text: "Hello",
+      style: {
+        margin: [em(1), 0],
+        textStroke: "1px red",
+      },
     } satisfies TextNode);
   });
 

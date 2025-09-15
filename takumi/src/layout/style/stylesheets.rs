@@ -144,11 +144,8 @@ define_style!(
   font_feature_settings: Option<FontFeatureSettings> = CssValue::Inherit => None,
   line_clamp: Option<u32> = CssValue::Inherit => None,
   text_align: TextAlign = CssValue::Inherit => Default::default(),
-  #[serde(alias = "webkitTextStrokeWidth")]
   text_stroke_width: LengthUnit = CssValue::Inherit => LengthUnit::Px(0.0),
-  #[serde(alias = "webkitTextStrokeColor")]
   text_stroke_color: Option<Color> = CssValue::Inherit => None,
-  #[serde(alias = "webkitTextStroke")]
   text_stroke: Option<TextStroke> = CssValue::Inherit => None,
   text_shadow: Option<TextShadows> = CssValue::Inherit => None,
   text_decoration: TextDecoration = TextDecoration::default() => TextDecoration::default(),

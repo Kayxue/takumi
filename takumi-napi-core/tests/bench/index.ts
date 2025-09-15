@@ -236,14 +236,12 @@ summary(() => {
   });
 });
 
-if (process.argv.includes("--write")) {
-  await writeFile(
-    "tests/bench/bench.png",
-    renderer.render(await createNode(), {
-      width: 1200,
-      height: 630,
-    }),
-  );
-}
+await writeFile(
+  "tests/bench/bench.png",
+  renderer.render(await createNode(), {
+    width: 1200,
+    height: 630,
+  }),
+);
 
 await run();
