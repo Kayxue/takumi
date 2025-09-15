@@ -369,7 +369,7 @@ mod tests {
       ..create_test_context()
     };
     let parent = InheritedStyle {
-      font_size: LengthUnit::Px(24.0),
+      font_size: Some(LengthUnit::Px(24.0)),
       ..Default::default()
     };
 

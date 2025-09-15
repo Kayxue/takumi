@@ -31,7 +31,7 @@ pub fn say_hello_to(name: &str) {
   // Font size is set to 48.0 and other styles use default values
   let text = TextNode {
     style: StyleBuilder::default()
-      .font_size(CssValue::Value(48.0.into()))
+      .font_size(CssValue::Value(Some(48.0.into())))
       .build()
       .unwrap(),
     text: format!("Hello, {name}!"),

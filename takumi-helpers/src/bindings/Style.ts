@@ -121,7 +121,7 @@ export type Style = {
   fontStyle: CssValue<FontStyle>;
   borderColor: CssValue<Color | null>;
   color: CssValue<Color>;
-  fontSize: CssValue<LengthUnit>;
+  fontSize: CssValue<LengthUnit | null>;
   fontFamily: CssValue<FontFamily | null>;
   lineHeight: CssValue<LineHeight>;
   fontWeight: CssValue<FontWeight>;

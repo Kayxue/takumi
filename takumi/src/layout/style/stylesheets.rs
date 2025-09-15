@@ -5,10 +5,7 @@ use taffy::{Size, prelude::FromLength};
 use ts_rs::TS;
 
 use crate::{
-  layout::{
-    DEFAULT_FONT_SIZE,
-    style::{CssValue, properties::*},
-  },
+  layout::style::{CssValue, properties::*},
   rendering::{RenderContext, SizedShadow},
 };
 
@@ -136,7 +133,7 @@ define_style!(
   font_style: FontStyle = CssValue::Inherit => Default::default(),
   border_color: Option<Color> = CssValue::Inherit => None,
   color: Color = CssValue::Inherit => Color::black(),
-  font_size: LengthUnit = CssValue::Inherit => LengthUnit::Px(DEFAULT_FONT_SIZE),
+  font_size: Option<LengthUnit> = CssValue::Inherit => None,
   font_family: Option<FontFamily> = CssValue::Inherit => None,
   line_height: LineHeight = CssValue::Inherit => Default::default(),
   font_weight: FontWeight = CssValue::Inherit => Default::default(),

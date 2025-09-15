@@ -45,7 +45,7 @@ fn test_style_transform_origin_top_left() {
       .height(Percentage(100.0))
       .background_color(Color::white())
       .display(Display::Flex)
-      .font_size(Px(24.0))
+      .font_size(Some(Px(24.0)))
       .build()
       .unwrap(),
     children: Some(
@@ -107,7 +107,7 @@ fn test_style_transform_translate_and_scale() {
       .height(Percentage(100.0))
       .background_color(Color::white())
       .display(Display::Flex)
-      .font_size(Px(24.0))
+      .font_size(Some(Px(24.0)))
       .build()
       .unwrap(),
     children: None,
@@ -166,7 +166,7 @@ fn test_style_transform_translate_and_scale() {
       .width(Px(100.0))
       .height(Px(100.0))
       .border_width(Some(Sides([Px(1.0); 4])))
-      .font_size(Px(12.0))
+      .font_size(Some(Px(12.0)))
       .build()
       .unwrap(),
     children: Some(vec![

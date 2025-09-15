@@ -18,7 +18,7 @@ fn test_style_text_decoration() {
       .width(Percentage(100.0))
       .text_align(TextAlign::Center)
       .background_color(Color([240, 240, 240, 255]))
-      .font_size(Px(72.0))
+      .font_size(Some(Px(72.0)))
       .text_decoration(TextDecoration {
         line: TextDecorationLines(smallvec![
           TextDecorationLine::Underline,
