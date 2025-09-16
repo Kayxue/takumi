@@ -169,10 +169,12 @@ impl<'i> FromCss<'i> for Transform {
       ))),
       "scale" => parser.parse_nested_block(|input| {
         let x = parse_length_percentage(input)?;
-        input.expect_comma()?;
-        let y = parse_length_percentage(input)?;
-
-        Ok(Transform::Scale(x, y))
+        if input.try_parse(Parser::expect_comma).is_ok() {
+          let y = parse_length_percentage(input)?;
+          Ok(Transform::Scale(x, y))
+        } else {
+          Ok(Transform::Scale(x, x))
+        }
       }),
       "scalex" => parser.parse_nested_block(|input| Ok(Transform::Scale(
         parse_length_percentage(input)?,
@@ -468,7 +470,7 @@ mod tests {
 
   #[test]
   fn test_transform_from_css() {
-    let mut input = ParserInput::new("translate(10px, 20px)");
+    let mut input = ParserInput::new("translate(10, 20px)");
     let mut parser = Parser::new(&mut input);
     let transform = Transform::from_css(&mut parser).unwrap();
 
@@ -476,5 +478,14 @@ mod tests {
       transform,
       Transform::Translate(LengthUnit::Px(10.0), LengthUnit::Px(20.0))
     );
+  }
+
+  #[test]
+  fn test_transform_from_css_scale() {
+    let mut input = ParserInput::new("scale(10)");
+    let mut parser = Parser::new(&mut input);
+    let transform = Transform::from_css(&mut parser).unwrap();
+
+    assert_eq!(transform, Transform::Scale(10.0, 10.0));
   }
 }
