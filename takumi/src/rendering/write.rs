@@ -79,6 +79,7 @@ pub fn write_image<T: Write + std::io::Seek>(
       let encoder = JpegEncoder::new_with_quality(destination, quality.unwrap_or(75));
       encoder.write_image(&rgb, image.width(), image.height(), ExtendedColorType::Rgb8)?;
     }
+    #[cfg(feature = "avif")]
     ImageOutputFormat::Avif => {
       let encoder = image::codecs::avif::AvifEncoder::new_with_speed_quality(
         destination,
