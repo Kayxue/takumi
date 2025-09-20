@@ -2,10 +2,14 @@ use std::{fs::File, io::BufWriter, path::Path, sync::Arc};
 
 use image::load_from_memory;
 use parley::{GenericFamily, fontique::FontInfoOverride};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use takumi::{
   GlobalContext,
   layout::{Viewport, node::NodeKind},
-  rendering::{ImageOutputFormat, render, write_image},
+  rendering::{
+    AnimationFrame, ImageOutputFormat, encode_animated_png, encode_animated_webp, render,
+    write_image,
+  },
   resources::image::ImageSource,
 };
 
@@ -56,11 +60,12 @@ fn create_test_context() -> GlobalContext {
   context
 }
 
-fn create_test_viewport() -> Viewport {
+pub fn create_test_viewport() -> Viewport {
   Viewport::new(1200, 630)
 }
 
 /// Helper function to run style width tests
+#[allow(dead_code)]
 pub fn run_style_width_test(node: NodeKind, fixture_path: &str) {
   let context = create_test_context();
   let viewport = create_test_viewport();
@@ -73,4 +78,50 @@ pub fn run_style_width_test(node: NodeKind, fixture_path: &str) {
   let mut buf = BufWriter::new(&mut file);
 
   write_image(&image, &mut buf, ImageOutputFormat::Png, None).unwrap();
+}
+
+#[allow(dead_code)]
+pub fn run_webp_animation_test(
+  nodes: Vec<(NodeKind, u32)>,
+  fixture_path: &str,
+  blend: bool,
+  dispose: bool,
+  loop_count: Option<u16>,
+) {
+  assert_ne!(nodes.len(), 0);
+
+  let context = create_test_context();
+  let viewport = create_test_viewport();
+
+  let frames: Vec<_> = nodes
+    .into_par_iter()
+    .map(|(node, duration_ms)| {
+      AnimationFrame::new(render(viewport, &context, node).unwrap(), duration_ms)
+    })
+    .collect();
+
+  let mut out = File::create(fixture_path).unwrap();
+  encode_animated_webp(&frames, &mut out, blend, dispose, loop_count).unwrap();
+}
+
+#[allow(dead_code)]
+pub fn run_png_animation_test(
+  nodes: Vec<(NodeKind, u32)>,
+  fixture_path: &str,
+  loop_count: Option<u16>,
+) {
+  assert_ne!(nodes.len(), 0);
+
+  let context = create_test_context();
+  let viewport = create_test_viewport();
+
+  let frames: Vec<_> = nodes
+    .into_par_iter()
+    .map(|(node, duration_ms)| {
+      AnimationFrame::new(render(viewport, &context, node).unwrap(), duration_ms)
+    })
+    .collect();
+
+  let mut out = File::create(fixture_path).unwrap();
+  encode_animated_png(&frames, &mut out, loop_count).unwrap();
 }

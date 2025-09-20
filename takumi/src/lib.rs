@@ -23,7 +23,7 @@
 //!
 //! Then call [`render`](crate::rendering::render) with [`Node`](crate::layout::node::Node) and [`Viewport`](crate::layout::viewport::Viewport) to get [`RgbaImage`](image::RgbaImage).
 //!
-//! Theres a helper function [`write_image`](crate::rendering::render::write_image) to write the image to a destination implements [`Write`](std::io::Write) and [`Seek`](std::io::Seek).
+//! Theres a helper function [`write_image`](crate::rendering::write::write_image) to write the image to a destination implements [`Write`](std::io::Write) and [`Seek`](std::io::Seek).
 //!
 //! # Example
 //!
@@ -120,4 +120,20 @@ pub struct GlobalContext {
 pub enum Error {
   /// Represents an error that occurs during image resolution.
   ImageResolveError(ImageResourceError),
+  /// Represents an error that occurs during IO operations.
+  IoError(std::io::Error),
+  /// Represents an error that occurs during PNG encoding.
+  PngError(png::EncodingError),
+}
+
+impl From<std::io::Error> for Error {
+  fn from(error: std::io::Error) -> Self {
+    Error::IoError(error)
+  }
+}
+
+impl From<png::EncodingError> for Error {
+  fn from(error: png::EncodingError) -> Self {
+    Error::PngError(error)
+  }
 }

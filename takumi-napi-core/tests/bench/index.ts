@@ -204,11 +204,40 @@ function createNode() {
   });
 }
 
+async function createAnimationNodes() {
+  const fps = 30;
+  const durationMs = 1000;
+  const totalFrames = (durationMs * fps) / 1000;
+
+  const frames = await Array.fromAsync({ length: totalFrames }, async () => {
+    const node = await createNode();
+    return {
+      node,
+      durationMs: durationMs / totalFrames,
+    };
+  });
+
+  return {
+    frames,
+    fps,
+    durationMs,
+  };
+}
+
 const renderer = new Renderer();
 
 bench("createNode", createNode);
 
 summary(() => {
+  bench("createNode + renderAsync (raw)", async () => {
+    const node = await createNode();
+    return renderer.renderAsync(node, {
+      width: 1200,
+      height: 630,
+      format: "raw",
+    });
+  });
+
   bench("createNode + renderAsync (png)", async () => {
     const node = await createNode();
     return renderer.renderAsync(node, {
@@ -226,12 +255,42 @@ summary(() => {
     });
   });
 
-  bench("createNode + renderAsync (raw)", async () => {
+  bench("createNode + renderAsync (avif)", async () => {
     const node = await createNode();
     return renderer.renderAsync(node, {
       width: 1200,
       height: 630,
-      format: "raw",
+      format: "avif",
+    });
+  });
+});
+
+summary(() => {
+  bench("createNode + renderAnimationAsync (webp, 30fps, 1000ms)", async () => {
+    const { frames, fps, durationMs } = await createAnimationNodes();
+
+    if (fps !== 30 || durationMs !== 1000) {
+      throw new Error("Invalid fps or durationMs");
+    }
+
+    return renderer.renderAnimation(frames, {
+      width: 1200,
+      height: 630,
+      format: "webp",
+    });
+  });
+
+  bench("createNode + renderAnimationAsync (apng, 30fps, 1000ms)", async () => {
+    const { frames, fps, durationMs } = await createAnimationNodes();
+
+    if (fps !== 30 || durationMs !== 1000) {
+      throw new Error("Invalid fps or durationMs");
+    }
+
+    return renderer.renderAnimation(frames, {
+      width: 1200,
+      height: 630,
+      format: "apng",
     });
   });
 });

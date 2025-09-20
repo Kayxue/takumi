@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { container, image, percentage, rem, text } from "@takumi-rs/helpers";
 import { Glob } from "bun";
-import init, { Renderer } from "../pkg/takumi_wasm";
+import init, { AnimationFrameSource, Renderer } from "../pkg/takumi_wasm";
 
 await init({
   module_or_path: readFile("./pkg/takumi_wasm_bg.wasm"),
@@ -22,7 +22,7 @@ async function getFonts() {
 }
 
 const fonts = await getFonts();
-let renderer: Renderer;
+const renderer = new Renderer();
 
 const localImagePath = "../assets/images/yeecord.png";
 
@@ -55,14 +55,12 @@ const node = container({
 });
 
 describe("setup", () => {
-  test("new Renderer", () => {
-    renderer = new Renderer();
-
-    expect(renderer).toBeDefined();
+  test(`loadFonts (${fonts.length})`, () => {
+    for (const font of fonts) renderer.loadFont(font);
   });
 
-  test("loadFont", () => {
-    for (const font of fonts) renderer.loadFont(font);
+  test("putPersistentImage", () => {
+    renderer.putPersistentImage(localImagePath, localImage);
   });
 });
 
@@ -119,5 +117,21 @@ describe("renderAsDataUrl", () => {
 
     expect(result).toMatch(/^data:image\/png;base64,/);
     expect(result.length).toBeGreaterThan(100);
+  });
+
+  describe("renderAnimation", () => {
+    test("webp", () => {
+      const frame = new AnimationFrameSource(node, 1000);
+      const result = renderer.renderAnimation([frame], 1200, 630, "webp");
+
+      expect(result).toBeInstanceOf(Uint8Array);
+    });
+
+    test("apng", () => {
+      const frame = new AnimationFrameSource(node, 1000);
+      const result = renderer.renderAnimation([frame], 1200, 630, "apng");
+
+      expect(result).toBeInstanceOf(Uint8Array);
+    });
   });
 });
