@@ -7,7 +7,7 @@ use takumi::{
   image::load_from_memory,
   layout::{Viewport, node::NodeKind},
   parley::{FontWeight, fontique::FontInfoOverride},
-  rendering::{render, write_image},
+  rendering::{AnimationFrame, encode_animated_png, encode_animated_webp, render, write_image},
   resources::image::ImageSource,
 };
 use wasm_bindgen::prelude::*;
@@ -39,6 +39,13 @@ pub enum ImageOutputFormat {
 }
 
 #[wasm_bindgen]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AnimationOutputFormat {
+  WebP = "webp",
+  APng = "apng",
+}
+
+#[wasm_bindgen]
 pub struct FontInfo {
   name: Option<String>,
   data: Vec<u8>,
@@ -51,6 +58,24 @@ pub enum FontStyle {
   Normal = "normal",
   Italic = "italic",
   Oblique = "oblique",
+}
+
+#[wasm_bindgen]
+pub struct AnimationFrameSource {
+  node: AnyNode,
+  #[wasm_bindgen(js_name = durationMs)]
+  duration_ms: u32,
+}
+
+#[wasm_bindgen]
+impl AnimationFrameSource {
+  #[wasm_bindgen(constructor)]
+  pub fn new(
+    node: AnyNode,
+    #[wasm_bindgen(js_name = durationMs)] duration_ms: u32,
+  ) -> AnimationFrameSource {
+    AnimationFrameSource { node, duration_ms }
+  }
 }
 
 impl From<FontStyle> for takumi::parley::FontStyle {
@@ -93,7 +118,7 @@ impl Renderer {
   }
 
   #[wasm_bindgen(js_name = loadFontWithInfo)]
-  pub fn load_font_with_info(&self, font_data: FontInfo) {
+  pub fn load_font_with_info(&self, #[wasm_bindgen(js_name = fontData)] font_data: FontInfo) {
     self
       .context
       .font_context
@@ -146,8 +171,7 @@ impl Renderer {
     format: Option<ImageOutputFormat>,
     quality: Option<u8>,
   ) -> Vec<u8> {
-    let node = node.dyn_into().unwrap();
-    let node: NodeKind = from_value(node).unwrap();
+    let node: NodeKind = from_value(node.into()).unwrap();
 
     let viewport = Viewport::new(width, height);
     let image = render(viewport, &self.context, node).unwrap();
@@ -187,5 +211,41 @@ impl Renderer {
     data_uri.push_str(&BASE64_STANDARD.encode(buffer));
 
     data_uri
+  }
+
+  #[wasm_bindgen(js_name = renderAnimation)]
+  pub fn render_animation(
+    &self,
+    frames: Vec<AnimationFrameSource>,
+    width: u32,
+    height: u32,
+    format: Option<AnimationOutputFormat>,
+  ) -> Vec<u8> {
+    let viewport = Viewport::new(width, height);
+
+    let rendered_frames: Vec<AnimationFrame> = frames
+      .into_iter()
+      .map(|frame| {
+        let node: NodeKind = from_value(frame.node.into()).unwrap();
+        let duration_ms = frame.duration_ms;
+
+        let image = render(viewport, &self.context, node).unwrap();
+        AnimationFrame::new(image, duration_ms)
+      })
+      .collect();
+
+    let mut buffer = Vec::new();
+    let mut cursor = Cursor::new(&mut buffer);
+
+    match format.unwrap_or(AnimationOutputFormat::WebP) {
+      AnimationOutputFormat::WebP | AnimationOutputFormat::__Invalid => {
+        encode_animated_webp(&rendered_frames, &mut cursor, true, false, None).unwrap();
+      }
+      AnimationOutputFormat::APng => {
+        encode_animated_png(&rendered_frames, &mut cursor, None).unwrap();
+      }
+    }
+
+    buffer
   }
 }
