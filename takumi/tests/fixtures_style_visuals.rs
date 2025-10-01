@@ -1,11 +1,7 @@
 use smallvec::smallvec;
 use takumi::layout::{
-  node::{ContainerNode, TextNode},
-  style::{
-    BoxShadow, BoxShadows, Color, CssOption, FontWeight,
-    LengthUnit::{Percentage, Px, Rem},
-    LineHeight, Position, Sides, StyleBuilder,
-  },
+  node::{ContainerNode, ImageNode, TextNode},
+  style::{LengthUnit::*, *},
 };
 
 mod test_utils;
@@ -280,5 +276,51 @@ fn test_style_border_radius_width_offset() {
   run_style_width_test(
     container.into(),
     "tests/fixtures/style_border_radius_width_offset.png",
+  );
+}
+
+#[test]
+fn test_style_border_radius_circle_avatar() {
+  let container = ContainerNode {
+    style: StyleBuilder::default()
+      .width(Percentage(100.0))
+      .height(Percentage(100.0))
+      .background_color(Color::white())
+      .justify_content(JustifyContent::Center)
+      .align_items(AlignItems::Center)
+      .build()
+      .unwrap(),
+    children: Some(vec![
+      ContainerNode {
+        style: StyleBuilder::default()
+          .width(Rem(12.0))
+          .height(Rem(12.0))
+          .border_radius(Sides([Percentage(50.0); 4]))
+          .border_color(CssOption::some(Color([128, 128, 128, 128]))) // gray
+          .border_width(CssOption::some(Sides([Px(4.0); 4])))
+          .build()
+          .unwrap(),
+        children: Some(vec![
+          ImageNode {
+            style: StyleBuilder::default()
+              .width(Percentage(100.0))
+              .height(Percentage(100.0))
+              .border_radius(Sides([Percentage(50.0); 4]))
+              .build()
+              .unwrap(),
+            src: "assets/images/yeecord.png".to_string(),
+            width: None,
+            height: None,
+          }
+          .into(),
+        ]),
+      }
+      .into(),
+    ]),
+  };
+
+  run_style_width_test(
+    container.into(),
+    "tests/fixtures/style_border_radius_circle_avatar.png",
   );
 }
