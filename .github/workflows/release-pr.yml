@@ -74,6 +74,11 @@ jobs:
           jq -r '.version = "${{ steps.new_version.outputs.new_version }}"' takumi-image-response/package.json > temp.json && mv temp.json takumi-image-response/package.json
           jq -r '.version = "${{ steps.new_version.outputs.new_version }}"' takumi-template/package.json > temp.json && mv temp.json takumi-template/package.json
 
+      - name: Update package.json peerDependencies
+        run: |
+          jq -r '.peerDependencies["@takumi-rs/core"] = "^${{ steps.new_version.outputs.new_version }}"' takumi-image-response/package.json > temp.json && mv temp.json takumi-image-response/package.json
+          jq -r '.peerDependencies["@takumi-rs/helpers"] = "^${{ steps.new_version.outputs.new_version }}"' takumi-image-response/package.json > temp.json && mv temp.json takumi-image-response/package.json
+
       - name: Refresh bun.lock
         run: bun i --force
 
