@@ -361,6 +361,7 @@ pub enum TextTransform {
 /// Represents a font family for text rendering.
 /// Multi value fallback is supported.
 #[derive(Debug, Clone, Deserialize, Serialize, TS, PartialEq)]
+#[serde(transparent)]
 pub struct FontFamily(String);
 
 impl Default for FontFamily {

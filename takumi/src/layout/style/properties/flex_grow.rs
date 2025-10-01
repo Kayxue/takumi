@@ -7,6 +7,7 @@ use ts_rs::TS;
 
 #[derive(Debug, Clone, Serialize, Copy, TS, PartialEq)]
 #[ts(type = "number | string")]
+#[serde(transparent)]
 /// Represents a flex grow value.
 pub struct FlexGrow(pub f32);
 

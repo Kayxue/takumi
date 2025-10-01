@@ -269,6 +269,7 @@ impl<'i> FromCss<'i> for GradientStop {
 
 /// Represents an angle value in degrees.
 #[derive(Debug, Default, Clone, Copy, PartialEq, TS, Deserialize, Serialize)]
+#[serde(transparent)]
 pub struct Angle(f32);
 
 impl Deref for Angle {
