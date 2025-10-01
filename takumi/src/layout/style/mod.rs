@@ -101,6 +101,7 @@ impl<'de, T: TS + Deserialize<'de>> Deserialize<'de> for CssOption<T> {
     UntaggedEnumVisitor::new()
       .unit(|| Ok(Self(None)))
       .none(|| Ok(Self(None)))
+      .string(|str| T::deserialize(StrDeserializer::new(str)).map(Self::some))
       .bool(|value| T::deserialize(BoolDeserializer::new(value)).map(Self::some))
       .seq(|seq| T::deserialize(SeqAccessDeserializer::new(seq)).map(Self::some))
       .map(|map| T::deserialize(MapAccessDeserializer::new(map)).map(Self::some))
