@@ -18,7 +18,9 @@
     }
   },
   "scripts": {
-    "lint": "biome ci ."
+    "lint": "biome ci .",
+    "version": "changeset version && bun --filter '*' version",
+    "release": "NPM_CONFIG_PROVENANCE=true bun --filter '*' run publish"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.5",
