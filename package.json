@@ -20,7 +20,7 @@
   "scripts": {
     "lint": "biome ci .",
     "version": "changeset version && bun --filter '*' version",
-    "release": "bun --filter '*' release"
+    "release": "bun --filter '*' release && changeset tag"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.5",
