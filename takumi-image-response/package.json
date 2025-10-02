@@ -11,8 +11,8 @@
     "url": "git+https://github.com/kane50613/takumi.git"
   },
   "peerDependencies": {
-    "@takumi-rs/core": "^0.32.2",
-    "@takumi-rs/helpers": "^0.32.2"
+    "@takumi-rs/core": "0.32.2",
+    "@takumi-rs/helpers": "0.32.2"
   },
   "devDependencies": {
     "@takumi-rs/core": "workspace:*",
@@ -24,6 +24,7 @@
     "typescript": "catalog:"
   },
   "scripts": {
+    "version": "jq '.peerDependencies[\"@takumi-rs/core\"] = .version | .peerDependencies[\"@takumi-rs/helpers\"] = .version' package.json > tmp.json && mv tmp.json package.json",
     "build": "tsup-node src/index.ts --minify --dts --format esm,cjs --no-splitting",
     "release": "npm publish --provenance"
   },
