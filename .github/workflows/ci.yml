@@ -493,6 +493,7 @@ jobs:
     permissions:
       contents: write
       id-token: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v5
 
@@ -539,13 +540,13 @@ jobs:
           path: takumi-wasm/pkg
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile && export PATH=$PATH:$(pwd)/node_modules/.bin
 
       - name: Create Release Pull Request or Publish
         uses: changesets/action@v1
         with:
           version: changeset version && bun --filter '*' version 
-          publish: bun --filter '*' run publish
+          publish: NPM_CONFIG_PROVENANCE=true bun --filter '*' run publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
