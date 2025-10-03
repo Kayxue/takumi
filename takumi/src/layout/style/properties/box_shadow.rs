@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use ts_rs::TS;
 
-use crate::layout::style::{Color, FromCss, LengthUnit, ParseResult};
+use crate::layout::style::{Color, ColorInput, FromCss, LengthUnit, ParseResult};
 
 /// Represents a box shadow with all its properties.
 ///
@@ -29,7 +29,7 @@ pub struct BoxShadow {
   /// Spread radius of the shadow. Positive values expand the shadow, negative values shrink it.
   pub spread_radius: LengthUnit,
   /// Color of the shadow.
-  pub color: Color,
+  pub color: ColorInput,
 }
 
 /// Proxy type for `BoxShadow` Css deserialization.
@@ -50,7 +50,7 @@ pub enum BoxShadowValue {
     /// Spread radius of the shadow. Positive values expand the shadow, negative values shrink it.
     spread_radius: LengthUnit,
     /// Color of the shadow.
-    color: Color,
+    color: ColorInput,
   },
   /// Represents a CSS string.
   Css(String),
@@ -190,7 +190,7 @@ impl<'i> FromCss<'i> for BoxShadow {
 
       // Try to parse a color value if not already found
       if color.is_none() {
-        if let Ok(value) = input.try_parse(Color::from_css) {
+        if let Ok(value) = input.try_parse(ColorInput::from_css) {
           color = Some(value);
           continue;
         }
@@ -206,7 +206,7 @@ impl<'i> FromCss<'i> for BoxShadow {
     // Construct the BoxShadow with parsed values or defaults
     Ok(BoxShadow {
       // Use parsed color or default to transparent
-      color: color.unwrap_or_else(Color::transparent),
+      color: color.unwrap_or(ColorInput::Value(Color::transparent())),
       offset_x: lengths.0,
       offset_y: lengths.1,
       blur_radius: lengths.2,
@@ -241,7 +241,7 @@ mod tests {
     assert_eq!(result.offset_y, Px(4.0));
     assert_eq!(result.blur_radius, LengthUnit::zero());
     assert_eq!(result.spread_radius, LengthUnit::zero());
-    assert_eq!(result.color, Color::transparent());
+    assert_eq!(result.color, ColorInput::Value(Color::transparent()));
     assert!(!result.inset);
   }
 
@@ -253,7 +253,7 @@ mod tests {
     assert_eq!(result.offset_y, Px(4.0));
     assert_eq!(result.blur_radius, Px(6.0));
     assert_eq!(result.spread_radius, LengthUnit::zero());
-    assert_eq!(result.color, Color::transparent());
+    assert_eq!(result.color, ColorInput::Value(Color::transparent()));
     assert!(!result.inset);
   }
 
@@ -265,7 +265,7 @@ mod tests {
     assert_eq!(result.offset_y, Px(4.0));
     assert_eq!(result.blur_radius, Px(6.0));
     assert_eq!(result.spread_radius, Px(8.0));
-    assert_eq!(result.color, Color::transparent());
+    assert_eq!(result.color, ColorInput::Value(Color::transparent()));
     assert!(!result.inset);
   }
 
@@ -277,7 +277,7 @@ mod tests {
     assert_eq!(result.offset_y, Px(4.0));
     assert_eq!(result.blur_radius, LengthUnit::zero());
     assert_eq!(result.spread_radius, LengthUnit::zero());
-    assert_eq!(result.color, Color([255, 0, 0, 255]));
+    assert_eq!(result.color, ColorInput::Value(Color([255, 0, 0, 255])));
     assert!(!result.inset);
   }
 
@@ -289,7 +289,7 @@ mod tests {
     assert_eq!(result.offset_y, Px(4.0));
     assert_eq!(result.blur_radius, LengthUnit::zero());
     assert_eq!(result.spread_radius, LengthUnit::zero());
-    assert_eq!(result.color, Color::transparent());
+    assert_eq!(result.color, ColorInput::Value(Color::transparent()));
     assert!(result.inset);
   }
 
@@ -299,12 +299,12 @@ mod tests {
     let result = parse_box_shadow_str("red 2px 4px").unwrap();
     assert_eq!(result.offset_x, Px(2.0));
     assert_eq!(result.offset_y, Px(4.0));
-    assert_eq!(result.color, Color([255, 0, 0, 255]));
+    assert_eq!(result.color, ColorInput::Value(Color([255, 0, 0, 255])));
 
     let result = parse_box_shadow_str("2px 4px inset red").unwrap();
     assert_eq!(result.offset_x, Px(2.0));
     assert_eq!(result.offset_y, Px(4.0));
-    assert_eq!(result.color, Color([255, 0, 0, 255]));
+    assert_eq!(result.color, ColorInput::Value(Color([255, 0, 0, 255])));
     assert!(result.inset);
   }
 
@@ -314,7 +314,7 @@ mod tests {
     let result = parse_box_shadow_str("2px 4px #ff0000").unwrap();
     assert_eq!(result.offset_x, Px(2.0));
     assert_eq!(result.offset_y, Px(4.0));
-    assert_eq!(result.color, Color([255, 0, 0, 255]));
+    assert_eq!(result.color, ColorInput::Value(Color([255, 0, 0, 255])));
   }
 
   #[test]
@@ -323,7 +323,7 @@ mod tests {
     let result = parse_box_shadow_str("2px 4px rgba(255, 0, 0, 0.5)").unwrap();
     assert_eq!(result.offset_x, Px(2.0));
     assert_eq!(result.offset_y, Px(4.0));
-    assert_eq!(result.color, Color([255, 0, 0, 128])); // 0.5 * 255 = 128
+    assert_eq!(result.color, ColorInput::Value(Color([255, 0, 0, 128]))); // 0.5 * 255 = 128
   }
 
   #[test]

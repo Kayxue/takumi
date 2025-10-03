@@ -8,7 +8,7 @@ use ts_rs::TS;
 
 use super::gradient_utils::{color_from_stops, resolve_stops_along_axis};
 use crate::{
-  layout::style::{Color, FromCss, LengthUnit, ParseResult},
+  layout::style::{Color, ColorInput, FromCss, LengthUnit, ParseResult},
   rendering::RenderContext,
 };
 
@@ -193,7 +193,7 @@ pub enum GradientStop {
   /// A color gradient stop.
   ColorHint {
     /// The color of the gradient stop.
-    color: Color,
+    color: ColorInput,
     /// The position of the gradient stop.
     #[ts(optional)]
     hint: Option<StopPosition>,
@@ -203,7 +203,7 @@ pub enum GradientStop {
 }
 
 /// Represents a resolved gradient stop with a position.
-#[derive(Debug, Clone, PartialEq, TS, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedGradientStop {
   /// The color of the gradient stop.
   pub color: Color,
@@ -261,7 +261,7 @@ impl<'i> FromCss<'i> for GradientStop {
       return Ok(GradientStop::Hint(hint));
     };
 
-    let color = Color::from_css(input)?;
+    let color = ColorInput::from_css(input)?;
     let hint = input.try_parse(StopPosition::from_css).ok();
 
     Ok(GradientStop::ColorHint { color, hint })
@@ -510,11 +510,11 @@ mod tests {
         angle: Angle::new(45.0),
         stops: smallvec![
           GradientStop::ColorHint {
-            color: Color([255, 0, 0, 255]),
+            color: ColorInput::Value(Color([255, 0, 0, 255])),
             hint: None,
           },
           GradientStop::ColorHint {
-            color: Color([0, 0, 255, 255]),
+            color: ColorInput::Value(Color([0, 0, 255, 255])),
             hint: None,
           },
         ]
@@ -659,11 +659,11 @@ mod tests {
         angle: Angle::new(45.0),
         stops: smallvec![
           GradientStop::ColorHint {
-            color: Color([255, 0, 0, 255]),
+            color: ColorInput::Value(Color([255, 0, 0, 255])),
             hint: None,
           },
           GradientStop::ColorHint {
-            color: Color([0, 0, 255, 255]),
+            color: ColorInput::Value(Color([0, 0, 255, 255])),
             hint: None,
           },
         ]
@@ -683,11 +683,11 @@ mod tests {
         angle: Angle::new(90.0), // "to right" = 90deg
         stops: smallvec![
           GradientStop::ColorHint {
-            color: Color([255, 0, 0, 255]),
+            color: ColorInput::Value(Color([255, 0, 0, 255])),
             hint: Some(StopPosition(LengthUnit::Percentage(0.0))),
           },
           GradientStop::ColorHint {
-            color: Color([0, 0, 255, 255]),
+            color: ColorInput::Value(Color([0, 0, 255, 255])),
             hint: Some(StopPosition(LengthUnit::Percentage(100.0))),
           },
         ]
@@ -707,12 +707,12 @@ mod tests {
         angle: Angle::new(90.0), // "to right" = 90deg
         stops: smallvec![
           GradientStop::ColorHint {
-            color: Color([255, 0, 0, 255]),
+            color: ColorInput::Value(Color([255, 0, 0, 255])),
             hint: None,
           },
           GradientStop::Hint(StopPosition(LengthUnit::Percentage(50.0))),
           GradientStop::ColorHint {
-            color: Color([0, 0, 255, 255]),
+            color: ColorInput::Value(Color([0, 0, 255, 255])),
             hint: None,
           },
         ]
@@ -731,7 +731,7 @@ mod tests {
       Ok(LinearGradient {
         angle: Angle::new(180.0),
         stops: smallvec![GradientStop::ColorHint {
-          color: Color([255, 0, 0, 255]),
+          color: ColorInput::Value(Color([255, 0, 0, 255])),
           hint: None,
         },]
       })
@@ -751,7 +751,7 @@ mod tests {
       Ok(LinearGradient {
         angle: Angle::new(180.0),
         stops: smallvec![GradientStop::ColorHint {
-          color: Color([0, 0, 255, 255]), // Only the last color is parsed due to the parsing logic
+          color: ColorInput::Value(Color([0, 0, 255, 255])), // Only the last color is parsed due to the parsing logic
           hint: None,
         },]
       })
@@ -767,7 +767,7 @@ mod tests {
     assert_eq!(
       gradient_hint,
       Ok(GradientStop::ColorHint {
-        color: Color([255, 0, 0, 255]),
+        color: ColorInput::Value(Color([255, 0, 0, 255])),
         hint: None,
       })
     );
@@ -846,17 +846,17 @@ mod tests {
         angle: Angle::new(45.0),
         stops: smallvec![
           GradientStop::ColorHint {
-            color: Color([255, 0, 0, 255]),
+            color: Color([255, 0, 0, 255]).into(),
             hint: None,
           },
           GradientStop::Hint(StopPosition(LengthUnit::Percentage(25.0))),
           GradientStop::ColorHint {
-            color: Color([0, 255, 0, 255]),
+            color: Color([0, 255, 0, 255]).into(),
             hint: None,
           },
           GradientStop::Hint(StopPosition(LengthUnit::Percentage(75.0))),
           GradientStop::ColorHint {
-            color: Color([0, 0, 255, 255]),
+            color: Color([0, 0, 255, 255]).into(),
             hint: None,
           },
         ]
@@ -870,11 +870,11 @@ mod tests {
       angle: Angle::new(180.0), // "to bottom" (default) - Top to bottom
       stops: smallvec![
         GradientStop::ColorHint {
-          color: Color([255, 0, 0, 255]), // Red
+          color: Color([255, 0, 0, 255]).into(), // Red
           hint: Some(StopPosition(LengthUnit::Percentage(0.0))),
         },
         GradientStop::ColorHint {
-          color: Color([0, 0, 255, 255]), // Blue
+          color: Color([0, 0, 255, 255]).into(), // Blue
           hint: Some(StopPosition(LengthUnit::Percentage(100.0))),
         },
       ],
@@ -888,6 +888,7 @@ mod tests {
       transform: Affine::identity(),
       style: InheritedStyle::default(),
       draw_debug_border: false,
+      current_color: Color::black(),
     };
     let ctx = gradient.to_draw_context(100.0, 100.0, &dummy_context);
     let color_top = gradient.at(50, 0, &ctx);
@@ -913,11 +914,11 @@ mod tests {
       angle: Angle::new(90.0), // "to right" - Left to right
       stops: smallvec![
         GradientStop::ColorHint {
-          color: Color([255, 0, 0, 255]), // Red
+          color: Color([255, 0, 0, 255]).into(), // Red
           hint: Some(StopPosition(LengthUnit::Percentage(0.0))),
         },
         GradientStop::ColorHint {
-          color: Color([0, 0, 255, 255]), // Blue
+          color: Color([0, 0, 255, 255]).into(), // Blue
           hint: Some(StopPosition(LengthUnit::Percentage(100.0))),
         },
       ],
@@ -931,6 +932,7 @@ mod tests {
       transform: Affine::identity(),
       style: InheritedStyle::default(),
       draw_debug_border: false,
+      current_color: Color::black(),
     };
     let ctx = gradient.to_draw_context(100.0, 100.0, &dummy_context);
     let color_left = gradient.at(0, 50, &ctx);
@@ -946,7 +948,7 @@ mod tests {
     let gradient = LinearGradient {
       angle: Angle::new(0.0),
       stops: smallvec![GradientStop::ColorHint {
-        color: Color([255, 0, 0, 255]), // Red
+        color: Color([255, 0, 0, 255]).into(), // Red
         hint: None,
       }],
     };
@@ -959,6 +961,7 @@ mod tests {
       transform: Affine::identity(),
       style: InheritedStyle::default(),
       draw_debug_border: false,
+      current_color: Color::black(),
     };
     let ctx = gradient.to_draw_context(100.0, 100.0, &dummy_context);
     let color = gradient.at(50, 50, &ctx);
@@ -980,6 +983,7 @@ mod tests {
       transform: Affine::identity(),
       style: InheritedStyle::default(),
       draw_debug_border: false,
+      current_color: Color::black(),
     };
     let ctx = gradient.to_draw_context(100.0, 100.0, &dummy_context);
     let color = gradient.at(50, 50, &ctx);
@@ -999,6 +1003,7 @@ mod tests {
       transform: Affine::identity(),
       style: InheritedStyle::default(),
       draw_debug_border: false,
+      current_color: Color::black(),
     };
     let ctx = gradient.to_draw_context(40.0, 40.0, &dummy_context);
 
@@ -1028,6 +1033,7 @@ mod tests {
       transform: Affine::identity(),
       style: InheritedStyle::default(),
       draw_debug_border: false,
+      current_color: Color::black(),
     };
     let ctx = gradient.to_draw_context(40.0, 40.0, &dummy_context);
 
@@ -1076,15 +1082,15 @@ mod tests {
       angle: Angle::new(0.0),
       stops: smallvec![
         GradientStop::ColorHint {
-          color: Color::black(),
+          color: Color::black().into(),
           hint: Some(StopPosition(LengthUnit::Percentage(0.0))),
         },
         GradientStop::ColorHint {
-          color: Color::black(),
+          color: Color::black().into(),
           hint: Some(StopPosition(LengthUnit::Percentage(50.0))),
         },
         GradientStop::ColorHint {
-          color: Color::black(),
+          color: Color::black().into(),
           hint: Some(StopPosition(LengthUnit::Px(100.0))),
         },
       ],
@@ -1097,6 +1103,7 @@ mod tests {
       transform: Affine::identity(),
       style: InheritedStyle::default(),
       draw_debug_border: false,
+      current_color: Color::black(),
     };
 
     let resolved = gradient.resolve_stops_for_axis_size(ctx.viewport.width as f32, &ctx);
@@ -1112,11 +1119,11 @@ mod tests {
       angle: Angle::new(0.0),
       stops: smallvec![
         GradientStop::ColorHint {
-          color: Color::black(),
+          color: Color::black().into(),
           hint: Some(StopPosition(LengthUnit::Px(0.0))),
         },
         GradientStop::ColorHint {
-          color: Color::black(),
+          color: Color::black().into(),
           hint: Some(StopPosition(LengthUnit::Px(0.0))),
         },
       ],
@@ -1128,6 +1135,7 @@ mod tests {
       transform: Affine::identity(),
       style: InheritedStyle::default(),
       draw_debug_border: false,
+      current_color: Color::black(),
     };
 
     let resolved = gradient.resolve_stops_for_axis_size(ctx.viewport.width as f32, &ctx);

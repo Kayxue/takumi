@@ -2,7 +2,7 @@ use smallvec::smallvec;
 use takumi::layout::{
   node::{ContainerNode, ImageNode, TextNode},
   style::{
-    Angle, BackgroundPosition, Color, CssOption, Display,
+    Angle, BackgroundPosition, Color, ColorInput, CssOption, Display,
     LengthUnit::{Percentage, Px},
     Position, PositionComponent, PositionKeywordX, PositionKeywordY, Sides, Style, StyleBuilder,
     Transform, Transforms, Translate,
@@ -20,7 +20,7 @@ fn test_style_transform_origin_center() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color::white())
+      .background_color(ColorInput::Value(Color::white()))
       .build()
       .unwrap(),
     children: Some(
@@ -43,7 +43,7 @@ fn test_style_transform_origin_top_left() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color::white())
+      .background_color(ColorInput::Value(Color::white()))
       .display(Display::Flex)
       .font_size(CssOption::some(Px(24.0)))
       .build()
@@ -89,7 +89,7 @@ fn create_rotated_container(angle: f32, transform_origin: BackgroundPosition) ->
       .transform_origin(CssOption::some(transform_origin))
       .width(Px(200.0))
       .height(Px(200.0))
-      .background_color(Color([255, 0, 0, 30]))
+      .background_color(ColorInput::Value(Color([255, 0, 0, 30])))
       .border_width(CssOption::some(Sides([Px(1.0); 4])))
       .border_radius(Sides([Px(12.0); 4]))
       .build()
@@ -106,7 +106,7 @@ fn test_style_transform_translate_and_scale() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color::white())
+      .background_color(ColorInput::Value(Color::white()))
       .display(Display::Flex)
       .font_size(CssOption::some(Px(24.0)))
       .build()
@@ -118,7 +118,7 @@ fn test_style_transform_translate_and_scale() {
     style: StyleBuilder::default()
       .width(Px(200.0))
       .height(Px(100.0))
-      .background_color(Color([255, 0, 0, 255]))
+      .background_color(ColorInput::Value(Color([255, 0, 0, 255])))
       .build()
       .unwrap(),
     children: Some(vec![
@@ -139,7 +139,7 @@ fn test_style_transform_translate_and_scale() {
         Transform::Translate(Px(-100.0), Px(100.0)),
         Transform::Rotate(Angle::new(90.0)),
       ])))
-      .background_color(Color([0, 128, 255, 255]))
+      .background_color(ColorInput::Value(Color([0, 128, 255, 255])))
       .build()
       .unwrap(),
     children: Some(vec![
@@ -163,7 +163,7 @@ fn test_style_transform_translate_and_scale() {
         Transform::Translate(Px(0.0), Px(200.0)),
         Transform::Scale(2.0, 2.0),
       ])))
-      .background_color(Color([0, 255, 0, 255]))
+      .background_color(ColorInput::Value(Color([0, 255, 0, 255])))
       .width(Px(100.0))
       .height(Px(100.0))
       .border_width(CssOption::some(Sides([Px(1.0); 4])))
@@ -184,11 +184,11 @@ fn test_style_transform_translate_and_scale() {
       .transform(CssOption::some(Transforms(smallvec![Transform::Rotate(
         Angle::new(45.0)
       )])))
-      .background_color(Color([0, 0, 255, 255]))
+      .background_color(ColorInput::Value(Color([0, 0, 255, 255])))
       .width(Px(200.0))
       .height(Px(200.0))
       .border_width(CssOption::some(Sides([Px(1.0); 4])))
-      .color(Color::white())
+      .color(ColorInput::Value(Color::white()))
       .build()
       .unwrap(),
     children: Some(vec![

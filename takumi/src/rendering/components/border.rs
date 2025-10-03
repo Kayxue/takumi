@@ -4,7 +4,7 @@ use taffy::{Layout, Point, Size};
 use zeno::{Command, Fill, Mask, PathBuilder};
 
 use crate::{
-  layout::style::{Affine, Color, LengthUnit, Sides},
+  layout::style::{Affine, Color, ColorInput, LengthUnit, Sides},
   rendering::{Canvas, RenderContext},
 };
 
@@ -69,7 +69,8 @@ impl BorderProperties {
         .style
         .border_color
         .or(context.style.border.color)
-        .unwrap_or(Color::black()),
+        .unwrap_or(ColorInput::CurrentColor)
+        .resolve(context.current_color),
       radius: Sides([top_left, top_right, bottom_right, bottom_left]),
       transform: context.transform,
     }

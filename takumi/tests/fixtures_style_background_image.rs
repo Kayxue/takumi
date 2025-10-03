@@ -3,7 +3,7 @@ use takumi::layout::{
   style::{
     BackgroundImagesValue, BackgroundPositionsValue, BackgroundRepeat, BackgroundRepeats,
     BackgroundRepeatsValue, BackgroundSizesValue, Color, CssOption, LengthUnit::Percentage,
-    StyleBuilder,
+    StyleBuilder, *,
   },
 };
 
@@ -244,7 +244,7 @@ fn test_background_image_grid_pattern() {
     Some(BackgroundRepeatsValue::Css("repeat, repeat".to_string())),
   );
 
-  container.style.background_color = Color::white().into();
+  container.style.background_color = ColorInput::Value(Color::white()).into();
 
   assert_eq!(
     container.style.background_repeat,
@@ -280,7 +280,7 @@ fn test_background_image_noise_v1_with_gradient() {
     )),
   );
 
-  container.style.background_color = Color::white().into();
+  container.style.background_color = ColorInput::Value(Color::white()).into();
 
   run_style_width_test(
     container.into(),

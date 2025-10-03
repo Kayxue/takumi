@@ -1,7 +1,7 @@
 use takumi::layout::{
   node::ContainerNode,
   style::{
-    Color,
+    Color, ColorInput,
     LengthUnit::{Percentage, Px},
     StyleBuilder,
   },
@@ -16,7 +16,7 @@ fn test_style_width() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color::white())
+      .background_color(ColorInput::Value(Color::white()))
       .build()
       .unwrap(),
     children: None,
@@ -31,7 +31,7 @@ fn test_style_height() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color::white())
+      .background_color(ColorInput::Value(Color::white()))
       .build()
       .unwrap(),
     children: None,
@@ -47,7 +47,7 @@ fn test_style_min_width() {
       .min_width(Px(50.0))
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color::white())
+      .background_color(ColorInput::Value(Color::white()))
       .build()
       .unwrap(),
     children: None,
@@ -63,7 +63,7 @@ fn test_style_min_height() {
       .min_height(Px(50.0))
       .height(Percentage(100.0))
       .width(Percentage(100.0))
-      .background_color(Color::white())
+      .background_color(ColorInput::Value(Color::white()))
       .build()
       .unwrap(),
     children: None,
@@ -79,7 +79,7 @@ fn test_style_max_width() {
       .max_width(Px(100.0))
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color::white())
+      .background_color(ColorInput::Value(Color::white()))
       .build()
       .unwrap(),
     children: None,
@@ -95,7 +95,7 @@ fn test_style_max_height() {
       .max_height(Px(100.0))
       .height(Percentage(100.0))
       .width(Percentage(100.0))
-      .background_color(Color::white())
+      .background_color(ColorInput::Value(Color::white()))
       .build()
       .unwrap(),
     children: None,

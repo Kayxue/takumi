@@ -3,7 +3,8 @@ use std::f32::consts::PI;
 use takumi::layout::{
   node::{ContainerNode, NodeKind, TextNode},
   style::{
-    AlignItems, Color, CssOption, FlexDirection, FontFamily, FontWeight, JustifyContent,
+    AlignItems, Color, ColorInput, CssOption, FlexDirection, FontFamily, FontWeight,
+    JustifyContent,
     LengthUnit::{Percentage, Px},
     StyleBuilder, Transform, Transforms,
   },
@@ -31,7 +32,7 @@ fn create_bouncing_text_nodes() -> Vec<(NodeKind, u32)> {
 
       let node = ContainerNode {
         style: StyleBuilder::default()
-          .background_color(Color([240, 240, 240, 255]))
+          .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
           .width(Percentage(100.0))
           .height(Percentage(100.0))
           .flex_direction(FlexDirection::Column)
@@ -53,7 +54,7 @@ fn create_bouncing_text_nodes() -> Vec<(NodeKind, u32)> {
                   .font_size(CssOption::some(Px(56.0)))
                   .font_family(CssOption::some(FontFamily::from("monospace")))
                   .font_weight(FontWeight::from(700.0))
-                  .color(Color([10, 10, 10, 255]))
+                  .color(ColorInput::Value(Color([10, 10, 10, 255])))
                   .build()
                   .unwrap(),
                 text: "Takumi Renders Animated image 🔥".to_string(),

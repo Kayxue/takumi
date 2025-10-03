@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use ts_rs::TS;
 
-use crate::layout::style::{Color, FromCss, LengthUnit, ParseResult};
+use crate::layout::style::{Color, ColorInput, FromCss, LengthUnit, ParseResult};
 
 /// Represents a text shadow with all its properties.
 #[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize, TS)]
@@ -19,7 +19,7 @@ pub struct TextShadow {
   /// Blur radius of the shadow. Higher values create a more blurred shadow.
   pub blur_radius: LengthUnit,
   /// Color of the shadow.
-  pub color: Color,
+  pub color: ColorInput,
 }
 
 /// Proxy type for `TextShadow` Css deserialization.
@@ -36,7 +36,7 @@ pub(crate) enum TextShadowValue {
     /// Blur radius of the shadow. Higher values create a more blurred shadow.
     blur_radius: LengthUnit,
     /// Color of the shadow.
-    color: Color,
+    color: ColorInput,
   },
   /// Represents a CSS string.
   Css(String),
@@ -153,7 +153,7 @@ impl<'i> FromCss<'i> for TextShadow {
 
       // Try to parse a color value if not already found
       if color.is_none() {
-        if let Ok(value) = input.try_parse(Color::from_css) {
+        if let Ok(value) = input.try_parse(ColorInput::from_css) {
           color = Some(value);
           continue;
         }
@@ -169,7 +169,7 @@ impl<'i> FromCss<'i> for TextShadow {
     // Construct the TextShadow with parsed values or defaults
     Ok(TextShadow {
       // Use parsed color or default to transparent
-      color: color.unwrap_or_else(Color::transparent),
+      color: color.unwrap_or(ColorInput::Value(Color::transparent())),
       offset_x: lengths.0,
       offset_y: lengths.1,
       blur_radius: lengths.2,
@@ -196,7 +196,7 @@ mod tests {
     assert_eq!(shadow.offset_x, Px(5.0));
     assert_eq!(shadow.offset_y, Px(5.0));
     assert_eq!(shadow.blur_radius, Px(0.0));
-    assert_eq!(shadow.color, Color([85, 138, 187, 255]));
+    assert_eq!(shadow.color, Color([85, 138, 187, 255]).into());
   }
 
   #[test]

@@ -1,7 +1,7 @@
 use takumi::layout::{
   node::ContainerNode,
   style::{
-    Color,
+    Color, ColorInput,
     LengthUnit::{Percentage, Px},
     Position, Sides, StyleBuilder,
   },
@@ -16,7 +16,7 @@ fn test_style_position() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color([0, 0, 255, 255])) // Blue background to serve as container
+      .background_color(ColorInput::Value(Color([0, 0, 255, 255]))) // Blue background to serve as container
       .build()
       .unwrap(),
     children: Some(vec![
@@ -26,7 +26,7 @@ fn test_style_position() {
           .height(Px(100.0))
           .position(Position::Absolute) // Test the position property
           .inset(Sides([Px(20.0); 4])) // Position with inset properties
-          .background_color(Color([255, 0, 0, 255])) // Red child to make it visible
+          .background_color(ColorInput::Value(Color([255, 0, 0, 255]))) // Red child to make it visible
           .build()
           .unwrap(),
         children: None,

@@ -191,7 +191,10 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
         width: layout.size.width as u32,
         height: layout.size.height as u32,
       },
-      context.style.background_color,
+      context
+        .style
+        .background_color
+        .resolve(context.current_color),
       radius,
       context.transform,
     );

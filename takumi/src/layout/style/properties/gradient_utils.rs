@@ -81,7 +81,7 @@ pub(crate) fn resolve_stops_along_axis(
           .unwrap_or(-1.0);
 
         resolved.push(ResolvedGradientStop {
-          color: *color,
+          color: color.resolve(context.current_color),
           position,
         });
       }
@@ -94,7 +94,7 @@ pub(crate) fn resolve_stops_along_axis(
         let after_color = stops
           .get(i + 1)
           .and_then(|stop| match stop {
-            GradientStop::ColorHint { color, hint: _ } => Some(*color),
+            GradientStop::ColorHint { color, hint: _ } => Some(color.resolve(context.current_color)),
             GradientStop::Hint(_) => None,
           })
           .expect("Gradient hint found without a following color stop. Each hint must be followed by a color stop.");
@@ -191,15 +191,15 @@ mod tests {
   fn test_resolve_stops_along_axis() {
     let stops = vec![
       GradientStop::ColorHint {
-        color: Color([255, 0, 0, 255]),
+        color: Color([255, 0, 0, 255]).into(),
         hint: Some(StopPosition(LengthUnit::Px(10.0))),
       },
       GradientStop::ColorHint {
-        color: Color([0, 255, 0, 255]),
+        color: Color([0, 255, 0, 255]).into(),
         hint: Some(StopPosition(LengthUnit::Px(20.0))),
       },
       GradientStop::ColorHint {
-        color: Color([0, 0, 255, 255]),
+        color: Color([0, 0, 255, 255]).into(),
         hint: Some(StopPosition(LengthUnit::Percentage(30.0))),
       },
     ];
@@ -211,6 +211,7 @@ mod tests {
       transform: Affine::identity(),
       style: InheritedStyle::default(),
       draw_debug_border: false,
+      current_color: Color::black(),
     };
 
     let resolved = resolve_stops_along_axis(&stops, ctx.viewport.width as f32, &ctx);
@@ -244,15 +245,15 @@ mod tests {
   fn test_distribute_evenly_between_positions() {
     let stops = vec![
       GradientStop::ColorHint {
-        color: Color([255, 0, 0, 255]),
+        color: Color([255, 0, 0, 255]).into(),
         hint: None,
       },
       GradientStop::ColorHint {
-        color: Color([0, 255, 0, 255]),
+        color: Color([0, 255, 0, 255]).into(),
         hint: None,
       },
       GradientStop::ColorHint {
-        color: Color([0, 0, 255, 255]),
+        color: Color([0, 0, 255, 255]).into(),
         hint: None,
       },
     ];
@@ -264,6 +265,7 @@ mod tests {
       transform: Affine::identity(),
       style: InheritedStyle::default(),
       draw_debug_border: false,
+      current_color: Color::black(),
     };
 
     let resolved = resolve_stops_along_axis(&stops, ctx.viewport.width as f32, &ctx);
@@ -297,12 +299,12 @@ mod tests {
   fn test_hint_only() {
     let stops = vec![
       GradientStop::ColorHint {
-        color: Color([255, 0, 0, 255]),
+        color: Color([255, 0, 0, 255]).into(),
         hint: None,
       },
       GradientStop::Hint(StopPosition(LengthUnit::Percentage(10.0))),
       GradientStop::ColorHint {
-        color: Color([0, 0, 255, 255]),
+        color: Color([0, 0, 255, 255]).into(),
         hint: None,
       },
     ];
@@ -314,6 +316,7 @@ mod tests {
       transform: Affine::identity(),
       style: InheritedStyle::default(),
       draw_debug_border: false,
+      current_color: Color::black(),
     };
 
     let resolved = resolve_stops_along_axis(&stops, ctx.viewport.width as f32, &ctx);

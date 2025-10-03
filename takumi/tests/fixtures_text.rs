@@ -3,7 +3,7 @@ use takumi::layout::{
   node::{ContainerNode, NodeKind, TextNode},
   style::{
     BackgroundImagesValue, BackgroundPositionsValue, BackgroundRepeatsValue, BackgroundSizesValue,
-    Color, CssOption, FlexWrap, FontWeight, Gap,
+    Color, ColorInput, CssOption, FlexWrap, FontWeight, Gap,
     LengthUnit::{Em, Percentage, Px},
     LineHeight, StyleBuilder, TextAlign, TextOverflow, TextShadow, TextShadows, TextTransform,
   },
@@ -17,7 +17,7 @@ use test_utils::run_style_width_test;
 fn fixtures_text_basic() {
   let text = TextNode {
     style: StyleBuilder::default()
-      .background_color(Color([240, 240, 240, 255]))
+      .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
       .build()
       .unwrap(),
     text: "The quick brown fox jumps over the lazy dog 12345".to_string(),
@@ -30,7 +30,7 @@ fn fixtures_text_basic() {
 fn fixtures_text_typography_regular_24px() {
   let text = TextNode {
     style: StyleBuilder::default()
-      .background_color(Color([240, 240, 240, 255]))
+      .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
       .font_size(CssOption::some(Px(24.0)))
       .build()
       .unwrap(),
@@ -62,7 +62,7 @@ fn fixtures_text_typography_variable_weight() {
 
   let container = ContainerNode {
     style: StyleBuilder::default()
-      .background_color(Color([240, 240, 240, 255]))
+      .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
       .font_size(CssOption::some(Px(24.0)))
       .gap(Gap(Px(0.0), Px(24.0)))
       .flex_wrap(FlexWrap::Wrap)
@@ -81,7 +81,7 @@ fn fixtures_text_typography_variable_weight() {
 fn fixtures_text_typography_medium_weight_500() {
   let text = TextNode {
     style: StyleBuilder::default()
-      .background_color(Color([240, 240, 240, 255]))
+      .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
       .font_size(CssOption::some(Px(24.0)))
       .font_weight(FontWeight::from(500.0))
       .build()
@@ -99,7 +99,7 @@ fn fixtures_text_typography_medium_weight_500() {
 fn fixtures_text_typography_line_height_40px() {
   let text = TextNode {
     style: StyleBuilder::default()
-      .background_color(Color([240, 240, 240, 255]))
+      .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
       .font_size(CssOption::some(Px(24.0)))
       .line_height(LineHeight(Px(40.0)))
       .build()
@@ -117,7 +117,7 @@ fn fixtures_text_typography_line_height_40px() {
 fn fixtures_text_typography_letter_spacing_2px() {
   let text = TextNode {
     style: StyleBuilder::default()
-      .background_color(Color([240, 240, 240, 255]))
+      .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
       .font_size(CssOption::some(Px(24.0)))
       .letter_spacing(CssOption::some(Px(2.0)))
       .build()
@@ -135,7 +135,7 @@ fn fixtures_text_typography_letter_spacing_2px() {
 fn fixtures_text_align_start() {
   let text = TextNode {
     style: StyleBuilder::default()
-      .background_color(Color([240, 240, 240, 255]))
+      .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
       .width(Percentage(100.0))
       .font_size(CssOption::some(Px(24.0)))
       .text_align(TextAlign::Start)
@@ -151,7 +151,7 @@ fn fixtures_text_align_start() {
 fn fixtures_text_align_center() {
   let text = TextNode {
     style: StyleBuilder::default()
-      .background_color(Color([240, 240, 240, 255]))
+      .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
       .width(Percentage(100.0))
       .font_size(CssOption::some(Px(24.0)))
       .text_align(TextAlign::Center)
@@ -167,7 +167,7 @@ fn fixtures_text_align_center() {
 fn fixtures_text_align_right() {
   let text = TextNode {
     style: StyleBuilder::default()
-      .background_color(Color([240, 240, 240, 255]))
+      .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
       .width(Percentage(100.0))
       .font_size(CssOption::some(Px(24.0)))
       .text_align(TextAlign::Right)
@@ -187,7 +187,7 @@ Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliqu
 
   let text = TextNode {
     style: StyleBuilder::default()
-      .background_color(Color([240, 240, 240, 255]))
+      .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
       .font_size(CssOption::some(Px(18.0)))
       .line_height(LineHeight(Px(26.0)))
       .text_align(TextAlign::Justify)
@@ -209,7 +209,7 @@ Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliqu
   let text = TextNode {
     style: StyleBuilder::default()
       .width(Em(12.0))
-      .background_color(Color([240, 240, 240, 255]))
+      .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
       .font_size(CssOption::some(Px(18.0)))
       .line_height(LineHeight(Px(24.0)))
       .text_overflow(TextOverflow::Ellipsis)
@@ -228,7 +228,7 @@ fn fixtures_text_transform_all() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color([240, 240, 240, 255]))
+      .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
       .build()
       .unwrap(),
     children: Some(vec![
@@ -286,7 +286,7 @@ fn fixtures_text_mask_image_gradient_and_emoji() {
 
   let text = TextNode {
     style: StyleBuilder::default()
-      .background_color(Color([240, 240, 240, 255]))
+      .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
       .width(Percentage(100.0))
       .font_size(CssOption::some(Px(72.0)))
       .mask_image(CssOption::some(gradient_images.try_into().unwrap()))
@@ -320,11 +320,11 @@ fn fixtures_text_mask_image_gradient_and_emoji() {
 fn fixtures_text_stroke_black_red() {
   let text = TextNode {
     style: StyleBuilder::default()
-      .background_color(Color([240, 240, 240, 255]))
-      .color(Color([0, 0, 0, 255])) // Black text
+      .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
+      .color(ColorInput::Value(Color([0, 0, 0, 255]))) // Black text
       .font_size(CssOption::some(Px(72.0)))
       .text_stroke_width(Px(2.0))
-      .text_stroke_color(CssOption::some(Color([255, 0, 0, 255]))) // Red stroke
+      .text_stroke_color(CssOption::some(ColorInput::Value(Color([255, 0, 0, 255])))) // Red stroke
       .build()
       .unwrap(),
     text: "Red Stroke".to_string(),
@@ -341,12 +341,12 @@ fn fixtures_text_shadow() {
     offset_x: Px(1.0),
     offset_y: Px(0.0),
     blur_radius: Px(10.0),
-    color: Color([255, 204, 0, 255]),
+    color: ColorInput::Value(Color([255, 204, 0, 255])),
   }]);
 
   let text = TextNode {
     style: StyleBuilder::default()
-      .background_color(Color([240, 240, 240, 255]))
+      .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
       .font_size(CssOption::some(Px(48.0)))
       .text_shadow(CssOption::some(shadows))
       .build()
@@ -364,12 +364,12 @@ fn fixtures_text_shadow_no_blur_radius() {
     offset_x: Px(5.0),
     offset_y: Px(5.0),
     blur_radius: Px(0.0),
-    color: Color([85, 138, 187, 255]),
+    color: ColorInput::Value(Color([85, 138, 187, 255])),
   }]);
 
   let text = TextNode {
     style: StyleBuilder::default()
-      .background_color(Color([240, 240, 240, 255]))
+      .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
       .font_size(CssOption::some(Px(72.0)))
       .text_shadow(CssOption::some(shadows))
       .build()

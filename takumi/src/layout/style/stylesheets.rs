@@ -122,7 +122,7 @@ define_style!(
   background_position: CssOption<BackgroundPositions> = CssOption::none() => CssOption::none(),
   background_size: CssOption<BackgroundSizes> = CssOption::none() => CssOption::none(),
   background_repeat: CssOption<BackgroundRepeats> = CssOption::none() => CssOption::none(),
-  background_color: Color = Color::transparent() => Color::transparent(),
+  background_color: ColorInput = ColorInput::Value(Color::transparent()) => ColorInput::Value(Color::transparent()),
   box_shadow: CssOption<BoxShadows> = CssOption::none() => CssOption::none(),
   grid_auto_columns: CssOption<GridTrackSizes> = CssOption::none() => CssOption::none(),
   grid_auto_rows: CssOption<GridTrackSizes> = CssOption::none() => CssOption::none(),
@@ -135,8 +135,8 @@ define_style!(
   text_overflow: TextOverflow = CssValue::inherit() => Default::default(),
   text_transform: TextTransform = CssValue::inherit() => Default::default(),
   font_style: FontStyle = CssValue::inherit() => Default::default(),
-  border_color: CssOption<Color> = CssValue::inherit() => CssOption::none(),
-  color: Color = CssValue::inherit() => Color::black(),
+  border_color: CssOption<ColorInput> = CssOption::none() => CssOption::none(),
+  color: ColorInput = CssValue::inherit() => ColorInput::CurrentColor,
   font_size: CssOption<LengthUnit> = CssValue::inherit() => CssOption::none(),
   font_family: CssOption<FontFamily> = CssValue::inherit() => CssOption::none(),
   line_height: LineHeight = CssValue::inherit() => Default::default(),
@@ -146,12 +146,12 @@ define_style!(
   line_clamp: CssOption<LineClamp> = CssValue::inherit() => CssOption::none(),
   text_align: TextAlign = CssValue::inherit() => Default::default(),
   text_stroke_width: LengthUnit = CssValue::inherit() => LengthUnit::Px(0.0),
-  text_stroke_color: CssOption<Color> = CssValue::inherit() => CssOption::none(),
+  text_stroke_color: CssOption<ColorInput> = CssValue::inherit() => CssOption::none(),
   text_stroke: CssOption<TextStroke> = CssValue::inherit() => CssOption::none(),
   text_shadow: CssOption<TextShadows> = CssValue::inherit() => CssOption::none(),
   text_decoration: TextDecoration = TextDecoration::default() => TextDecoration::default(),
   text_decoration_line: CssOption<TextDecorationLines> = CssValue::inherit() => CssOption::none(),
-  text_decoration_color: CssOption<Color> = CssValue::inherit() => CssOption::none(),
+  text_decoration_color: CssOption<ColorInput> = CssValue::inherit() => CssOption::none(),
   letter_spacing: CssOption<LengthUnit> = CssValue::inherit() => CssOption::none(),
   word_spacing: CssOption<LengthUnit> = CssValue::inherit() => CssOption::none(),
   image_rendering: ImageScalingAlgorithm = CssValue::inherit() => Default::default(),
@@ -168,6 +168,9 @@ pub(crate) struct SizedFontStyle<'s> {
   pub letter_spacing: Option<f32>,
   pub word_spacing: Option<f32>,
   pub text_shadow: Option<SmallVec<[SizedShadow; 4]>>,
+  pub color: Color,
+  pub text_stroke_color: Color,
+  pub text_decoration_color: Color,
 }
 
 impl<'s> SizedFontStyle<'s> {
@@ -369,6 +372,17 @@ impl InheritedStyle {
           })
           .collect()
       }),
+      color: self.color.resolve(context.current_color),
+      text_stroke_color: self
+        .text_stroke_color
+        .or(self.text_stroke.and_then(|stroke| stroke.color))
+        .unwrap_or(self.color)
+        .resolve(context.current_color),
+      text_decoration_color: self
+        .text_decoration_color
+        .or(self.text_decoration.color)
+        .unwrap_or(ColorInput::CurrentColor)
+        .resolve(context.current_color),
     }
   }
 

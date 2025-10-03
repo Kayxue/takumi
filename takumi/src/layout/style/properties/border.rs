@@ -2,10 +2,7 @@ use cssparser::{Parser, ParserInput, Token};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::layout::style::{
-  FromCss, ParseResult,
-  properties::{Color, LengthUnit},
-};
+use crate::layout::style::{ColorInput, FromCss, ParseResult, properties::LengthUnit};
 
 /// Represents the `border` shorthand which accepts a width, style ("solid"), and an optional color.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -16,7 +13,7 @@ pub(crate) enum BorderValue {
   Structured {
     width: Option<LengthUnit>,
     style: Option<BorderStyle>,
-    color: Option<Color>,
+    color: Option<ColorInput>,
   },
   /// Raw CSS string representation.
   Css(String),
@@ -40,7 +37,7 @@ pub struct Border {
   /// Border style (currently only solid is supported).
   pub style: Option<BorderStyle>,
   /// Optional border color.
-  pub color: Option<Color>,
+  pub color: Option<ColorInput>,
 }
 
 impl TryFrom<BorderValue> for Border {
@@ -88,7 +85,7 @@ impl<'i> FromCss<'i> for Border {
         continue;
       }
 
-      if let Ok(value) = input.try_parse(Color::from_css) {
+      if let Ok(value) = input.try_parse(ColorInput::from_css) {
         color = Some(value);
         continue;
       }
@@ -132,6 +129,8 @@ impl<'i> FromCss<'i> for BorderStyle {
 
 #[cfg(test)]
 mod tests {
+  use crate::layout::style::Color;
+
   use super::*;
   use cssparser::{Parser, ParserInput};
 
@@ -182,7 +181,10 @@ mod tests {
     let result = parse_border_str("red").unwrap();
     assert_eq!(result.width, None);
     assert_eq!(result.style, None);
-    assert_eq!(result.color, Some(Color([255, 0, 0, 255])));
+    assert_eq!(
+      result.color,
+      Some(ColorInput::Value(Color([255, 0, 0, 255])))
+    );
   }
 
   #[test]
@@ -198,7 +200,10 @@ mod tests {
     let result = parse_border_str("2px solid red").unwrap();
     assert_eq!(result.width, Some(LengthUnit::Px(2.0)));
     assert_eq!(result.style, Some(BorderStyle::Solid));
-    assert_eq!(result.color, Some(Color([255, 0, 0, 255])));
+    assert_eq!(
+      result.color,
+      Some(ColorInput::Value(Color([255, 0, 0, 255])))
+    );
   }
 
   #[test]
@@ -206,7 +211,10 @@ mod tests {
     let result = parse_border_str("solid 2px red").unwrap();
     assert_eq!(result.width, Some(LengthUnit::Px(2.0)));
     assert_eq!(result.style, Some(BorderStyle::Solid));
-    assert_eq!(result.color, Some(Color([255, 0, 0, 255])));
+    assert_eq!(
+      result.color,
+      Some(ColorInput::Value(Color([255, 0, 0, 255])))
+    );
   }
 
   #[test]
@@ -214,7 +222,10 @@ mod tests {
     let result = parse_border_str("red solid 2px").unwrap();
     assert_eq!(result.width, Some(LengthUnit::Px(2.0)));
     assert_eq!(result.style, Some(BorderStyle::Solid));
-    assert_eq!(result.color, Some(Color([255, 0, 0, 255])));
+    assert_eq!(
+      result.color,
+      Some(ColorInput::Value(Color([255, 0, 0, 255])))
+    );
   }
 
   #[test]
@@ -222,7 +233,10 @@ mod tests {
     let result = parse_border_str("1.5rem solid blue").unwrap();
     assert_eq!(result.width, Some(LengthUnit::Rem(1.5)));
     assert_eq!(result.style, Some(BorderStyle::Solid));
-    assert_eq!(result.color, Some(Color([0, 0, 255, 255])));
+    assert_eq!(
+      result.color,
+      Some(ColorInput::Value(Color([0, 0, 255, 255])))
+    );
   }
 
   #[test]
@@ -230,7 +244,10 @@ mod tests {
     let result = parse_border_str("3px solid #ff0000").unwrap();
     assert_eq!(result.width, Some(LengthUnit::Px(3.0)));
     assert_eq!(result.style, Some(BorderStyle::Solid));
-    assert_eq!(result.color, Some(Color([255, 0, 0, 255])));
+    assert_eq!(
+      result.color,
+      Some(ColorInput::Value(Color([255, 0, 0, 255])))
+    );
   }
 
   #[test]
@@ -238,7 +255,10 @@ mod tests {
     let result = parse_border_str("4px solid rgb(0, 255, 0)").unwrap();
     assert_eq!(result.width, Some(LengthUnit::Px(4.0)));
     assert_eq!(result.style, Some(BorderStyle::Solid));
-    assert_eq!(result.color, Some(Color([0, 255, 0, 255])));
+    assert_eq!(
+      result.color,
+      Some(ColorInput::Value(Color([0, 255, 0, 255])))
+    );
   }
 
   #[test]
@@ -266,13 +286,16 @@ mod tests {
     let border_value = BorderValue::Structured {
       width: Some(LengthUnit::Px(5.0)),
       style: Some(BorderStyle::Solid),
-      color: Some(Color([255, 0, 0, 255])),
+      color: Some(ColorInput::Value(Color([255, 0, 0, 255]))),
     };
 
     let border: Border = border_value.try_into().unwrap();
     assert_eq!(border.width, Some(LengthUnit::Px(5.0)));
     assert_eq!(border.style, Some(BorderStyle::Solid));
-    assert_eq!(border.color, Some(Color([255, 0, 0, 255])));
+    assert_eq!(
+      border.color,
+      Some(ColorInput::Value(Color([255, 0, 0, 255])))
+    );
   }
 
   #[test]
@@ -282,7 +305,10 @@ mod tests {
     let border: Border = border_value.try_into().unwrap();
     assert_eq!(border.width, Some(LengthUnit::Px(3.0)));
     assert_eq!(border.style, Some(BorderStyle::Solid));
-    assert_eq!(border.color, Some(Color([0, 0, 255, 255])));
+    assert_eq!(
+      border.color,
+      Some(ColorInput::Value(Color([0, 0, 255, 255])))
+    );
   }
 
   #[test]

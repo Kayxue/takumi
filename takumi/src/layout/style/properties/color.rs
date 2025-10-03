@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use csscolorparser::{NAMED_COLORS, ParseColorError};
-use cssparser::{Parser, ToCss, Token};
+use cssparser::{Parser, ParserInput, ToCss, Token};
 use image::Rgba;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -11,7 +11,7 @@ use crate::layout::style::{FromCss, ParseResult};
 /// `Color` proxy type for deserializing CSS color values.
 #[derive(Debug, Clone, Deserialize, TS)]
 #[serde(untagged)]
-pub enum ColorValue {
+pub enum ColorInputValue {
   /// RGB color with 8-bit components
   Rgb(u8, u8, u8),
   /// RGBA color with 8-bit RGB components and 32-bit float alpha (alpha is between 0.0 and 1.0)
@@ -19,14 +19,40 @@ pub enum ColorValue {
   /// Single 32-bit integer containing RGB values
   RgbInt(u32),
   /// CSS color string
+  #[ts(type = "\"currentColor\" | string")]
   Css(String),
 }
 
 /// Represents a color with 8-bit RGBA components.
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, TS, Copy)]
-#[serde(try_from = "ColorValue")]
-#[ts(as = "ColorValue")]
+#[derive(Debug, Clone, PartialEq, Serialize, TS, Copy)]
 pub struct Color(pub [u8; 4]);
+
+/// Represents a color input value.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS, Copy)]
+#[serde(try_from = "ColorInputValue")]
+#[ts(as = "ColorInputValue")]
+pub enum ColorInput {
+  /// A color value.
+  Value(Color),
+  /// Inherit from the `color` value.
+  CurrentColor,
+}
+
+impl ColorInput {
+  /// Resolves the color input to a color.
+  pub fn resolve(&self, current_color: Color) -> Color {
+    match self {
+      ColorInput::Value(color) => *color,
+      ColorInput::CurrentColor => current_color,
+    }
+  }
+}
+
+impl From<Color> for ColorInput {
+  fn from(color: Color) -> Self {
+    ColorInput::Value(color)
+  }
+}
 
 impl From<Color> for Rgba<u8> {
   fn from(color: Color) -> Self {
@@ -70,42 +96,53 @@ impl Color {
   }
 }
 
-impl TryFrom<ColorValue> for Color {
-  type Error = ParseColorError;
+impl TryFrom<ColorInputValue> for ColorInput {
+  type Error = String;
 
-  fn try_from(value: ColorValue) -> Result<Self, Self::Error> {
+  fn try_from(value: ColorInputValue) -> Result<Self, Self::Error> {
     match value {
-      ColorValue::Rgb(r, g, b) => Ok(Color([r, g, b, 255])),
-      ColorValue::Rgba(r, g, b, a) => Ok(Color([r, g, b, (a * 255.0) as u8])),
-      ColorValue::RgbInt(rgb) => {
+      ColorInputValue::Rgb(r, g, b) => Ok(ColorInput::Value(Color([r, g, b, 255]))),
+      ColorInputValue::Rgba(r, g, b, a) => {
+        Ok(ColorInput::Value(Color([r, g, b, (a * 255.0) as u8])))
+      }
+      ColorInputValue::RgbInt(rgb) => {
         let r = ((rgb >> 16) & 0xFF) as u8;
         let g = ((rgb >> 8) & 0xFF) as u8;
         let b = (rgb & 0xFF) as u8;
 
-        Ok(Color([r, g, b, 255]))
+        Ok(ColorInput::Value(Color([r, g, b, 255])))
       }
-      ColorValue::Css(css) => parse_color_string(&css),
+      ColorInputValue::Css(css) => {
+        let mut input = ParserInput::new(&css);
+        let mut parser = Parser::new(&mut input);
+
+        ColorInput::from_css(&mut parser).map_err(|e| e.to_string())
+      }
     }
   }
 }
 
-impl<'i> FromCss<'i> for Color {
+impl<'i> FromCss<'i> for ColorInput {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
     let location = input.current_source_location();
     let position = input.position();
     let token = input.next()?;
 
     match *token {
-      Token::Hash(_) | Token::IDHash(_) => {
-        parse_color_string(&token.to_css_string()).map_err(|_| {
+      Token::Hash(_) | Token::IDHash(_) => parse_color_string(&token.to_css_string())
+        .map(ColorInput::Value)
+        .map_err(|_| {
           location
             .new_basic_unexpected_token_error(token.clone())
             .into()
-        })
-      }
+        }),
       Token::Ident(ref ident) => {
         if ident.eq_ignore_ascii_case("transparent") {
-          return Ok(Color([0, 0, 0, 0]));
+          return Ok(ColorInput::Value(Color([0, 0, 0, 0])));
+        }
+
+        if ident.eq_ignore_ascii_case("currentcolor") {
+          return Ok(ColorInput::CurrentColor);
         }
 
         let Some([r, g, b]) = NAMED_COLORS.get(ident) else {
@@ -116,7 +153,7 @@ impl<'i> FromCss<'i> for Color {
           );
         };
 
-        Ok(Color([*r, *g, *b, 255]))
+        Ok(ColorInput::Value(Color([*r, *g, *b, 255])))
       }
       Token::Function(_) => {
         // Have to clone to persist token, and allow input to be borrowed
@@ -134,6 +171,7 @@ impl<'i> FromCss<'i> for Color {
           function.push(')');
 
           parse_color_string(&function)
+            .map(ColorInput::Value)
             .map_err(|_| location.new_basic_unexpected_token_error(token).into())
         })
       }
@@ -155,66 +193,66 @@ mod tests {
   use super::*;
   use cssparser::{Parser, ParserInput};
 
-  fn parse_color_str(input: &str) -> ParseResult<'_, Color> {
+  fn parse_color_str(input: &str) -> ParseResult<'_, ColorInput> {
     let mut parser_input = ParserInput::new(input);
     let mut parser = Parser::new(&mut parser_input);
 
-    Color::from_css(&mut parser)
+    ColorInput::from_css(&mut parser)
   }
 
   #[test]
   fn test_parse_hex_color_3_digits() {
     // Test 3-digit hex color
     let result = parse_color_str("#f09").unwrap();
-    assert_eq!(result, Color([255, 0, 153, 255]));
+    assert_eq!(result, ColorInput::Value(Color([255, 0, 153, 255])));
   }
 
   #[test]
   fn test_parse_hex_color_6_digits() {
     // Test 6-digit hex color
     let result = parse_color_str("#ff0099").unwrap();
-    assert_eq!(result, Color([255, 0, 153, 255]));
+    assert_eq!(result, ColorInput::Value(Color([255, 0, 153, 255])));
   }
 
   #[test]
   fn test_parse_color_transparent() {
     // Test parsing transparent keyword
     let result = parse_color_str("transparent").unwrap();
-    assert_eq!(result, Color([0, 0, 0, 0]));
+    assert_eq!(result, ColorInput::Value(Color([0, 0, 0, 0])));
   }
 
   #[test]
   fn test_parse_color_rgb_function() {
     // Test parsing rgb() function through main parse function
     let result = parse_color_str("rgb(255, 0, 153)").unwrap();
-    assert_eq!(result, Color([255, 0, 153, 255]));
+    assert_eq!(result, ColorInput::Value(Color([255, 0, 153, 255])));
   }
 
   #[test]
   fn test_parse_color_rgba_function() {
     // Test parsing rgba() function through main parse function
     let result = parse_color_str("rgba(255, 0, 153, 0.5)").unwrap();
-    assert_eq!(result, Color([255, 0, 153, 128]));
+    assert_eq!(result, ColorInput::Value(Color([255, 0, 153, 128])));
   }
 
   #[test]
   fn test_parse_color_rgb_space_separated() {
     // Test parsing rgb() function with space-separated values
     let result = parse_color_str("rgb(255 0 153)").unwrap();
-    assert_eq!(result, Color([255, 0, 153, 255]));
+    assert_eq!(result, ColorInput::Value(Color([255, 0, 153, 255])));
   }
 
   #[test]
   fn test_parse_color_rgb_with_alpha_slash() {
     // Test parsing rgb() function with alpha value using slash
     let result = parse_color_str("rgb(255 0 153 / 0.5)").unwrap();
-    assert_eq!(result, Color([255, 0, 153, 128]));
+    assert_eq!(result, ColorInput::Value(Color([255, 0, 153, 128])));
   }
 
   #[test]
   fn test_parse_named_color_grey() {
     let result = parse_color_str("grey").unwrap();
-    assert_eq!(result, Color([128, 128, 128, 255]));
+    assert_eq!(result, ColorInput::Value(Color([128, 128, 128, 255])));
   }
 
   #[test]

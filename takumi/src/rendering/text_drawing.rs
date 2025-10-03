@@ -133,12 +133,6 @@ fn draw_buffer(
         .as_ref()
         .unwrap_or(&style.parent.text_decoration.line);
 
-      let decoration_color = style
-        .parent
-        .text_decoration_color
-        .or(style.parent.text_decoration.color)
-        .unwrap_or(Color::black());
-
       let run = glyph_run.run();
       let metrics = run.metrics();
 
@@ -148,7 +142,7 @@ fn draw_buffer(
         draw_decoration(
           canvas,
           &glyph_run,
-          decoration_color,
+          style.text_decoration_color,
           glyph_run.baseline() - metrics.underline_offset,
           glyph_run.run().font_size() / 18.0,
           layout,
@@ -187,7 +181,7 @@ fn draw_buffer(
         draw_decoration(
           canvas,
           &glyph_run,
-          decoration_color,
+          style.text_decoration_color,
           offset,
           size,
           layout,
@@ -199,7 +193,7 @@ fn draw_buffer(
         draw_decoration(
           canvas,
           &glyph_run,
-          decoration_color,
+          style.text_decoration_color,
           glyph_run.baseline() - metrics.ascent - metrics.underline_offset,
           glyph_run.run().font_size() / 18.0,
           layout,
@@ -391,7 +385,7 @@ fn draw_glyph(
     placement.left += layout.location.x as i32;
     placement.top += layout.location.y as i32;
 
-    canvas.draw_mask(mask, placement, style.parent.color, cropped_fill_image);
+    canvas.draw_mask(mask, placement, style.color, cropped_fill_image);
 
     if style.stroke_width > 0.0 {
       let mut stroke = Stroke::new(style.stroke_width);
@@ -403,14 +397,7 @@ fn draw_glyph(
       stroke_placement.left += layout.location.x as i32;
       stroke_placement.top += layout.location.y as i32;
 
-      let color = style
-        .parent
-        .text_stroke_color
-        .0
-        .or(style.parent.text_stroke.and_then(|stroke| stroke.color))
-        .unwrap_or(style.parent.color);
-
-      canvas.draw_mask(stroke_mask, stroke_placement, color, None);
+      canvas.draw_mask(stroke_mask, stroke_placement, style.text_stroke_color, None);
     }
   }
 }

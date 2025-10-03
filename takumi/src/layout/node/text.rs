@@ -139,7 +139,7 @@ mod tests {
     layout::{
       DEFAULT_FONT_SIZE, DEFAULT_LINE_HEIGHT_SCALER, Viewport,
       node::measure_text,
-      style::{Affine, CssOption, InheritedStyle, LengthUnit, LineHeight, SizedFontStyle},
+      style::{Affine, Color, CssOption, InheritedStyle, LengthUnit, LineHeight, SizedFontStyle},
     },
     rendering::RenderContext,
   };
@@ -175,6 +175,7 @@ mod tests {
       transform: Affine::identity(),
       style: InheritedStyle::default(),
       draw_debug_border: false,
+      current_color: Color::black(),
     }
   }
 

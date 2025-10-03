@@ -14,7 +14,7 @@ fn test_style_background_color() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color([255, 0, 0, 255]))
+      .background_color(ColorInput::Value(Color([255, 0, 0, 255])))
       .build()
       .unwrap(),
     children: None,
@@ -32,7 +32,7 @@ fn test_style_border_radius() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color([255, 0, 0, 255]))
+      .background_color(ColorInput::Value(Color([255, 0, 0, 255])))
       .border_radius(Sides([Px(20.0); 4]))
       .build()
       .unwrap(),
@@ -48,7 +48,7 @@ fn test_style_border_radius_per_corner() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color([255, 0, 0, 255]))
+      .background_color(ColorInput::Value(Color([255, 0, 0, 255])))
       // Per-corner radii
       .border_top_left_radius(CssOption::some(Px(40.0)))
       .border_top_right_radius(CssOption::some(Px(10.0)))
@@ -71,9 +71,9 @@ fn test_style_border_width() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color::white())
+      .background_color(ColorInput::Value(Color::white()))
       .border_width(CssOption::some(Sides([Px(10.0); 4])))
-      .border_color(CssOption::some(Color([255, 0, 0, 255])))
+      .border_color(CssOption::some(ColorInput::Value(Color([255, 0, 0, 255]))))
       .build()
       .unwrap(),
     children: None,
@@ -89,8 +89,7 @@ fn test_style_border_width_with_radius() {
       .width(Percentage(100.0))
       .height(Percentage(100.0))
       .padding(Sides([Rem(4.0); 4]))
-      .background_color(Color::white())
-      .border_color(CssOption::some(Color([255, 0, 0, 255])))
+      .background_color(ColorInput::Value(Color::white()))
       .build()
       .unwrap(),
     children: Some(vec![
@@ -99,6 +98,7 @@ fn test_style_border_width_with_radius() {
           .width(Rem(16.0))
           .height(Rem(8.0))
           .border_radius(Sides([Px(10.0); 4]))
+          .border_color(CssOption::some(ColorInput::Value(Color([255, 0, 0, 255]))))
           .border_width(CssOption::some(Sides([Px(4.0); 4])))
           .build()
           .unwrap(),
@@ -120,7 +120,7 @@ fn test_style_box_shadow() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color([0, 0, 255, 255]))
+      .background_color(ColorInput::Value(Color([0, 0, 255, 255])))
       .build()
       .unwrap(),
     children: Some(vec![
@@ -128,9 +128,9 @@ fn test_style_box_shadow() {
         style: StyleBuilder::default()
           .width(Px(100.0))
           .height(Px(100.0))
-          .background_color(Color([255, 0, 0, 255]))
+          .background_color(ColorInput::Value(Color([255, 0, 0, 255])))
           .box_shadow(CssOption::some(BoxShadows(smallvec![BoxShadow {
-            color: Color([0, 0, 0, 128]),
+            color: ColorInput::Value(Color([0, 0, 0, 128])),
             offset_x: Px(5.0),
             offset_y: Px(5.0),
             blur_radius: Px(10.0),
@@ -154,7 +154,7 @@ fn test_style_box_shadow_inset() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color([0, 0, 255, 255])) // Blue background container for contrast
+      .background_color(ColorInput::Value(Color([0, 0, 255, 255]))) // Blue background container for contrast
       .build()
       .unwrap(),
     children: Some(vec![
@@ -162,10 +162,10 @@ fn test_style_box_shadow_inset() {
         style: StyleBuilder::default()
           .width(Px(120.0))
           .height(Px(80.0))
-          .background_color(Color::white()) // White child for inset visibility
+          .background_color(ColorInput::Value(Color::white())) // White child for inset visibility
           .border_radius(Sides([Px(16.0); 4]))
           .box_shadow(CssOption::some(BoxShadows(smallvec![BoxShadow {
-            color: Color([0, 0, 0, 153]),
+            color: ColorInput::Value(Color([0, 0, 0, 153])),
             offset_x: Px(4.0),
             offset_y: Px(6.0),
             blur_radius: Px(18.0),
@@ -192,7 +192,7 @@ fn test_style_position() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color([0, 0, 255, 255]))
+      .background_color(ColorInput::Value(Color([0, 0, 255, 255])))
       .build()
       .unwrap(),
     children: Some(vec![
@@ -202,7 +202,7 @@ fn test_style_position() {
           .height(Px(100.0))
           .position(Position::Absolute) // Test the position property
           .inset(Sides([Px(20.0); 4])) // Position with inset properties
-          .background_color(Color([255, 0, 0, 255])) // Red child to make it visible
+          .background_color(ColorInput::Value(Color([255, 0, 0, 255]))) // Red child to make it visible
           .build()
           .unwrap(),
         children: None,
@@ -220,7 +220,7 @@ fn test_style_border_radius_circle() {
     style: StyleBuilder::default()
       .width(Px(300.0))
       .height(Px(300.0))
-      .background_color(Color([255, 0, 0, 255]))
+      .background_color(ColorInput::Value(Color([255, 0, 0, 255])))
       .border_radius(Sides([Percentage(50.0); 4]))
       .build()
       .unwrap(),
@@ -240,7 +240,7 @@ fn test_style_border_radius_width_offset() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color([128, 128, 128, 255]))
+      .background_color(ColorInput::Value(Color([128, 128, 128, 255])))
       .padding(Sides([Rem(2.0); 4]))
       .build()
       .unwrap(),
@@ -249,10 +249,10 @@ fn test_style_border_radius_width_offset() {
         style: StyleBuilder::default()
           .width(Percentage(100.0))
           .height(Percentage(100.0))
-          .background_color(Color::white())
+          .background_color(ColorInput::Value(Color::white()))
           .border_width(CssOption::some(Sides([Px(1.0); 4])))
           .border_radius(Sides([Px(24.0); 4]))
-          .border_color(CssOption::some(Color([0, 0, 0, 255])))
+          .border_color(CssOption::some(ColorInput::Value(Color([0, 0, 0, 255]))))
           .build()
           .unwrap(),
         children: Some(vec![
@@ -286,7 +286,7 @@ fn test_style_border_radius_circle_avatar() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color::white())
+      .background_color(ColorInput::Value(Color::white()))
       .justify_content(JustifyContent::Center)
       .align_items(AlignItems::Center)
       .build()
@@ -297,7 +297,9 @@ fn test_style_border_radius_circle_avatar() {
           .width(Rem(12.0))
           .height(Rem(12.0))
           .border_radius(Sides([Percentage(50.0); 4]))
-          .border_color(CssOption::some(Color([128, 128, 128, 128]))) // gray
+          .border_color(CssOption::some(ColorInput::Value(Color([
+            128, 128, 128, 128,
+          ])))) // gray
           .border_width(CssOption::some(Sides([Px(4.0); 4])))
           .build()
           .unwrap(),
@@ -360,7 +362,7 @@ fn test_style_border_width_on_image_node() {
     style: StyleBuilder::default()
       .width(Percentage(100.0))
       .height(Percentage(100.0))
-      .background_color(Color::white())
+      .background_color(ColorInput::Value(Color::white()))
       .justify_content(JustifyContent::Center)
       .align_items(AlignItems::Center)
       .build()

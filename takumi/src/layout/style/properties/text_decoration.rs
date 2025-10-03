@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use ts_rs::TS;
 
-use crate::layout::style::{FromCss, ParseResult, properties::Color};
+use crate::layout::style::{FromCss, ParseResult, properties::ColorInput};
 
 /// Represents the `text-decoration` shorthand which accepts a line style and an optional color.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
@@ -14,7 +14,7 @@ pub(crate) enum TextDecorationValue {
   Structured {
     line: TextDecorationLines,
     style: Option<TextDecorationStyle>,
-    color: Option<Color>,
+    color: Option<ColorInput>,
   },
   /// Raw CSS string representation.
   Css(String),
@@ -94,7 +94,7 @@ pub struct TextDecoration {
   /// Text decoration style (currently only solid is supported).
   pub style: Option<TextDecorationStyle>,
   /// Optional text decoration color.
-  pub color: Option<Color>,
+  pub color: Option<ColorInput>,
 }
 
 impl TryFrom<TextDecorationValue> for TextDecoration {
@@ -132,7 +132,7 @@ impl<'i> FromCss<'i> for TextDecoration {
         continue;
       }
 
-      if let Ok(value) = input.try_parse(Color::from_css) {
+      if let Ok(value) = input.try_parse(ColorInput::from_css) {
         color = Some(value);
         continue;
       }
@@ -238,7 +238,10 @@ mod tests {
     let result = TextDecoration::from_css(&mut parser).unwrap();
     assert_eq!(result.line.0.as_slice(), &[TextDecorationLine::LineThrough]);
     assert_eq!(result.style, Some(TextDecorationStyle::Solid));
-    assert_eq!(result.color, Some(Color([255, 0, 0, 255])));
+    assert_eq!(
+      result.color,
+      Some(ColorInput::Value(Color([255, 0, 0, 255])))
+    );
   }
 
   #[test]
@@ -254,7 +257,10 @@ mod tests {
       ]
     );
     assert_eq!(result.style, Some(TextDecorationStyle::Solid));
-    assert_eq!(result.color, Some(Color([255, 0, 0, 255])));
+    assert_eq!(
+      result.color,
+      Some(ColorInput::Value(Color([255, 0, 0, 255])))
+    );
   }
 
   #[test]

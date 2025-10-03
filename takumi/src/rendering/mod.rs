@@ -27,7 +27,7 @@ use crate::{
   layout::{
     Viewport,
     node::Node,
-    style::{Affine, InheritedStyle},
+    style::{Affine, Color, InheritedStyle},
   },
 };
 
@@ -42,6 +42,8 @@ pub struct RenderContext<'g> {
   pub(crate) font_size: f32,
   /// The scale factor for the image renderer.
   pub(crate) transform: Affine,
+  /// What the `currentColor` value is resolved to.
+  pub(crate) current_color: Color,
   /// The style after inheritance.
   pub(crate) style: InheritedStyle,
   /// Whether to draw debug borders.
@@ -55,6 +57,7 @@ impl<'g, N: Node<N>> From<&RenderOptions<'g, N>> for RenderContext<'g> {
       viewport: options.viewport,
       font_size: options.viewport.font_size,
       transform: Affine::identity(),
+      current_color: Color::black(),
       style: InheritedStyle::default(),
       draw_debug_border: options.draw_debug_border,
     }

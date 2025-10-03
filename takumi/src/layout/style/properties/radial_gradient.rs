@@ -412,11 +412,11 @@ mod tests {
         center: (0.5, 0.5),
         stops: vec![
           GradientStop::ColorHint {
-            color: Color([255, 0, 0, 255]),
+            color: Color([255, 0, 0, 255]).into(),
             hint: None,
           },
           GradientStop::ColorHint {
-            color: Color([0, 0, 255, 255]),
+            color: Color([0, 0, 255, 255]).into(),
             hint: None,
           },
         ],
@@ -438,11 +438,11 @@ mod tests {
         center: (0.5, 0.5),
         stops: vec![
           GradientStop::ColorHint {
-            color: Color([255, 0, 0, 255]),
+            color: Color([255, 0, 0, 255]).into(),
             hint: None,
           },
           GradientStop::ColorHint {
-            color: Color([0, 0, 255, 255]),
+            color: Color([0, 0, 255, 255]).into(),
             hint: None,
           },
         ],
@@ -464,11 +464,11 @@ mod tests {
         center: (0.0, 0.0),
         stops: vec![
           GradientStop::ColorHint {
-            color: Color([255, 0, 0, 255]),
+            color: Color([255, 0, 0, 255]).into(),
             hint: None,
           },
           GradientStop::ColorHint {
-            color: Color([0, 0, 255, 255]),
+            color: Color([0, 0, 255, 255]).into(),
             hint: None,
           },
         ],
@@ -491,11 +491,11 @@ mod tests {
         center: (0.25, 0.6),
         stops: vec![
           GradientStop::ColorHint {
-            color: Color::white(),
+            color: Color::white().into(),
             hint: None,
           },
           GradientStop::ColorHint {
-            color: Color::black(),
+            color: Color::black().into(),
             hint: None,
           },
         ],
@@ -518,15 +518,15 @@ mod tests {
         center: (0.5, 0.5),
         stops: vec![
           GradientStop::ColorHint {
-            color: Color([255, 0, 0, 255]),
+            color: Color([255, 0, 0, 255]).into(),
             hint: Some(StopPosition(LengthUnit::Percentage(0.0))),
           },
           GradientStop::ColorHint {
-            color: Color([0, 255, 0, 255]),
+            color: Color([0, 255, 0, 255]).into(),
             hint: Some(StopPosition(LengthUnit::Percentage(50.0))),
           },
           GradientStop::ColorHint {
-            color: Color([0, 0, 255, 255]),
+            color: Color([0, 0, 255, 255]).into(),
             hint: Some(StopPosition(LengthUnit::Percentage(100.0))),
           },
         ],
@@ -542,15 +542,15 @@ mod tests {
       center: (0.5, 0.5),
       stops: vec![
         GradientStop::ColorHint {
-          color: Color::black(),
+          color: Color::black().into(),
           hint: Some(StopPosition(LengthUnit::Percentage(0.0))),
         },
         GradientStop::ColorHint {
-          color: Color::black(),
+          color: Color::black().into(),
           hint: Some(StopPosition(LengthUnit::Percentage(50.0))),
         },
         GradientStop::ColorHint {
-          color: Color::black(),
+          color: Color::black().into(),
           hint: Some(StopPosition(LengthUnit::Px(100.0))),
         },
       ],
@@ -563,6 +563,7 @@ mod tests {
       transform: Affine::identity(),
       style: InheritedStyle::default(),
       draw_debug_border: false,
+      current_color: Color::black(),
     };
     let resolved = gradient.resolve_stops_for_radius(ctx.viewport.width as f32, &ctx);
 
@@ -579,15 +580,15 @@ mod tests {
       center: (0.5, 0.5),
       stops: vec![
         GradientStop::ColorHint {
-          color: Color::black(),
+          color: Color::black().into(),
           hint: Some(StopPosition(LengthUnit::Px(0.0))),
         },
         GradientStop::ColorHint {
-          color: Color::black(),
+          color: Color::black().into(),
           hint: Some(StopPosition(LengthUnit::Px(0.0))),
         },
         GradientStop::ColorHint {
-          color: Color::black(),
+          color: Color::black().into(),
           hint: Some(StopPosition(LengthUnit::Px(0.0))),
         },
       ],
@@ -600,6 +601,7 @@ mod tests {
       transform: Affine::identity(),
       style: InheritedStyle::default(),
       draw_debug_border: false,
+      current_color: Color::black(),
     };
     let resolved = gradient.resolve_stops_for_radius(ctx.viewport.width as f32, &ctx);
 

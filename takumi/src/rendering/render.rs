@@ -198,10 +198,13 @@ fn insert_taffy_node<'ctx, Nodes: Node<Nodes>>(
     .map(|font_size| font_size.resolve_to_px(parent_context, parent_context.font_size))
     .unwrap_or(parent_context.font_size);
 
+  let current_color = node_style.color.resolve(parent_context.current_color);
+
   // Overrides the font size placeholder to the resolved font size
   let child_context = RenderContext {
     style: node_style,
     font_size,
+    current_color,
     ..*parent_context
   };
 
