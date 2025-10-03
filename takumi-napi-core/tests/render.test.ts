@@ -74,7 +74,7 @@ const node = container({
 
 test("Renderer initialization with fonts and images", async () => {
   const font = await Bun.file(
-    "../assets/fonts/noto-sans/NotoSansTC-Bold.woff",
+    "../assets/fonts/geist/Geist[wght].woff2",
   ).arrayBuffer();
 
   new Renderer({

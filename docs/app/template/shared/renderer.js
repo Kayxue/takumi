@@ -6,8 +6,7 @@ await init(wasmUrl);
 
 export const renderer = new Renderer();
 
-renderer.loadFont(await getFont("noto-sans-v39-latin-500.woff2"));
-renderer.loadFont(await getFont("noto-sans-v39-latin-700.woff2"));
+renderer.loadFont(await getFont("InterVariable.woff2"));
 
 async function getFont(file) {
   const response = await fetch(`https://takumi.kane.tw/fonts/${file}`);

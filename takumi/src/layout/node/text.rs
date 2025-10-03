@@ -144,8 +144,7 @@ mod tests {
     rendering::RenderContext,
   };
 
-  const NOTO_SANS_REGULAR_BUFFER: &[u8] =
-    include_bytes!("../../../../assets/fonts/noto-sans/NotoSans-Regular.ttf");
+  const FONT: &[u8] = include_bytes!("../../../../assets/fonts/geist/Geist[wght].woff2");
 
   // Viewport dimensions
   const VIEWPORT_WIDTH: u32 = 800;
@@ -156,7 +155,7 @@ mod tests {
 
     global_context
       .font_context
-      .load_and_store(NOTO_SANS_REGULAR_BUFFER, None, None)
+      .load_and_store(FONT, None, None)
       .unwrap();
 
     global_context

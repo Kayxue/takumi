@@ -45,7 +45,7 @@ let context = GlobalContext::default();
 // Load fonts
 // pass an optional [`FontInfoOverride`](parley::FontInfoOverride) to override the font's metadata,
 // and an optional [`GenericFamily`](parley::GenericFamily) to specify the generic family of the font.
-context.font_context.load_and_store(include_bytes!("../../assets/fonts/noto-sans/google-sans-code-v11-latin-regular.woff2"), None, None);
+context.font_context.load_and_store(include_bytes!("../../assets/fonts/geist/Geist[wght].woff2"), None, None);
 
 // Create a viewport
 let viewport = Viewport::new(1200, 630);

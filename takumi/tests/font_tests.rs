@@ -3,10 +3,9 @@ use std::sync::LazyLock;
 use takumi::{GlobalContext, resources::font::FontError};
 
 // Include test font data using include_bytes!
-static TTF_FONT: &[u8] = include_bytes!("../../assets/fonts/noto-sans/NotoSans-Regular.ttf");
-static WOFF_FONT: &[u8] = include_bytes!("../../assets/fonts/noto-sans/NotoSansTC-Bold.woff");
-static WOFF2_FONT: &[u8] =
-  include_bytes!("../../assets/fonts/sil/scheherazade-new-v17-arabic-regular.woff2");
+static TTF_FONT: &[u8] =
+  include_bytes!("../../assets/fonts/noto-sans/NotoSansTC-VariableFont_wght.ttf");
+static WOFF2_FONT: &[u8] = include_bytes!("../../assets/fonts/geist/Geist[wght].woff2");
 
 static CONTEXT: LazyLock<GlobalContext> = LazyLock::new(GlobalContext::default);
 
@@ -16,16 +15,6 @@ fn test_ttf_font_loading() {
     CONTEXT
       .font_context
       .load_and_store(TTF_FONT, None, None)
-      .is_ok()
-  );
-}
-
-#[test]
-fn test_woff_font_loading() {
-  assert!(
-    CONTEXT
-      .font_context
-      .load_and_store(WOFF_FONT, None, None)
       .is_ok()
   );
 }

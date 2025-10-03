@@ -8,16 +8,14 @@ import {
 } from "@takumi-rs/helpers";
 import { initSync, Renderer } from "@takumi-rs/wasm";
 import module from "@takumi-rs/wasm/takumi_wasm_bg.wasm";
-import medium from "../../../assets/fonts/noto-sans/noto-sans-v39-latin-500.woff2";
-import bold from "../../../assets/fonts/noto-sans/noto-sans-v39-latin-700.woff2";
+import geist from "../../../assets/fonts/geist/Geist[wght].woff2";
 import { fetchLogo } from "./utils";
 
 initSync({ module });
 
 const renderer = new Renderer();
 
-renderer.loadFont(new Uint8Array(bold));
-renderer.loadFont(new Uint8Array(medium));
+renderer.loadFont(new Uint8Array(geist));
 
 let logo: string;
 

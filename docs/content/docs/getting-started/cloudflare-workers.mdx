@@ -77,18 +77,18 @@ Load fonts and persistent images when your worker starts.
 ```ts
 import { initSync, Renderer } from "@takumi-rs/wasm";
 import module from "@takumi-rs/wasm/takumi_wasm_bg.wasm";
-import medium from "../../assets/fonts/noto-sans/noto-sans-v39-latin-500.woff2";
-import bold from "../../assets/fonts/noto-sans/noto-sans-v39-latin-700.woff2";
+import font from "path-to.woff2"; // or .ttf
 
 initSync({ module });
 
 const renderer = new Renderer();
 
-renderer.loadFont(new Uint8Array(medium));
+// auto detection or specify the format
+renderer.loadFont(new Uint8Array(font));
 renderer.loadFontWithInfo({
-  data: new Uint8Array(bold),
+  data: new Uint8Array(font),
   name: "Noto Sans",
-  weight: 700,
+  weight: 500, // leave it blank if it's a variable font
   style: "normal",
 });
 ```
