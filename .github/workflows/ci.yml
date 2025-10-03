@@ -527,7 +527,7 @@ jobs:
           name: helpers-dist
           path: takumi-helpers/dist
 
-      - name: Download all artifacts
+      - name: Download all napi artifacts
         uses: actions/download-artifact@v5
         with:
           path: takumi-napi-core/artifacts
