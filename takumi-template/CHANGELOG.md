@@ -1,5 +1,11 @@
 # @takumi-rs/template
 
+## 0.34.0
+
+### Patch Changes
+
+- 7c402d8: setup npm trusted publisher
+
 ## 0.33.1
 
 ## 0.33.0
