@@ -267,7 +267,7 @@ impl FontContext {
     &self,
     root_style: TextStyle<'_, Color>,
     func: impl FnOnce(&mut TreeBuilder<'_, Color>),
-  ) -> Layout<Color> {
+  ) -> (Layout<Color>, String) {
     let mut lock = self.layout.lock().unwrap();
     let (fcx, lcx) = &mut *lock;
 
@@ -275,7 +275,7 @@ impl FontContext {
 
     func(&mut builder);
 
-    builder.build().0
+    builder.build()
   }
 
   /// Purge the rasterization cache.

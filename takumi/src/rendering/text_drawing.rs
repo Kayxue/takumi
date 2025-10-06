@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use image::RgbaImage;
-use parley::{Glyph, GlyphRun, PositionedLayoutItem};
+use parley::{Glyph, GlyphRun};
 use taffy::{Layout, Point, Size};
 use zeno::{Command, Join, Mask, PathData, Placement, Stroke};
 
@@ -10,207 +10,13 @@ use crate::{
   GlobalContext,
   layout::{
     inline::break_lines,
-    style::{
-      Affine, Color, ImageScalingAlgorithm, SizedFontStyle, TextDecorationLine, TextOverflow,
-      TextTransform,
-    },
+    style::{Affine, Color, ImageScalingAlgorithm, SizedFontStyle, TextTransform},
   },
-  rendering::{
-    BorderProperties, Canvas, RenderContext, apply_mask_alpha_to_pixel, overlay_image,
-    resolve_layers_tiles,
-  },
+  rendering::{BorderProperties, Canvas, apply_mask_alpha_to_pixel},
   resources::font::{CachedGlyph, ResolvedGlyph},
 };
 
-/// Draws text on the canvas with the specified font style and layout.
-pub fn draw_text(text: &str, context: &RenderContext, canvas: &Canvas, layout: Layout) {
-  let font_style = context.style.to_sized_font_style(context);
-  if font_style.font_size == 0.0 {
-    return;
-  }
-
-  let content_box = layout.content_box_size();
-
-  let render_text = apply_text_transform(text, font_style.parent.text_transform);
-
-  let max_height = match font_style.parent.line_clamp.as_ref() {
-    Some(clamp) => Some(MaxHeight::Both(content_box.height, clamp.count)),
-    None => Some(MaxHeight::Absolute(content_box.height)),
-  };
-
-  let mut buffer =
-    context
-      .global
-      .font_context
-      .create_inline_layout((&font_style).into(), |builder| {
-        builder.push_text(&render_text);
-      });
-
-  break_lines(&mut buffer, content_box.width, max_height);
-
-  let Some(last_line) = buffer.lines().last() else {
-    return;
-  };
-
-  let last_line_range = last_line.text_range();
-
-  let should_append_ellipsis = font_style.parent.text_overflow != TextOverflow::Clip
-    && last_line_range.end < render_text.len();
-
-  if should_append_ellipsis {
-    let text_with_ellipsis = make_ellipsis_text(
-      &render_text,
-      last_line_range.start,
-      last_line_range.end,
-      &font_style,
-      context.global,
-      content_box.width,
-      font_style.ellipsis_char(),
-    );
-
-    let mut buffer = context
-      .global
-      .font_context
-      .create_inline_layout((&font_style).into(), |builder| {
-        builder.push_text(&text_with_ellipsis)
-      });
-
-    break_lines(&mut buffer, content_box.width, max_height);
-  }
-
-  // If we have a mask image on the style, render it using the background tiling logic into a
-  // temporary image and use that as the glyph fill.
-  if let Some(images) = &*font_style.parent.mask_image {
-    let resolved_tiles = resolve_layers_tiles(
-      images,
-      font_style.parent.mask_position.as_ref(),
-      font_style.parent.mask_size.as_ref(),
-      font_style.parent.mask_repeat.as_ref(),
-      context,
-      layout,
-    );
-
-    if resolved_tiles.is_empty() {
-      return;
-    }
-
-    let mut composed = RgbaImage::new(content_box.width as u32, content_box.height as u32);
-
-    for (tile_image, xs, ys) in resolved_tiles {
-      for y in &ys {
-        for x in &xs {
-          overlay_image(
-            &mut composed,
-            &tile_image,
-            Point { x: *x, y: *y },
-            Default::default(),
-            Affine::identity(),
-            ImageScalingAlgorithm::Auto,
-          )
-        }
-      }
-    }
-
-    draw_buffer(context, &buffer, canvas, font_style, layout, Some(composed));
-
-    return;
-  }
-
-  draw_buffer(context, &buffer, canvas, font_style, layout, None);
-}
-
-pub(crate) fn draw_buffer(
-  context: &RenderContext,
-  buffer: &parley::Layout<Color>,
-  canvas: &Canvas,
-  style: SizedFontStyle,
-  layout: Layout,
-  image_fill: Option<RgbaImage>,
-) {
-  for line in buffer.lines() {
-    for item in line.items() {
-      let PositionedLayoutItem::GlyphRun(glyph_run) = item else {
-        continue;
-      };
-
-      let decoration_line = style
-        .parent
-        .text_decoration_line
-        .as_ref()
-        .unwrap_or(&style.parent.text_decoration.line);
-
-      let run = glyph_run.run();
-      let metrics = run.metrics();
-
-      // decoration underline should not overlap with the glyph descent part,
-      // as a temporary workaround, we draw the decoration under the glyph.
-      if decoration_line.has(TextDecorationLine::Underline) {
-        draw_decoration(
-          canvas,
-          &glyph_run,
-          style.text_decoration_color,
-          glyph_run.baseline() - metrics.underline_offset,
-          glyph_run.run().font_size() / 18.0,
-          layout,
-          context.transform,
-        );
-      }
-
-      // Collect all glyph IDs for batch processing
-      let glyph_ids = glyph_run.positioned_glyphs().map(|glyph| glyph.id);
-
-      // Batch resolve all glyphs in one mutex acquisition
-      let resolved_glyphs = context
-        .global
-        .font_context
-        .get_or_resolve_glyphs(run, glyph_ids);
-
-      // Draw each glyph using the batch-resolved cache
-      glyph_run.positioned_glyphs().for_each(|glyph| {
-        if let Some(cached_glyph) = resolved_glyphs.get(&glyph.id) {
-          draw_glyph(
-            glyph,
-            cached_glyph,
-            canvas,
-            &style,
-            layout,
-            image_fill.as_ref(),
-            context.transform,
-          );
-        }
-      });
-
-      if decoration_line.has(TextDecorationLine::LineThrough) {
-        let size = glyph_run.run().font_size() / 18.0;
-        let offset = glyph_run.baseline() - metrics.strikethrough_offset;
-
-        draw_decoration(
-          canvas,
-          &glyph_run,
-          style.text_decoration_color,
-          offset,
-          size,
-          layout,
-          context.transform,
-        );
-      }
-
-      if decoration_line.has(TextDecorationLine::Overline) {
-        draw_decoration(
-          canvas,
-          &glyph_run,
-          style.text_decoration_color,
-          glyph_run.baseline() - metrics.ascent - metrics.underline_offset,
-          glyph_run.run().font_size() / 18.0,
-          layout,
-          context.transform,
-        );
-      }
-    }
-  }
-}
-
-fn draw_decoration(
+pub(crate) fn draw_decoration(
   canvas: &Canvas,
   glyph_run: &GlyphRun<'_, Color>,
   color: Color,
@@ -239,7 +45,7 @@ fn draw_decoration(
   );
 }
 
-fn draw_glyph(
+pub(crate) fn draw_glyph(
   glyph: Glyph,
   cached_glyph: &CachedGlyph,
   canvas: &Canvas,
@@ -416,7 +222,7 @@ pub(crate) enum MaxHeight {
 }
 
 /// Applies text transform to the input text.
-pub fn apply_text_transform<'a>(input: &'a str, transform: TextTransform) -> Cow<'a, str> {
+pub(crate) fn apply_text_transform<'a>(input: &'a str, transform: TextTransform) -> Cow<'a, str> {
   match transform {
     TextTransform::None => Cow::Borrowed(input),
     TextTransform::Uppercase => Cow::Owned(input.to_uppercase()),
@@ -461,7 +267,7 @@ fn make_ellipsis_text<'s>(
     text_with_ellipsis.push_str(truncated_text);
     text_with_ellipsis.push_str(ellipsis_char);
 
-    let mut buffer = global
+    let (mut buffer, _) = global
       .font_context
       .create_inline_layout(font_style.into(), |builder| {
         builder.push_text(render_text);

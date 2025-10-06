@@ -25,6 +25,23 @@ impl<'g, N: Node<N>> InlineTree<'g, N> {
     Self { items: Vec::new() }
   }
 
+  pub(crate) fn box_at(&self, index: usize) -> Option<(&N, &RenderContext<'g>)> {
+    self
+      .items
+      .iter()
+      .filter_map(|(item, context)| match item {
+        InlineItem::Node(node) => Some((node, context)),
+        InlineItem::Text(_) => None,
+      })
+      .nth(index)
+  }
+
+  pub(crate) fn insert_text(&mut self, text: &str, context: RenderContext<'g>) {
+    self
+      .items
+      .push((InlineItem::Text(text.to_string()), context));
+  }
+
   pub(crate) fn try_insert_node(&mut self, node: N, context: RenderContext<'g>) {
     if let Some(content) = node.inline_content(&context) {
       self.items.push((
@@ -41,11 +58,11 @@ impl<'g, N: Node<N>> InlineTree<'g, N> {
     &self,
     context: &RenderContext,
     size: Size<f32>,
-  ) -> (parley::Layout<Color>, Vec<Size<f32>>) {
+  ) -> (parley::Layout<Color>, String, Vec<Size<f32>>) {
     let font_style = context.style.to_sized_font_style(context);
     let mut boxes = Vec::new();
 
-    let mut layout =
+    let (mut layout, text) =
       context
         .global
         .font_context
@@ -97,7 +114,48 @@ impl<'g, N: Node<N>> InlineTree<'g, N> {
       Default::default(),
     );
 
-    (layout, boxes)
+    (layout, text, boxes)
+  }
+
+  pub(crate) fn pop_character_or_box(&mut self) {
+    match self.items.last_mut() {
+      Some((InlineItem::Text(text), _)) => {
+        text.pop();
+
+        if text.is_empty() {
+          self.items.pop();
+        }
+      }
+      Some((InlineItem::Node(_), _)) => {
+        self.items.pop();
+      }
+      None => {}
+    }
+  }
+
+  pub(crate) fn create_layout_with_ellipsis(
+    &mut self,
+    context: &RenderContext,
+    size: Size<f32>,
+  ) -> parley::Layout<Color> {
+    let (layout, text, boxes) = self.create_render_layout(context, size);
+
+    // TODO: add ellipsis character
+
+    let is_overflowing = layout.inline_boxes().len() != boxes.len()
+      || layout
+        .lines()
+        .last()
+        .map(|line| line.text_range().end < text.len())
+        .unwrap_or(false);
+
+    if !is_overflowing {
+      return layout;
+    }
+
+    self.pop_character_or_box();
+
+    self.create_layout_with_ellipsis(context, size)
   }
 
   pub(crate) fn measure(
@@ -113,7 +171,7 @@ impl<'g, N: Node<N>> InlineTree<'g, N> {
 
     let mut boxes = Vec::new();
 
-    let mut layout =
+    let (mut layout, _) =
       context
         .global
         .font_context

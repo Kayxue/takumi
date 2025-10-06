@@ -8,11 +8,11 @@ use taffy::{AvailableSpace, Layout, Size};
 
 use crate::{
   layout::{
-    inline::{InlineContentKind, break_lines, create_inline_constraint},
+    inline::{InlineContentKind, InlineTree, break_lines, create_inline_constraint},
     node::Node,
     style::Style,
   },
-  rendering::{Canvas, RenderContext, apply_text_transform, draw_text},
+  rendering::{Canvas, RenderContext, apply_text_transform, inline_drawing::draw_inline_layout},
 };
 
 /// A node that renders text content.
@@ -39,7 +39,16 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for TextNode {
   }
 
   fn draw_content(&self, context: &RenderContext, canvas: &Canvas, layout: Layout) {
-    draw_text(&self.text, context, canvas, layout);
+    let mut tree: InlineTree<'_, Nodes> = InlineTree::new();
+
+    tree.insert_text(
+      &apply_text_transform(&self.text, context.style.text_transform),
+      context.clone(),
+    );
+
+    let inline_layout = tree.create_layout_with_ellipsis(context, layout.content_box_size());
+
+    draw_inline_layout(context, canvas, layout, inline_layout, &tree);
   }
 
   fn measure(
@@ -53,7 +62,7 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for TextNode {
 
     let font_style = context.style.to_sized_font_style(context);
 
-    let mut layout =
+    let (mut layout, _) =
       context
         .global
         .font_context

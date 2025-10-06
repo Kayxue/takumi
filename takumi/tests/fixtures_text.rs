@@ -3,7 +3,7 @@ use takumi::layout::{
   node::{ContainerNode, NodeKind, TextNode},
   style::{
     BackgroundImagesValue, BackgroundPositionsValue, BackgroundRepeatsValue, BackgroundSizesValue,
-    Color, ColorInput, CssOption, FlexWrap, FontWeight, Gap,
+    Color, ColorInput, CssOption, Display, FlexWrap, FontWeight, Gap, JustifyContent,
     LengthUnit::{Em, Percentage, Px},
     LineHeight, StyleBuilder, TextAlign, TextOverflow, TextShadow, TextShadows, TextTransform,
   },
@@ -420,4 +420,68 @@ fn fixtures_text_shadow_no_blur_radius() {
   };
 
   run_style_width_test(text.into(), "tests/fixtures/text_shadow_no_blur_radius.png");
+}
+
+#[test]
+fn fixtures_text_inline() {
+  let texts = &[
+    (
+      "The quick brown fox jumps over the lazy dog.",
+      StyleBuilder::default()
+        .display(Display::Inline)
+        .build()
+        .unwrap(),
+    ),
+    (
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. ",
+      StyleBuilder::default()
+        .text_transform(TextTransform::Uppercase)
+        .display(Display::Inline)
+        .build()
+        .unwrap(),
+    ),
+    (
+      "Nothing beats a jet2 holiday! ",
+      StyleBuilder::default()
+        .color(ColorInput::Value(Color([255, 0, 0, 255])))
+        .display(Display::Inline)
+        .build()
+        .unwrap(),
+    ),
+    (
+      "I'm making a browser at this point. ",
+      StyleBuilder::default()
+        .font_weight(FontWeight::from(600.0))
+        .display(Display::Inline)
+        .build()
+        .unwrap(),
+    ),
+  ];
+
+  let children = texts
+    .iter()
+    .map(|(text, style)| {
+      TextNode {
+        style: Some(style.clone()),
+        text: text.to_string(),
+      }
+      .into()
+    })
+    .collect::<Vec<_>>();
+
+  let container = ContainerNode {
+    style: Some(
+      StyleBuilder::default()
+        .background_color(ColorInput::Value(Color::white()))
+        .width(Percentage(100.0))
+        .display(Display::Inline)
+        .justify_content(JustifyContent::Center)
+        .font_size(CssOption::some(Px(48.0)))
+        .build()
+        .unwrap(),
+    ),
+    children: Some(children),
+  };
+
+  run_style_width_test(container.into(), "tests/fixtures/text_inline.png");
 }
