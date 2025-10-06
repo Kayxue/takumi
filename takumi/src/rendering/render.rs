@@ -12,7 +12,7 @@ use crate::{
     style::{Affine, InheritedStyle},
     tree::{NodeTreeItem, RenderContent, TaffyContext},
   },
-  rendering::{Canvas, create_blocking_canvas_loop, draw_debug_border},
+  rendering::{Canvas, create_blocking_canvas_loop, draw_buffer, draw_debug_border},
 };
 
 use crate::rendering::RenderContext;
@@ -173,7 +173,37 @@ fn render_node<Nodes: Node<Nodes>>(
       let (inline, boxes) =
         tree.create_render_layout(&node_context.context, layout.content_box_size());
 
-      unimplemented!()
+      // Draw glyphs, decorations and masks for the inline layout.
+      draw_buffer(
+        &node_context.context,
+        &inline,
+        canvas,
+        node_context
+          .context
+          .style
+          .to_sized_font_style(&node_context.context),
+        layout,
+        None,
+      );
+
+      // Render inline boxes as placeholders (debug borders) until we map ids->nodes.
+      for line in inline.lines() {
+        for item in line.items() {
+          if let parley::PositionedLayoutItem::InlineBox(inline_box) = item {
+            if let Some(box_size) = boxes.get(inline_box.id as usize) {
+              let mut child_layout = layout;
+              child_layout.location.x = layout.content_box_x() + inline_box.x;
+              child_layout.location.y = layout.content_box_y() + inline_box.y;
+              child_layout.size.width = box_size.width;
+              child_layout.size.height = box_size.height;
+
+              if node_context.context.draw_debug_border {
+                draw_debug_border(canvas, child_layout, node_context.context.transform);
+              }
+            }
+          }
+        }
+      }
     }
   }
 

@@ -3,9 +3,9 @@ mod viewport;
 /// Node Tree
 pub mod node;
 
-pub(crate) mod tree;
+pub(crate) mod inline;
 /// CSS-like styling system with colors, units, and properties
 pub mod style;
-pub(crate) mod inline;
+pub(crate) mod tree;
 
 pub use viewport::*;
