@@ -37,7 +37,7 @@ impl<'g, N: Node<N>> NodeTree<'g, N> {
     // https://www.w3.org/TR/css-display-3/#root
     // The root element’s display type is always blockified.
     if tree.is_inline() {
-      tree.context.style.display.to_block();
+      tree.context.style.display.blockify();
     }
 
     tree
@@ -77,7 +77,7 @@ impl<'g, N: Node<N>> NodeTree<'g, N> {
 
     if context.style.display.should_blockify_children() {
       for child in &mut children {
-        child.context.style.display.to_block();
+        child.context.style.display.blockify();
       }
 
       return Self {
@@ -99,7 +99,7 @@ impl<'g, N: Node<N>> NodeTree<'g, N> {
       };
     }
 
-    context.style.display = context.style.display.as_block();
+    context.style.display = context.style.display.as_blockified();
 
     let mut final_children = Vec::new();
     let mut inline_group = Vec::new();

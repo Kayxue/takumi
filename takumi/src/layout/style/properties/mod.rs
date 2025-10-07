@@ -287,7 +287,7 @@ impl Display {
   }
 
   /// Cast the display to block level.
-  pub fn as_block(self) -> Self {
+  pub fn as_blockified(self) -> Self {
     match self {
       Display::Inline => Display::Block,
       _ => self,
@@ -295,8 +295,8 @@ impl Display {
   }
 
   /// Mutate the display to be block level.
-  pub fn to_block(&mut self) {
-    *self = self.as_block();
+  pub fn blockify(&mut self) {
+    *self = self.as_blockified();
   }
 }
 
