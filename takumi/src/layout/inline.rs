@@ -1,4 +1,5 @@
-use parley::InlineBox;
+use std::borrow::Cow;
+
 use taffy::{AvailableSpace, Size};
 
 use crate::{
@@ -6,9 +7,9 @@ use crate::{
   rendering::{MaxHeight, RenderContext},
 };
 
-pub(crate) enum InlineItem<N: Node<N>> {
-  Node(N),
-  Text(String),
+pub(crate) enum InlineItem<'a, N: Node<N>> {
+  Node(&'a N),
+  Text(Cow<'a, str>),
 }
 
 pub enum InlineContentKind {
@@ -16,212 +17,21 @@ pub enum InlineContentKind {
   Box,
 }
 
-pub struct InlineTree<'g, N: Node<N>> {
-  items: Vec<(InlineItem<N>, RenderContext<'g>)>,
+pub type InlineLayout = parley::Layout<InlineBrush>;
+
+#[derive(Clone, PartialEq, Copy, Debug)]
+pub struct InlineBrush {
+  pub color: Color,
+  pub decoration_color: Color,
+  pub stroke_color: Color,
 }
 
-impl<'g, N: Node<N>> InlineTree<'g, N> {
-  pub fn new() -> Self {
-    Self { items: Vec::new() }
-  }
-
-  pub(crate) fn box_at(&self, index: usize) -> Option<(&N, &RenderContext<'g>)> {
-    self
-      .items
-      .iter()
-      .filter_map(|(item, context)| match item {
-        InlineItem::Node(node) => Some((node, context)),
-        InlineItem::Text(_) => None,
-      })
-      .nth(index)
-  }
-
-  pub(crate) fn insert_text(&mut self, text: &str, context: RenderContext<'g>) {
-    self
-      .items
-      .push((InlineItem::Text(text.to_string()), context));
-  }
-
-  pub(crate) fn try_insert_node(&mut self, node: N, context: RenderContext<'g>) {
-    if let Some(content) = node.inline_content(&context) {
-      self.items.push((
-        match content {
-          InlineContentKind::Box => InlineItem::Node(node),
-          InlineContentKind::Text(text) => InlineItem::Text(text),
-        },
-        context,
-      ));
-    }
-  }
-
-  pub(crate) fn create_render_layout(
-    &self,
-    context: &RenderContext,
-    size: Size<f32>,
-  ) -> (parley::Layout<Color>, String, Vec<Size<f32>>) {
-    let font_style = context.style.to_sized_font_style(context);
-    let mut boxes = Vec::new();
-
-    let (mut layout, text) =
-      context
-        .global
-        .font_context
-        .create_inline_layout((&font_style).into(), |builder| {
-          let mut index_pos = 0;
-
-          for (item, context) in &self.items {
-            match item {
-              InlineItem::Text(text) => {
-                builder.push_style_span((&context.style.to_sized_font_style(context)).into());
-                builder.push_text(text);
-                builder.pop_style_span();
-
-                index_pos += text.len();
-              }
-              InlineItem::Node(node) => {
-                let size = node.measure(
-                  context,
-                  Size {
-                    width: AvailableSpace::Definite(size.width),
-                    height: AvailableSpace::Definite(size.height),
-                  },
-                  Size::NONE,
-                );
-
-                builder.push_inline_box(InlineBox {
-                  index: index_pos,
-                  id: boxes.len() as u64,
-                  width: size.width,
-                  height: size.height,
-                });
-
-                boxes.push(size);
-              }
-            }
-          }
-        });
-
-    let max_height = match font_style.parent.line_clamp.as_ref() {
-      Some(clamp) => Some(MaxHeight::Both(size.height, clamp.count)),
-      None => Some(MaxHeight::Absolute(size.height)),
-    };
-
-    break_lines(&mut layout, size.width, max_height);
-
-    layout.align(
-      Some(size.width),
-      context.style.text_align.into(),
-      Default::default(),
-    );
-
-    (layout, text, boxes)
-  }
-
-  pub(crate) fn pop_character_or_box(&mut self) {
-    match self.items.last_mut() {
-      Some((InlineItem::Text(text), _)) => {
-        text.pop();
-
-        if text.is_empty() {
-          self.items.pop();
-        }
-      }
-      Some((InlineItem::Node(_), _)) => {
-        self.items.pop();
-      }
-      None => {}
-    }
-  }
-
-  pub(crate) fn create_layout_with_ellipsis(
-    &mut self,
-    context: &RenderContext,
-    size: Size<f32>,
-  ) -> parley::Layout<Color> {
-    let (layout, text, boxes) = self.create_render_layout(context, size);
-
-    // TODO: add ellipsis character
-
-    let is_overflowing = layout.inline_boxes().len() != boxes.len()
-      || layout
-        .lines()
-        .last()
-        .map(|line| line.text_range().end < text.len())
-        .unwrap_or(false);
-
-    if !is_overflowing {
-      return layout;
-    }
-
-    self.pop_character_or_box();
-
-    self.create_layout_with_ellipsis(context, size)
-  }
-
-  pub(crate) fn measure(
-    &self,
-    context: &RenderContext,
-    available_space: Size<AvailableSpace>,
-    known_dimensions: Size<Option<f32>>,
-  ) -> Size<f32> {
-    let (max_width, max_height) =
-      create_inline_constraint(context, available_space, known_dimensions);
-
-    let font_style = context.style.to_sized_font_style(context);
-
-    let mut boxes = Vec::new();
-
-    let (mut layout, _) =
-      context
-        .global
-        .font_context
-        .create_inline_layout((&font_style).into(), |builder| {
-          let mut idx = 0;
-          let mut index_pos = 0;
-
-          for (item, context) in &self.items {
-            match item {
-              InlineItem::Text(text) => {
-                builder.push_style_span((&context.style.to_sized_font_style(context)).into());
-                builder.push_text(text);
-                builder.pop_style_span();
-
-                index_pos += text.len();
-              }
-              InlineItem::Node(node) => {
-                let size = node.measure(context, available_space, Size::NONE);
-
-                boxes.push(size);
-
-                builder.push_inline_box(InlineBox {
-                  index: index_pos,
-                  id: idx,
-                  width: size.width,
-                  height: size.height,
-                });
-
-                idx += 1;
-              }
-            }
-          }
-        });
-
-    break_lines(&mut layout, max_width, max_height);
-
-    let (max_run_width, total_height) =
-      layout
-        .lines()
-        .fold((0.0, 0.0), |(max_run_width, total_height), line| {
-          let metrics = line.metrics();
-          (
-            metrics.advance.max(max_run_width),
-            total_height + metrics.line_height,
-          )
-        });
-
-    taffy::Size {
-      width: max_run_width.ceil().min(max_width),
-      height: total_height.ceil(),
+impl Default for InlineBrush {
+  fn default() -> Self {
+    Self {
+      color: Color::black(),
+      decoration_color: Color::black(),
+      stroke_color: Color::black(),
     }
   }
 }
@@ -258,7 +68,7 @@ pub(crate) fn create_inline_constraint(
 }
 
 pub(crate) fn break_lines(
-  layout: &mut parley::Layout<Color>,
+  layout: &mut InlineLayout,
   max_width: f32,
   max_height: Option<MaxHeight>,
 ) {

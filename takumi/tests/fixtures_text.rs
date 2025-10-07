@@ -474,7 +474,7 @@ fn fixtures_text_inline() {
       StyleBuilder::default()
         .background_color(ColorInput::Value(Color::white()))
         .width(Percentage(100.0))
-        .display(Display::Inline)
+        .display(Display::Block)
         .justify_content(JustifyContent::Center)
         .font_size(CssOption::some(Px(48.0)))
         .build()

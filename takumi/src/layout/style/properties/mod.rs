@@ -159,18 +159,9 @@ pub enum TextAlign {
   End,
 }
 
-impl From<TextAlign> for Alignment {
-  fn from(value: TextAlign) -> Self {
-    match value {
-      TextAlign::Left => Alignment::Left,
-      TextAlign::Right => Alignment::Right,
-      TextAlign::Center => Alignment::Middle,
-      TextAlign::Justify => Alignment::Justified,
-      TextAlign::End => Alignment::End,
-      TextAlign::Start => Alignment::Start,
-    }
-  }
-}
+impl_from_taffy_enum!(
+  TextAlign, Alignment, Left, Right, Center, Justify, Start, End
+);
 
 /// Defines the positioning method for an element.
 ///
@@ -280,6 +271,8 @@ pub enum Display {
   Grid,
   /// The element generates an inline container and its children follow the inline layout algorithm
   Inline,
+  /// The element creates a block container and its children follow the block layout algorithm
+  Block,
 }
 
 impl Display {
@@ -288,12 +281,22 @@ impl Display {
     *self == Display::Inline
   }
 
+  /// Returns true if the display makes the children blockified (e.g., flex or grid).
+  pub fn should_blockify_children(&self) -> bool {
+    matches!(self, Display::Flex | Display::Grid)
+  }
+
   /// Cast the display to block level.
-  pub fn to_block(self) -> Self {
+  pub fn as_block(self) -> Self {
     match self {
-      Display::Inline => Display::Flex,
+      Display::Inline => Display::Block,
       _ => self,
     }
+  }
+
+  /// Mutate the display to be block level.
+  pub fn to_block(&mut self) {
+    *self = self.as_block();
   }
 }
 
@@ -302,6 +305,7 @@ impl From<Display> for taffy::Display {
     match value {
       Display::Flex | Display::Inline => taffy::Display::Flex,
       Display::Grid => taffy::Display::Grid,
+      Display::Block => taffy::Display::Block,
     }
   }
 }

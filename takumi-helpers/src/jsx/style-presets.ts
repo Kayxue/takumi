@@ -11,15 +11,18 @@ export const stylePresets: Partial<
   p: {
     marginTop: "1em",
     marginBottom: "1em",
+    display: "block",
   },
   blockquote: {
     marginTop: "1em",
     marginBottom: "1em",
     marginLeft: 40,
     marginRight: 40,
+    display: "block",
   },
   center: {
     textAlign: "center",
+    display: "inline",
   },
   hr: {
     marginTop: "0.5em",
@@ -36,6 +39,7 @@ export const stylePresets: Partial<
     marginLeft: 0,
     marginRight: 0,
     fontWeight: "bold",
+    display: "block",
   },
   h2: {
     fontSize: "1.5em",
@@ -44,6 +48,7 @@ export const stylePresets: Partial<
     marginLeft: 0,
     marginRight: 0,
     fontWeight: "bold",
+    display: "block",
   },
   h3: {
     fontSize: "1.17em",
@@ -52,6 +57,7 @@ export const stylePresets: Partial<
     marginLeft: 0,
     marginRight: 0,
     fontWeight: "bold",
+    display: "block",
   },
   h4: {
     marginTop: "1.33em",
@@ -59,6 +65,7 @@ export const stylePresets: Partial<
     marginLeft: 0,
     marginRight: 0,
     fontWeight: "bold",
+    display: "block",
   },
   h5: {
     fontSize: "0.83em",
@@ -67,6 +74,7 @@ export const stylePresets: Partial<
     marginLeft: 0,
     marginRight: 0,
     fontWeight: "bold",
+    display: "block",
   },
   h6: {
     fontSize: "0.67em",
@@ -75,6 +83,7 @@ export const stylePresets: Partial<
     marginLeft: 0,
     marginRight: 0,
     fontWeight: "bold",
+    display: "block",
   },
   u: {
     textDecoration: "underline",

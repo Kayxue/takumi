@@ -8,11 +8,13 @@ use taffy::{AvailableSpace, Layout, Size};
 
 use crate::{
   layout::{
-    inline::{InlineContentKind, InlineTree, break_lines, create_inline_constraint},
+    inline::{InlineContentKind, break_lines, create_inline_constraint},
     node::Node,
     style::Style,
   },
-  rendering::{Canvas, RenderContext, apply_text_transform, inline_drawing::draw_inline_layout},
+  rendering::{
+    Canvas, MaxHeight, RenderContext, apply_text_transform, inline_drawing::draw_inline_layout,
+  },
 };
 
 /// A node that renders text content.
@@ -39,16 +41,35 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for TextNode {
   }
 
   fn draw_content(&self, context: &RenderContext, canvas: &Canvas, layout: Layout) {
-    let mut tree: InlineTree<'_, Nodes> = InlineTree::new();
+    let font_style = context.style.to_sized_font_style(context);
 
-    tree.insert_text(
-      &apply_text_transform(&self.text, context.style.text_transform),
-      context.clone(),
+    let (mut inline_layout, _) =
+      context
+        .global
+        .font_context
+        .tree_builder((&font_style).into(), |builder| {
+          builder.push_text(&apply_text_transform(
+            &self.text,
+            context.style.text_transform,
+          ));
+        });
+
+    let size = layout.content_box_size();
+
+    let max_height = match font_style.parent.line_clamp.as_ref() {
+      Some(clamp) => Some(MaxHeight::Both(size.height, clamp.count)),
+      None => Some(MaxHeight::Absolute(size.height)),
+    };
+
+    break_lines(&mut inline_layout, size.width, max_height);
+
+    inline_layout.align(
+      Some(size.width),
+      context.style.text_align.into(),
+      Default::default(),
     );
 
-    let inline_layout = tree.create_layout_with_ellipsis(context, layout.content_box_size());
-
-    draw_inline_layout(context, canvas, layout, inline_layout, &tree);
+    draw_inline_layout(context, canvas, layout, inline_layout, &font_style);
   }
 
   fn measure(
@@ -66,7 +87,7 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for TextNode {
       context
         .global
         .font_context
-        .create_inline_layout((&font_style).into(), |builder| {
+        .tree_builder((&font_style).into(), |builder| {
           builder.push_text(&apply_text_transform(
             &self.text,
             context.style.text_transform,

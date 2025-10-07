@@ -9,7 +9,7 @@ use zeno::{Command, Join, Mask, PathData, Placement, Stroke};
 use crate::{
   GlobalContext,
   layout::{
-    inline::break_lines,
+    inline::{InlineBrush, break_lines},
     style::{Affine, Color, ImageScalingAlgorithm, SizedFontStyle, TextTransform},
   },
   rendering::{BorderProperties, Canvas, apply_mask_alpha_to_pixel},
@@ -18,7 +18,7 @@ use crate::{
 
 pub(crate) fn draw_decoration(
   canvas: &Canvas,
-  glyph_run: &GlyphRun<'_, Color>,
+  glyph_run: &GlyphRun<'_, InlineBrush>,
   color: Color,
   offset: f32,
   size: f32,
@@ -45,6 +45,7 @@ pub(crate) fn draw_decoration(
   );
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn draw_glyph(
   glyph: Glyph,
   cached_glyph: &CachedGlyph,
@@ -53,6 +54,7 @@ pub(crate) fn draw_glyph(
   layout: Layout,
   image_fill: Option<&RgbaImage>,
   transform: Affine,
+  text_style: &parley::Style<InlineBrush>,
 ) {
   let transform = Affine::translation(Size {
     width: layout.border.left + layout.padding.left + glyph.x,
@@ -197,7 +199,7 @@ pub(crate) fn draw_glyph(
     placement.left += layout.location.x as i32;
     placement.top += layout.location.y as i32;
 
-    canvas.draw_mask(mask, placement, style.color, cropped_fill_image);
+    canvas.draw_mask(mask, placement, text_style.brush.color, cropped_fill_image);
 
     if style.stroke_width > 0.0 {
       let mut stroke = Stroke::new(style.stroke_width);
@@ -269,7 +271,7 @@ fn make_ellipsis_text<'s>(
 
     let (mut buffer, _) = global
       .font_context
-      .create_inline_layout(font_style.into(), |builder| {
+      .tree_builder(font_style.into(), |builder| {
         builder.push_text(render_text);
       });
 

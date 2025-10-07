@@ -8,7 +8,10 @@ use taffy::{Size, prelude::FromLength};
 use ts_rs::TS;
 
 use crate::{
-  layout::style::{CssOption, CssValue, properties::*},
+  layout::{
+    inline::InlineBrush,
+    style::{CssOption, CssValue, properties::*},
+  },
   rendering::{RenderContext, SizedShadow},
 };
 
@@ -176,7 +179,7 @@ pub(crate) struct SizedFontStyle<'s> {
   pub text_decoration_color: Color,
 }
 
-impl<'s> From<&'s SizedFontStyle<'s>> for TextStyle<'s, Color> {
+impl<'s> From<&'s SizedFontStyle<'s>> for TextStyle<'s, InlineBrush> {
   fn from(style: &'s SizedFontStyle<'s>) -> Self {
     TextStyle {
       font_size: style.font_size,
@@ -205,6 +208,11 @@ impl<'s> From<&'s SizedFontStyle<'s>> for TextStyle<'s, Color> {
       word_spacing: style.word_spacing.unwrap_or_default(),
       word_break: style.parent.word_break.into(),
       overflow_wrap: style.parent.overflow_wrap.into(),
+      brush: InlineBrush {
+        color: style.color,
+        decoration_color: style.text_decoration_color,
+        stroke_color: style.text_stroke_color,
+      },
       ..Default::default()
     }
   }

@@ -4,9 +4,8 @@ use taffy::{Layout, Point};
 
 use crate::{
   layout::{
-    inline::InlineTree,
-    node::Node,
-    style::{Affine, Color, SizedFontStyle, TextDecorationLine},
+    inline::{InlineBrush, InlineLayout},
+    style::{Affine, SizedFontStyle, TextDecorationLine},
   },
   rendering::{
     Canvas, RenderContext, draw_decoration, draw_glyph, overlay_image, resolve_layers_tiles,
@@ -15,7 +14,7 @@ use crate::{
 
 fn draw_glyph_run(
   style: &SizedFontStyle,
-  glyph_run: &GlyphRun<'_, Color>,
+  glyph_run: &GlyphRun<'_, InlineBrush>,
   canvas: &Canvas,
   layout: Layout,
   context: &RenderContext,
@@ -64,6 +63,7 @@ fn draw_glyph_run(
         layout,
         image_fill,
         context.transform,
+        glyph_run.style(),
       );
     }
   });
@@ -96,12 +96,12 @@ fn draw_glyph_run(
   }
 }
 
-pub(crate) fn draw_inline_layout<'g, N: Node<N>>(
+pub(crate) fn draw_inline_layout(
   context: &RenderContext,
   canvas: &Canvas,
   layout: Layout,
-  inline_layout: parley::Layout<Color>,
-  tree: &InlineTree<'g, N>,
+  inline_layout: InlineLayout,
+  font_style: &SizedFontStyle,
 ) {
   let content_box = layout.content_box_size();
 
@@ -145,24 +145,18 @@ pub(crate) fn draw_inline_layout<'g, N: Node<N>>(
 
   for line in inline_layout.lines() {
     for item in line.items() {
-      match item {
-        PositionedLayoutItem::GlyphRun(glyph_run) => {
-          let font_style = context.style.to_sized_font_style(context);
-          draw_glyph_run(
-            &font_style,
-            &glyph_run,
-            canvas,
-            layout,
-            context,
-            fill_image.as_ref(),
-          );
-        }
-        PositionedLayoutItem::InlineBox(inline_box) => {
-          let (node, context) = tree.box_at(inline_box.id as usize).unwrap();
+      let PositionedLayoutItem::GlyphRun(glyph_run) = item else {
+        continue;
+      };
 
-          node.draw_on_canvas(context, canvas, layout);
-        }
-      }
+      draw_glyph_run(
+        font_style,
+        &glyph_run,
+        canvas,
+        layout,
+        context,
+        fill_image.as_ref(),
+      );
     }
   }
 }

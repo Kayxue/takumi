@@ -10,7 +10,7 @@ use crate::{
     Viewport,
     node::Node,
     style::{Affine, InheritedStyle},
-    tree::{NodeTreeItem, RenderContent, TaffyContext},
+    tree::NodeTree,
   },
   rendering::{
     Canvas, create_blocking_canvas_loop, draw_debug_border, inline_drawing::draw_inline_layout,
@@ -42,7 +42,7 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
 
   let render_context = (&options).into();
 
-  let tree = NodeTreeItem::from_node(&render_context, options.node);
+  let tree = NodeTree::from_node(&render_context, options.node);
 
   let root_node_id = tree.insert_into_taffy(&mut taffy);
 
@@ -149,8 +149,8 @@ fn create_transform(style: &InheritedStyle, layout: &Layout, context: &RenderCon
   transform
 }
 
-fn render_node<Nodes: Node<Nodes>>(
-  taffy: &mut TaffyTree<TaffyContext<Nodes>>,
+fn render_node<'g, Nodes: Node<Nodes>>(
+  taffy: &mut TaffyTree<NodeTree<'g, Nodes>>,
   node_id: NodeId,
   canvas: &Canvas,
   offset: Point<f32>,
@@ -168,14 +168,30 @@ fn render_node<Nodes: Node<Nodes>>(
 
   node_context.context.transform = transform;
 
-  match &mut node_context.content {
-    RenderContent::Node(None) => {}
-    RenderContent::Node(Some(node)) => node.draw_on_canvas(&node_context.context, canvas, layout),
-    RenderContent::Inline(tree) => {
-      let inline_layout =
-        tree.create_layout_with_ellipsis(&node_context.context, layout.content_box_size());
+  // Draw the block node itself first
+  if let Some(node) = &node_context.node {
+    node.draw_on_canvas(&node_context.context, canvas, layout);
+  }
 
-      draw_inline_layout(&node_context.context, canvas, layout, inline_layout, tree);
+  if node_context.should_construct_inline_layout() {
+    let (inline_layout, _, boxes) = node_context.create_inline_layout(layout.content_box_size());
+    let font_style = node_context
+      .context
+      .style
+      .to_sized_font_style(&node_context.context);
+
+    // Draw the inline layout without a callback first
+    draw_inline_layout(
+      &node_context.context,
+      canvas,
+      layout,
+      inline_layout,
+      &font_style,
+    );
+
+    // Then handle the inline boxes directly
+    for node in boxes.iter() {
+      node.draw_on_canvas(&node_context.context, canvas, layout);
     }
   }
 

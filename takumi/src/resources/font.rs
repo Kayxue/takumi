@@ -8,15 +8,15 @@ use std::{
 use lru::LruCache;
 
 use parley::{
-  GenericFamily, Layout, LayoutContext, Run, TextStyle, TreeBuilder,
+  GenericFamily, LayoutContext, Run, TextStyle, TreeBuilder,
   fontique::{Blob, FallbackKey, FontInfoOverride, Script},
 };
 use swash::{
-  FontRef,
+  FontRef, Setting,
   scale::{ScaleContext, image::Image, outline::Outline},
 };
 
-use crate::layout::style::Color;
+use crate::layout::inline::{InlineBrush, InlineLayout};
 
 /// Represents a resolved glyph that can be either a bitmap image or an outline
 #[derive(Clone)]
@@ -36,7 +36,7 @@ pub struct GlyphCacheKey {
   /// Font identifier
   pub font_id: u32,
   /// Glyph identifier
-  pub glyph_id: u16,
+  pub glyph_id: u32,
   /// Font size (quantized to reduce cache fragmentation)
   pub font_size: u16,
   /// Hash of font variations
@@ -158,7 +158,7 @@ fn guess_font_format(source: &[u8]) -> Result<FontFormat, FontError> {
 
 /// A context for managing fonts in the rendering system.
 pub struct FontContext {
-  layout: Mutex<(parley::FontContext, LayoutContext<Color>)>,
+  layout: Mutex<(parley::FontContext, LayoutContext<InlineBrush>)>,
   scale_cache: Mutex<FontScaleCache>,
 }
 
@@ -170,19 +170,17 @@ impl Default for FontContext {
 
 impl FontContext {
   /// Generate a cache key for glyph resolution
-  fn create_cache_key(&self, run: &Run<'_, Color>, glyph_id: u16) -> GlyphCacheKey {
+  fn create_cache_key(&self, run: &Run<'_, InlineBrush>, glyph_id: u32) -> GlyphCacheKey {
     let font = run.font();
     let synthesis = run.synthesis();
-    let variations = synthesis.variations();
+    let variations = synthesis.variation_settings();
 
     let mut variations_hash = 0u64;
-    for variation in variations {
+    for (tag, value) in variations {
       variations_hash = variations_hash
         .wrapping_mul(31)
-        .wrapping_add(variation.tag as u64);
-      variations_hash = variations_hash
-        .wrapping_mul(31)
-        .wrapping_add(variation.value.to_bits() as u64);
+        .wrapping_add(u32::from_be_bytes(tag.to_be_bytes()) as u64);
+      variations_hash = variations_hash.wrapping_mul(31).wrapping_add(*value as u64);
     }
 
     GlyphCacheKey {
@@ -197,11 +195,11 @@ impl FontContext {
   /// Returns a HashMap of glyph_id -> CachedGlyph for efficient batch processing
   pub fn get_or_resolve_glyphs(
     &self,
-    run: &Run<'_, Color>,
-    glyph_ids: impl Iterator<Item = u16> + Clone,
-  ) -> HashMap<u16, CachedGlyph> {
+    run: &Run<'_, InlineBrush>,
+    glyph_ids: impl Iterator<Item = u32> + Clone,
+  ) -> HashMap<u32, CachedGlyph> {
     // Collect unique glyph IDs to avoid duplicate work
-    let unique_glyph_ids: HashSet<u16> = glyph_ids.collect();
+    let unique_glyph_ids: HashSet<u32> = glyph_ids.collect();
 
     // Lock both scale and cache together for optimal performance
     let mut scale_cache = self.scale_cache.lock().unwrap();
@@ -227,18 +225,31 @@ impl FontContext {
         .builder(font_ref)
         .size(run.font_size())
         .hint(true)
-        .variations(run.synthesis().variations().iter().copied())
+        .variations(
+          run
+            .synthesis()
+            .variation_settings()
+            .iter()
+            .map(|(tag, value)| Setting {
+              tag: u32::from_be_bytes(tag.to_be_bytes()),
+              value: *value,
+            }),
+        )
         .build();
 
       let resolved = scaler
-        .scale_color_bitmap(glyph_id, swash::scale::StrikeWith::BestFit)
+        .scale_color_bitmap(glyph_id as u16, swash::scale::StrikeWith::BestFit)
         .map(ResolvedGlyph::Image)
         .or_else(|| {
           scaler
-            .scale_color_outline(glyph_id)
+            .scale_color_outline(glyph_id as u16)
             .map(ResolvedGlyph::Outline)
         })
-        .or_else(|| scaler.scale_outline(glyph_id).map(ResolvedGlyph::Outline));
+        .or_else(|| {
+          scaler
+            .scale_outline(glyph_id as u16)
+            .map(ResolvedGlyph::Outline)
+        });
 
       // Cache and return the result if we got one
       if let Some(glyph) = resolved {
@@ -254,7 +265,11 @@ impl FontContext {
   }
 
   /// Get or resolve a single glyph using the cache (backward compatibility)
-  pub fn get_or_resolve_glyph(&self, run: &Run<'_, Color>, glyph_id: u16) -> Option<CachedGlyph> {
+  pub fn get_or_resolve_glyph(
+    &self,
+    run: &Run<'_, InlineBrush>,
+    glyph_id: u32,
+  ) -> Option<CachedGlyph> {
     self
       .get_or_resolve_glyphs(run, std::iter::once(glyph_id))
       .into_iter()
@@ -263,11 +278,11 @@ impl FontContext {
   }
 
   /// Create an inline layout with the given root style and function
-  pub fn create_inline_layout(
+  pub fn tree_builder(
     &self,
-    root_style: TextStyle<'_, Color>,
-    func: impl FnOnce(&mut TreeBuilder<'_, Color>),
-  ) -> (Layout<Color>, String) {
+    root_style: TextStyle<'_, InlineBrush>,
+    func: impl FnOnce(&mut TreeBuilder<'_, InlineBrush>),
+  ) -> (InlineLayout, String) {
     let mut lock = self.layout.lock().unwrap();
     let (fcx, lcx) = &mut *lock;
 
