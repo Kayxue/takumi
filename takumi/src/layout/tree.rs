@@ -29,7 +29,7 @@ impl<'g, N: Node<N>> NodeTree<'g, N> {
       && self
         .children
         .as_ref()
-        .is_some_and(|children| children.iter().any(NodeTree::is_inline))
+        .is_some_and(|children| !children.is_empty() && children.iter().all(NodeTree::is_inline))
   }
 
   pub fn from_node(parent_context: &RenderContext<'g>, node: N) -> Self {
@@ -90,7 +90,7 @@ impl<'g, N: Node<N>> NodeTree<'g, N> {
 
     let has_inline = children.iter().any(NodeTree::is_inline);
     let has_block = children.iter().any(|child| !child.is_inline());
-    let needs_anonymous_boxes = context.style.display == Display::Block && has_inline && has_block;
+    let needs_anonymous_boxes = !context.style.display.is_inline() && has_inline && has_block;
 
     if !needs_anonymous_boxes {
       return Self {
@@ -112,35 +112,27 @@ impl<'g, N: Node<N>> NodeTree<'g, N> {
     };
 
     for item in children {
-      if !item.is_inline() {
-        if !inline_group.is_empty() {
-          final_children.push(NodeTree {
-            context: RenderContext {
-              style: anonymous_box_style.clone(),
-              ..context
-            },
-            children: Some(take(&mut inline_group)),
-            node: None,
-          });
-        }
-
-        final_children.push(item);
+      if item.is_inline() {
+        inline_group.push(item);
         continue;
       }
 
-      inline_group.push(item);
+      flush_inline_group(
+        &mut inline_group,
+        &mut final_children,
+        &anonymous_box_style,
+        &context,
+      );
+
+      final_children.push(item);
     }
 
-    if !inline_group.is_empty() {
-      final_children.push(NodeTree {
-        context: RenderContext {
-          style: anonymous_box_style,
-          ..context
-        },
-        children: Some(inline_group),
-        node: None,
-      });
-    }
+    flush_inline_group(
+      &mut inline_group,
+      &mut final_children,
+      &anonymous_box_style,
+      &context,
+    );
 
     Self {
       context,
@@ -486,5 +478,31 @@ impl<'g, N: Node<N>> Iterator for InlineItemIterator<'g, N> {
         }
       }
     }
+  }
+}
+
+fn flush_inline_group<'g, N: Node<N>>(
+  inline_group: &mut Vec<NodeTree<'g, N>>,
+  final_children: &mut Vec<NodeTree<'g, N>>,
+  anonymous_box_style: &InheritedStyle,
+  context: &RenderContext<'g>,
+) {
+  if inline_group.is_empty() {
+    return;
+  }
+
+  if inline_group.len() == 1 {
+    let mut child = take(inline_group).into_iter().next().unwrap();
+    child.context.style.display.blockify();
+    final_children.push(child);
+  } else {
+    final_children.push(NodeTree {
+      context: RenderContext {
+        style: anonymous_box_style.clone(),
+        ..*context
+      },
+      children: Some(take(inline_group)),
+      node: None,
+    });
   }
 }

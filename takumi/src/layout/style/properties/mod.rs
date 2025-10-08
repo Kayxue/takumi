@@ -303,9 +303,10 @@ impl Display {
 impl From<Display> for taffy::Display {
   fn from(value: Display) -> Self {
     match value {
-      Display::Flex | Display::Inline => taffy::Display::Flex,
+      Display::Flex => taffy::Display::Flex,
       Display::Grid => taffy::Display::Grid,
       Display::Block => taffy::Display::Block,
+      Display::Inline => unreachable!("Inline node should not be inserted into taffy context"),
     }
   }
 }

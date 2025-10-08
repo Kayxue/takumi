@@ -138,8 +138,6 @@ fn create_text_only_layout(
       font_style.ellipsis_char(),
     );
 
-    println!("Truncated text: {}", truncated);
-
     return create_text_only_layout(
       &truncated, context, max_width, max_height, font_style, false,
     );
