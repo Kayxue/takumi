@@ -473,6 +473,8 @@ fn fixtures_text_inline() {
         .width(Percentage(100.0))
         .display(Display::Block)
         .justify_content(JustifyContent::Center)
+        .line_clamp(CssOption::some(3.into()))
+        .text_overflow(TextOverflow::Ellipsis)
         .font_size(CssOption::some(Px(48.0)))
         .build()
         .unwrap(),

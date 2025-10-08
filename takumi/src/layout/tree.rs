@@ -1,13 +1,14 @@
-use std::mem::take;
+use std::{borrow::Cow, mem::take};
 
 use parley::InlineBox;
 use taffy::{AvailableSpace, NodeId, Size, TaffyTree};
 
 use crate::{
+  GlobalContext,
   layout::{
     inline::{InlineContentKind, InlineItem, InlineLayout, break_lines, create_inline_constraint},
     node::Node,
-    style::{Display, InheritedStyle, TextOverflow},
+    style::{Display, InheritedStyle, SizedFontStyle, TextOverflow},
   },
   rendering::{MaxHeight, RenderContext},
 };
@@ -259,6 +260,8 @@ impl<'g, N: Node<N>> NodeTree<'g, N> {
   pub(crate) fn create_inline_layout(&self, size: Size<f32>) -> (InlineLayout, String, Vec<&N>) {
     let font_style = self.context.style.to_sized_font_style(&self.context);
     let mut boxes = Vec::new();
+    let mut node_refs = Vec::new();
+    let mut text_spans = Vec::new();
 
     let (mut layout, text) =
       self
@@ -271,11 +274,15 @@ impl<'g, N: Node<N>> NodeTree<'g, N> {
           for (item, context) in self.inline_items_iter() {
             match item {
               InlineItem::Text(text) => {
-                builder.push_style_span((&context.style.to_sized_font_style(context)).into());
+                let text_style = context.style.to_sized_font_style(context);
+
+                builder.push_style_span((&text_style).into());
                 builder.push_text(&text);
                 builder.pop_style_span();
 
                 index_pos += text.len();
+
+                text_spans.push((text, text_style));
               }
               InlineItem::Node(node) => {
                 let size = node.measure(
@@ -287,14 +294,17 @@ impl<'g, N: Node<N>> NodeTree<'g, N> {
                   Size::NONE,
                 );
 
-                builder.push_inline_box(InlineBox {
+                let inline_box = InlineBox {
                   index: index_pos,
                   id: boxes.len() as u64,
                   width: size.width,
                   height: size.height,
-                });
+                };
 
-                boxes.push(node);
+                builder.push_inline_box(inline_box.clone());
+
+                boxes.push((node, inline_box));
+                node_refs.push(node);
               }
             }
           }
@@ -308,11 +318,39 @@ impl<'g, N: Node<N>> NodeTree<'g, N> {
     break_lines(&mut layout, size.width, max_height);
 
     let should_handle_ellipsis = font_style.parent.text_overflow == TextOverflow::Ellipsis;
-    let is_overflowing = should_handle_ellipsis
-      && layout
-        .lines()
-        .last()
-        .is_some_and(|line| line.text_range().end < text.len());
+
+    if let Some(last_line) = layout.lines().last() {
+      let is_overflowing =
+        last_line.text_range().end < text.len() || layout.inline_boxes().len() < boxes.len();
+
+      if should_handle_ellipsis && is_overflowing {
+        boxes.truncate(layout.inline_boxes().len());
+
+        let mut text_length = 0;
+        let mut spans_length = 0;
+
+        for (text, _) in &text_spans {
+          text_length += text.len();
+
+          if text_length >= last_line.text_range().end {
+            break;
+          }
+
+          spans_length += text.len();
+        }
+
+        text_spans.truncate(spans_length);
+
+        layout = create_ellipsis_layout(
+          self.context.global,
+          &mut boxes,
+          &mut text_spans,
+          &font_style,
+          size.width,
+          max_height,
+        );
+      }
+    }
 
     layout.align(
       Some(size.width),
@@ -320,7 +358,7 @@ impl<'g, N: Node<N>> NodeTree<'g, N> {
       Default::default(),
     );
 
-    (layout, text, boxes)
+    (layout, text, node_refs)
   }
 
   fn inline_items_iter(&self) -> InlineItemIterator<'_, N> {
@@ -331,6 +369,70 @@ impl<'g, N: Node<N>> NodeTree<'g, N> {
     InlineItemIterator {
       stack: vec![(self, 0)], // (node, depth)
       current_node_content: None,
+    }
+  }
+}
+
+fn create_ellipsis_layout<N: Node<N>>(
+  global: &GlobalContext,
+  boxes: &mut Vec<(&N, InlineBox)>,
+  text_spans: &mut Vec<(Cow<str>, SizedFontStyle)>,
+  root_font_style: &SizedFontStyle,
+  max_width: f32,
+  max_height: Option<MaxHeight>,
+) -> InlineLayout {
+  loop {
+    let (mut layout, text) = global
+      .font_context
+      .tree_builder(root_font_style.into(), |builder| {
+        for (text, style) in text_spans.iter() {
+          builder.push_style_span((style).into());
+          builder.push_text(text);
+          builder.pop_style_span();
+        }
+
+        for (_, inline_box) in boxes.iter() {
+          builder.push_inline_box(inline_box.clone());
+        }
+
+        builder.push_text(root_font_style.ellipsis_char());
+      });
+
+    break_lines(&mut layout, max_width, max_height);
+
+    if text_spans.is_empty() && boxes.is_empty() {
+      return layout;
+    }
+
+    if let Some(last_line) = layout.lines().last()
+      && last_line.text_range().end == text.len()
+    {
+      return layout;
+    }
+
+    if boxes
+      .last()
+      .is_some_and(|(_, inline_box)| inline_box.index == text.len())
+    {
+      boxes.pop();
+      continue;
+    }
+
+    let Some((last_span, _)) = text_spans.last_mut() else {
+      return layout;
+    };
+
+    if let Some((char_idx, _)) = last_span.char_indices().last() {
+      match last_span {
+        Cow::Borrowed(span) => {
+          *last_span = Cow::Borrowed(&span[..char_idx]);
+        }
+        Cow::Owned(span) => {
+          span.truncate(char_idx);
+        }
+      }
+    } else {
+      text_spans.pop();
     }
   }
 }

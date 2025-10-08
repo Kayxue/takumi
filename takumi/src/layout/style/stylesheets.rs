@@ -166,6 +166,7 @@ define_style!(
 );
 
 /// Sized font style with resolved font size and line height.
+#[derive(Clone)]
 pub(crate) struct SizedFontStyle<'s> {
   pub parent: &'s InheritedStyle,
   pub font_size: f32,
