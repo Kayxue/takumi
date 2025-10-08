@@ -8,12 +8,13 @@ use taffy::{AvailableSpace, Layout, Size};
 
 use crate::{
   layout::{
-    inline::{InlineContentKind, break_lines, create_inline_constraint},
+    inline::{InlineBrush, InlineContentKind, break_lines, create_inline_constraint},
     node::Node,
-    style::Style,
+    style::{SizedFontStyle, Style, TextOverflow},
   },
   rendering::{
     Canvas, MaxHeight, RenderContext, apply_text_transform, inline_drawing::draw_inline_layout,
+    make_ellipsis_text,
   },
 };
 
@@ -42,31 +43,24 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for TextNode {
 
   fn draw_content(&self, context: &RenderContext, canvas: &Canvas, layout: Layout) {
     let font_style = context.style.to_sized_font_style(context);
-
-    let (mut inline_layout, _) =
-      context
-        .global
-        .font_context
-        .tree_builder((&font_style).into(), |builder| {
-          builder.push_text(&apply_text_transform(
-            &self.text,
-            context.style.text_transform,
-          ));
-        });
-
     let size = layout.content_box_size();
+
+    if font_style.font_size == 0.0 {
+      return;
+    }
 
     let max_height = match font_style.parent.line_clamp.as_ref() {
       Some(clamp) => Some(MaxHeight::Both(size.height, clamp.count)),
       None => Some(MaxHeight::Absolute(size.height)),
     };
 
-    break_lines(&mut inline_layout, size.width, max_height);
-
-    inline_layout.align(
-      Some(size.width),
-      context.style.text_align.into(),
-      Default::default(),
+    let inline_layout = create_text_only_layout(
+      &self.text,
+      context,
+      size.width,
+      max_height,
+      &font_style,
+      false,
     );
 
     draw_inline_layout(context, canvas, layout, inline_layout, &font_style);
@@ -83,18 +77,14 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for TextNode {
 
     let font_style = context.style.to_sized_font_style(context);
 
-    let (mut layout, _) =
-      context
-        .global
-        .font_context
-        .tree_builder((&font_style).into(), |builder| {
-          builder.push_text(&apply_text_transform(
-            &self.text,
-            context.style.text_transform,
-          ));
-        });
-
-    break_lines(&mut layout, max_width, max_height);
+    let layout = create_text_only_layout(
+      &self.text,
+      context,
+      max_width,
+      max_height,
+      &font_style,
+      true,
+    );
 
     let (max_run_width, total_height) =
       layout
@@ -112,4 +102,59 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for TextNode {
       height: total_height.ceil(),
     }
   }
+}
+
+fn create_text_only_layout(
+  text: &str,
+  context: &RenderContext,
+  max_width: f32,
+  max_height: Option<MaxHeight>,
+  font_style: &SizedFontStyle<'_>,
+  measure_only: bool,
+) -> parley::Layout<InlineBrush> {
+  let (mut inline_layout, text) =
+    context
+      .global
+      .font_context
+      .tree_builder(font_style.into(), |builder| {
+        builder.push_text(&apply_text_transform(text, context.style.text_transform));
+      });
+
+  break_lines(&mut inline_layout, max_width, max_height);
+
+  if measure_only {
+    return inline_layout;
+  }
+
+  let Some(last_line) = inline_layout.lines().last() else {
+    return inline_layout;
+  };
+
+  let should_handle_ellipsis = font_style.parent.text_overflow == TextOverflow::Ellipsis
+    && last_line.text_range().end < text.len();
+
+  if should_handle_ellipsis {
+    let truncated = make_ellipsis_text(
+      &text,
+      last_line.text_range(),
+      font_style,
+      context.global,
+      max_width,
+      font_style.ellipsis_char(),
+    );
+
+    println!("Truncated text: {}", truncated);
+
+    return create_text_only_layout(
+      &truncated, context, max_width, max_height, font_style, false,
+    );
+  }
+
+  inline_layout.align(
+    Some(max_width),
+    context.style.text_align.into(),
+    Default::default(),
+  );
+
+  inline_layout
 }

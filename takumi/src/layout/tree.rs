@@ -7,7 +7,7 @@ use crate::{
   layout::{
     inline::{InlineContentKind, InlineItem, InlineLayout, break_lines, create_inline_constraint},
     node::Node,
-    style::{Display, InheritedStyle},
+    style::{Display, InheritedStyle, TextOverflow},
   },
   rendering::{MaxHeight, RenderContext},
 };
@@ -306,6 +306,13 @@ impl<'g, N: Node<N>> NodeTree<'g, N> {
     };
 
     break_lines(&mut layout, size.width, max_height);
+
+    let should_handle_ellipsis = font_style.parent.text_overflow == TextOverflow::Ellipsis;
+    let is_overflowing = should_handle_ellipsis
+      && layout
+        .lines()
+        .last()
+        .is_some_and(|line| line.text_range().end < text.len());
 
     layout.align(
       Some(size.width),

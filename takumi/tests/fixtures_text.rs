@@ -4,7 +4,7 @@ use takumi::layout::{
   style::{
     BackgroundImagesValue, BackgroundPositionsValue, BackgroundRepeatsValue, BackgroundSizesValue,
     Color, ColorInput, CssOption, Display, FlexWrap, FontWeight, Gap, JustifyContent,
-    LengthUnit::{Em, Percentage, Px},
+    LengthUnit::{Percentage, Px},
     LineHeight, StyleBuilder, TextAlign, TextOverflow, TextShadow, TextShadows, TextTransform,
   },
 };
@@ -209,7 +209,7 @@ Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliqu
     style: Some(
       StyleBuilder::default()
         .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
-        .font_size(CssOption::some(Px(18.0)))
+        .font_size(CssOption::some(Px(48.0)))
         .line_height(LineHeight(Px(26.0)))
         .text_align(TextAlign::Justify)
         .text_overflow(TextOverflow::Clip)
@@ -224,17 +224,14 @@ Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliqu
 
 #[test]
 fn fixtures_text_ellipsis_line_clamp_2() {
-  let long_text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. \
-Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. \
-Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.";
+  let long_text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.";
 
   let text = TextNode {
     style: Some(
       StyleBuilder::default()
-        .width(Em(12.0))
+        .width(Percentage(100.0))
         .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
-        .font_size(CssOption::some(Px(18.0)))
-        .line_height(LineHeight(Px(24.0)))
+        .font_size(CssOption::some(Px(48.0)))
         .text_overflow(TextOverflow::Ellipsis)
         .line_clamp(CssOption::some(2.into()))
         .build()

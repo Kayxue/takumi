@@ -1,5 +1,5 @@
-use std::borrow::Cow;
 use std::sync::Arc;
+use std::{borrow::Cow, ops::Range};
 
 use image::RgbaImage;
 use parley::{Glyph, GlyphRun};
@@ -251,16 +251,15 @@ pub(crate) fn apply_text_transform<'a>(input: &'a str, transform: TextTransform)
 }
 
 /// Construct a new string with an ellipsis appended such that it fits within `max_width`.
-fn make_ellipsis_text<'s>(
+pub(crate) fn make_ellipsis_text<'s>(
   render_text: &'s str,
-  start_index: usize,
-  end_index: usize,
+  text_range: Range<usize>,
   font_style: &SizedFontStyle,
   global: &GlobalContext,
   max_width: f32,
   ellipsis_char: &'s str,
 ) -> Cow<'s, str> {
-  let mut truncated_text = &render_text[start_index..end_index];
+  let mut truncated_text = &render_text[text_range.start..text_range.end];
 
   while !truncated_text.is_empty() {
     // try to calculate the last line only with the truncated text and ellipsis character
@@ -269,17 +268,17 @@ fn make_ellipsis_text<'s>(
     text_with_ellipsis.push_str(truncated_text);
     text_with_ellipsis.push_str(ellipsis_char);
 
-    let (mut buffer, _) = global
+    let (mut inline_layout, _) = global
       .font_context
       .tree_builder(font_style.into(), |builder| {
-        builder.push_text(render_text);
+        builder.push_text(&text_with_ellipsis);
       });
 
-    break_lines(&mut buffer, max_width, None);
+    break_lines(&mut inline_layout, max_width, Some(MaxHeight::Lines(2)));
 
     // if the text fits, return the text with ellipsis character
-    if buffer.lines().count() == 1 {
-      let before_last_line = &render_text[..start_index];
+    if inline_layout.lines().count() == 1 {
+      let before_last_line = &render_text[..text_range.start];
 
       // build the text with ellipsis character
       let mut text_with_ellipsis =
