@@ -32,6 +32,6 @@
     "simple-git-hooks"
   ],
   "simple-git-hooks": {
-    "pre-commit": "bunx biome check --write --staged && cargo fmt --all -- --check && cargo check && git update-index --again"
+    "pre-commit": "bunx biome check --write --staged --no-errors-on-unmatched && cargo fmt --all -- --check && cargo check && git update-index --again"
   }
 }
