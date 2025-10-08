@@ -1,9 +1,13 @@
 ---
-title: Load Image
-description: How to load and render images in Takumi
+title: Image Loading and Persisting
+description: How image loading and persisting are handled in Takumi
 ---
 
-Image Node can load images via `src` property, it can be a Data URI, SVG string, or [predefined persistent image source](#persistent-image-store).
+Image Node can load images via `src` property, it can be a [Data URI](https://developer.mozilla.org/en-US/docs/Web/URI/Reference/Schemes/data#syntax), SVG string, or [predefined persistent image source](#persistent-image-store).
+
+<Callout>
+[The `fromJsx()` helper function](/docs/deep-dives/from-jsx-helper) will serialize `<svg>` node for you, so you don't have to make other changes.
+</Callout>
 
 ## Supported Formats
 
@@ -21,16 +25,60 @@ The storage is basically a key-value store, so you can name your keys with any i
 
 This is particularly useful for frequently used images, as it avoids the overhead of fetching them repeatedly.
 
-## Image Source Compatibility
+### Example
 
-The `src` property of an image node can accept a URL, file path, or a data URI. 
+<Tabs items={["@takumi-rs/core", "@takumi-rs/wasm"]}>
+<Tab title="@takumi-rs/core">
+```typescript
+import { readFile } from "node:fs/promises";
+import { Renderer } from "@takumi-rs/core";
 
-However, support for these sources varies depending on the Takumi package you are using. This is primarily to minimize binary size for embedded Takumi versions, as certain features are disabled by default.
+const renderer = new Renderer({
+  persistentImages: [
+    {
+      src: "whatever-name-you-like.png",
+      data: await readFile("assets/images/yeecord.png")
+    }
+  ]
+});
 
-The table below outlines the compatibility for each package:
+// Use the renderer to render a node that references the persistent image
+const node = {
+  type: "image",
+  src: "whatever-name-you-like.png",
+  width: 800,
+  height: 400
+};
 
-| Type / Package   | URL (Remote)                               | Persistent Storage                               | Data URI (Base64 Encoded) |
-| :--------------- | :----------------------------------------- | :----------------------------------------------- | :------------------------ |
-| `@takumi-rs/core`| ❌ (Requires manual fetching, then pass as Data URI) | ✅                                               | ✅                        |
-| `@takumi-rs/wasm`| ❌ (Requires manual fetching, then pass as Data URI) | ✅                                               | ✅                        |
-| `takumi-server`  | ✅ (Handles fetching internally)           | ✅                                               | ✅                        |
+const output = await renderer.render(node);
+```
+</Tab>
+<Tab title="@takumi-rs/wasm">
+```typescript
+import initTakumi, { Renderer } from "@takumi-rs/wasm";
+
+// In a WASM environment you typically fetch the binary data yourself
+const response = await fetch("/assets/images/yeecord.png");
+const arrayBuffer = await response.arrayBuffer();
+
+await initTakumi();
+const renderer = new Renderer({
+  persistentImages: [
+    {
+      src: "whatever-name-you-like.png",
+      data: new Uint8Array(arrayBuffer)
+    }
+  ]
+});
+
+const node = {
+  type: "image",
+  src: "whatever-name-you-like.png",
+  width: 800,
+  height: 400
+};
+
+const output = await renderer.render(node);
+```
+</Tab>
+</Tabs>
