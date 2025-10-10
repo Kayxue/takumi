@@ -4,6 +4,7 @@
 //! fast image blending and pixel manipulation operations.
 
 use std::{
+  borrow::Cow,
   fmt::Display,
   sync::{
     Arc,
@@ -21,7 +22,7 @@ use zeno::{Mask, Placement};
 use crate::{
   layout::{
     Viewport,
-    style::{Affine, Angle, Color, ImageScalingAlgorithm},
+    style::{Affine, Angle, Color, Filters, ImageScalingAlgorithm},
   },
   rendering::BorderProperties,
 };
@@ -47,6 +48,7 @@ impl Canvas {
     border: BorderProperties,
     transform: Affine,
     algorithm: ImageScalingAlgorithm,
+    filters: Option<Filters>,
   ) {
     if image.is_empty() {
       return;
@@ -58,6 +60,7 @@ impl Canvas {
       border,
       transform,
       algorithm,
+      filters,
     });
   }
 
@@ -138,6 +141,8 @@ pub(crate) enum DrawCommand {
     transform: Affine,
     /// The algorithm to use when transforming the image
     algorithm: ImageScalingAlgorithm,
+    /// Filters to apply when overlaying
+    filters: Option<Filters>,
   },
   /// Draw a mask with the specified color onto the canvas.
   DrawMask {
@@ -174,9 +179,10 @@ impl Display for DrawCommand {
         border: radius,
         transform,
         algorithm,
+        ref filters,
       } => write!(
         f,
-        "OverlayImage(width={}, height={}, offset={offset:?}, radius={radius:?}, transform={}, algorithm={algorithm:?})",
+        "OverlayImage(width={}, height={}, offset={offset:?}, radius={radius:?}, transform={}, algorithm={algorithm:?}), filters={filters:?}",
         image.width(),
         image.height(),
         transform.decompose()
@@ -212,18 +218,24 @@ impl Display for DrawCommand {
 
 impl DrawCommand {
   /// Executes the drawing command on the provided canvas.
-  ///
-  /// # Arguments
-  /// * `canvas` - The canvas to draw on
-  pub fn draw(&self, canvas: &mut RgbaImage) {
-    match *self {
+  fn draw(self, canvas: &mut RgbaImage) {
+    match self {
       DrawCommand::OverlayImage {
         ref image,
         offset,
         border: radius,
         transform,
         algorithm,
-      } => overlay_image(canvas, image, offset, radius, transform, algorithm),
+        ref filters,
+      } => overlay_image(
+        canvas,
+        image,
+        offset,
+        radius,
+        transform,
+        algorithm,
+        filters.as_ref(),
+      ),
       DrawCommand::FillColor {
         offset,
         size,
@@ -245,7 +257,7 @@ impl DrawCommand {
 ///
 /// If the color is fully transparent (alpha = 0), no operation is performed.
 /// Otherwise, the pixel is blended with the existing canvas pixel using alpha blending.
-pub fn draw_pixel(canvas: &mut RgbaImage, x: u32, y: u32, color: Rgba<u8>) {
+pub(crate) fn draw_pixel(canvas: &mut RgbaImage, x: u32, y: u32, color: Rgba<u8>) {
   if color.0[3] == 0 {
     return;
   }
@@ -388,10 +400,23 @@ pub(crate) fn overlay_image(
   border: BorderProperties,
   transform: Affine,
   algorithm: ImageScalingAlgorithm,
+  filters: Option<&Filters>,
 ) {
   let transform_part = transform.decompose();
   let can_direct_draw =
     !transform_part.is_rotated() && !transform_part.is_scaled() && border.is_zero();
+
+  let mut image = Cow::Borrowed(image);
+
+  if let Some(filters) = filters
+    && !filters.0.is_empty()
+  {
+    let mut owned_image = image.into_owned();
+
+    filters.apply_to(&mut owned_image);
+
+    image = Cow::Owned(owned_image);
+  }
 
   if can_direct_draw {
     let transformed_offset = Point {
@@ -450,8 +475,8 @@ pub(crate) fn overlay_image(
       } * inverse;
 
       let sampled_pixel = match algorithm {
-        ImageScalingAlgorithm::Pixelated => interpolate_nearest(image, point.x, point.y),
-        _ => interpolate_bilinear(image, point.x, point.y),
+        ImageScalingAlgorithm::Pixelated => interpolate_nearest(&*image, point.x, point.y),
+        _ => interpolate_bilinear(&*image, point.x, point.y),
       };
 
       if let Some(mut pixel) = sampled_pixel {
