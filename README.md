@@ -29,9 +29,13 @@ For newcomers, check out the [Overview](https://takumi.kane.tw/docs) page for in
 
   ![Takumi OG Image](./example/twitter-images/output/og-image.png)
 
+- X Post Image clone in embed [(source)](./example/twitter-images/components/x-post-image.tsx).
+
+  ![X OG Image](./example/twitter-images/output/x-post-image.png)
+
 - [shiki-image](https://github.com/pi0/shiki-image) Convert code snippets into images.
 
-  ![Shiki Image Example](https://github.com/pi0/shiki-image/blob/7ec449c53c20ce5d3260b76cb4bf2cb32e3938e3/test/.snapshot/image.webp)
+  ![Shiki Image Example](https://github.com/pi0/shiki-image/blob/main/test/.snapshot/image.webp)
 
 - [Takumi Playground](https://takumi-playground.kapadiya.net/) In‑browser playground for designing and rendering Open Graph style images.
 
