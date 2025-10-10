@@ -16,7 +16,7 @@ fn test_style_filter_on_image_node() {
     "brightness(150%)",
     "invert(50%)",
     "hue-rotate(90deg)",
-    "saturate(0.3)"
+    "saturate(0.3)",
   ];
 
   let container = ContainerNode {
