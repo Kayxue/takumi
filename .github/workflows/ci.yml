@@ -52,7 +52,7 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Run tests
-        run: cargo test
+        run: CARGO_PROFILE_TEST_STRIP="debuginfo" cargo test
 
       - name: Setup Biome
         uses: biomejs/setup-biome@v2
