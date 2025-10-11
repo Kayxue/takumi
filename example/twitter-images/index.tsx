@@ -34,7 +34,7 @@ async function render(module: Component) {
 
   const end = performance.now();
 
-  await write(join("output", `${module.name}.png`), buffer);
+  await write(join("output", `${module.name}.png`), buffer.buffer);
 
   console.log(`Rendered ${module.name} in ${Math.round(end - start)}ms`);
 }
