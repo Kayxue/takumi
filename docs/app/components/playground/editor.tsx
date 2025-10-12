@@ -1,15 +1,15 @@
 import { Editor } from "@monaco-editor/react";
 import { shikiToMonaco } from "@shikijs/monaco";
 import { useMemo, useRef } from "react";
-import { createJavaScriptRegexEngine } from "shiki";
 import { createHighlighterCore } from "shiki/core";
+import { createOnigurumaEngine } from "shiki/engine-oniguruma.mjs";
 import reactTypings from "../../../node_modules/@types/react/index.d.ts?raw";
 import cssTypings from "../../../node_modules/csstype/index.d.ts?raw";
 
 const highlighter = await createHighlighterCore({
   themes: [import("shiki/themes/github-dark-default.mjs")],
   langs: [import("shiki/langs/tsx.mjs")],
-  engine: createJavaScriptRegexEngine(),
+  engine: createOnigurumaEngine(import("shiki/wasm")),
   langAlias: {
     typescript: "tsx",
   },
