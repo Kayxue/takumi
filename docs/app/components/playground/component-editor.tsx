@@ -3,8 +3,11 @@ import { shikiToMonaco } from "@shikijs/monaco";
 import { useMemo, useRef } from "react";
 import { createHighlighterCore } from "shiki/core";
 import { createOnigurumaEngine } from "shiki/engine-oniguruma.mjs";
+import takumiTypings from "../../../node_modules/@takumi-rs/wasm/pkg/takumi_wasm.d.ts?raw";
 import reactTypings from "../../../node_modules/@types/react/index.d.ts?raw";
+import reactJsxRuntimeTypings from "../../../node_modules/@types/react/jsx-runtime.d.ts?raw";
 import cssTypings from "../../../node_modules/csstype/index.d.ts?raw";
+import playgroundOptionsTypings from "../../playground/options.ts?raw";
 
 const highlighter = await createHighlighterCore({
   themes: [import("shiki/themes/github-dark-default.mjs")],
@@ -33,24 +36,35 @@ export function ComponentEditor({
             allowNonTsExtensions: true,
             moduleResolution:
               monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-            module: monaco.languages.typescript.ModuleKind.CommonJS,
-            noEmit: true,
-            esModuleInterop: true,
-            jsx: monaco.languages.typescript.JsxEmit.React,
+            module: monaco.languages.typescript.ModuleKind.ESNext,
             reactNamespace: "React",
-            allowJs: true,
+            esModuleInterop: true,
+            jsx: monaco.languages.typescript.JsxEmit.ReactJSX,
             typeRoots: ["node_modules/@types"],
           });
 
-          monaco.languages.typescript.typescriptDefaults.addExtraLib(
-            reactTypings,
-            "file:///node_modules/react/index.d.ts",
-          );
-
-          monaco.languages.typescript.typescriptDefaults.addExtraLib(
-            cssTypings,
-            "file:///node_modules/csstype/index.d.ts",
-          );
+          monaco.languages.typescript.typescriptDefaults.setExtraLibs([
+            {
+              content: reactTypings,
+              filePath: "file:///node_modules/react/index.d.ts",
+            },
+            {
+              content: reactJsxRuntimeTypings,
+              filePath: "file:///node_modules/react/jsx-runtime.d.ts",
+            },
+            {
+              content: cssTypings,
+              filePath: "file:///node_modules/csstype/index.d.ts",
+            },
+            {
+              content: takumiTypings,
+              filePath: "file:///node_modules/@takumi-rs/wasm/index.d.ts",
+            },
+            {
+              content: playgroundOptionsTypings,
+              filePath: "file:///options.d.ts",
+            },
+          ]);
 
           shikiToMonaco(highlighter, monaco);
         }}
@@ -58,6 +72,7 @@ export function ComponentEditor({
         height="100%"
         language="typescript"
         theme="github-dark-default"
+        path="main.tsx"
         options={{
           wordWrap: "on",
           tabSize: 2,
@@ -71,6 +86,9 @@ export function ComponentEditor({
             useShadows: false,
           },
           fontSize: 16,
+          padding: {
+            top: 8,
+          },
           scrollBeyondLastLine: false,
         }}
         loading="Launching editor..."

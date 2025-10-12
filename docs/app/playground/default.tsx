@@ -1,24 +1,38 @@
-import DocsTemplateV1 from "@takumi-rs/template/docs-template-v1";
-
 export default function Image() {
   return (
-    <DocsTemplateV1
-      title="Takumi Playground"
-      description="You can try out and make quick prototypes here."
-      site="Takumi"
-      icon={
-        <div
-          style={{
-            width: "4rem",
-            height: "4rem",
-            borderRadius: "50%",
-            justifyContent: "center",
-            backgroundColor: "red",
-          }}
-        />
-      }
-      primaryColor="red"
-      primaryTextColor="red"
-    />
+    <div
+      style={{
+        justifyContent: "center",
+        alignItems: "center",
+        flexDirection: "column",
+        width: "100%",
+        height: "100%",
+        backgroundColor: "white",
+      }}
+    >
+      <h1
+        style={{
+          fontWeight: 500,
+          fontSize: "4rem",
+        }}
+      >
+        Welcome to Takumi Playground!
+      </h1>
+      <span
+        style={{
+          color: "rgb(0 0 0 60%)",
+          fontWeight: 350,
+          fontSize: "2.5rem",
+        }}
+      >
+        You can try out and experiment with Takumi here.
+      </span>
+    </div>
   );
 }
+
+export const options: PlaygroundOptions = {
+  width: 1200,
+  height: 630,
+  format: "png",
+};

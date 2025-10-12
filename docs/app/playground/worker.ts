@@ -4,8 +4,23 @@ import initWasm, { Renderer } from "@takumi-rs/wasm";
 import wasmUrl from "@takumi-rs/wasm/takumi_wasm_bg.wasm?url";
 import * as React from "react";
 import { transform } from "sucrase";
+import * as z from "zod/mini";
 
 let renderer: Renderer | undefined;
+
+const optionsSchema = z.object({
+  width: z.int().check(z.positive(), z.minimum(1)),
+  height: z.int().check(z.positive(), z.minimum(1)),
+  quality: z.optional(
+    z.int().check(z.positive(), z.minimum(1), z.maximum(100)),
+  ),
+  format: z.enum(["png", "jpeg", "webp"]),
+});
+
+const exportsSchema = z.object({
+  default: z.function(),
+  options: optionsSchema,
+});
 
 initWasm({ module_or_path: wasmUrl }).then(async () => {
   const font = await fetch("/fonts/Geist.woff2").then((r) => r.arrayBuffer());
@@ -27,7 +42,7 @@ function transformCode(code: string) {
   }).code;
 }
 
-function componentFromCode(code: string) {
+function evaluateCodeExports(code: string) {
   const exports = {};
 
   new Function("exports", "require", "React", transformCode(code))(
@@ -36,10 +51,7 @@ function componentFromCode(code: string) {
     React,
   );
 
-  if (!("default" in exports) || typeof exports.default !== "function")
-    throw new Error("Default export should be a React component.");
-
-  return exports.default as React.JSXElementConstructor<unknown>;
+  return exportsSchema.parse(exports);
 }
 
 self.onmessage = async (event: MessageEvent) => {
@@ -47,11 +59,19 @@ self.onmessage = async (event: MessageEvent) => {
 
   if (type === "render" && renderer) {
     try {
-      const component = componentFromCode(code);
-      const node = await fromJsx(React.createElement(component));
+      const { default: component, options } = evaluateCodeExports(code);
+      const node = await fromJsx(
+        React.createElement(component as React.JSXElementConstructor<unknown>),
+      );
 
       const start = performance.now();
-      const dataUrl = renderer.renderAsDataUrl(node, 1200, 630, "png");
+      const dataUrl = renderer.renderAsDataUrl(
+        node,
+        options.width,
+        options.height,
+        options.format,
+        options.quality,
+      );
       const duration = performance.now() - start;
 
       self.postMessage({
@@ -59,6 +79,7 @@ self.onmessage = async (event: MessageEvent) => {
         dataUrl,
         duration,
         node,
+        options,
       });
     } catch (error) {
       self.postMessage({

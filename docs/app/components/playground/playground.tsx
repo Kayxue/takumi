@@ -9,7 +9,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "../ui/resizable";
-import { ComponentEditor } from "./editor";
+import { ComponentEditor } from "./component-editor";
 
 const mobileViewportWidth = 640;
 
@@ -126,7 +126,6 @@ export default function Playground() {
             <ResizablePanel defaultSize={50}>
               <div className="h-full overflow-y-auto p-4">
                 <p className="text-lg py-2 font-medium">Viewport</p>
-                <p>1200 x 630</p>
               </div>
             </ResizablePanel>
           </ResizablePanelGroup>
