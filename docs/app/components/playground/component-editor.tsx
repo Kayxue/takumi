@@ -88,6 +88,7 @@ export function ComponentEditor({
           fontSize: 16,
           padding: {
             top: 8,
+            bottom: 8,
           },
           scrollBeyondLastLine: false,
         }}
