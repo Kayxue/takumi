@@ -14,15 +14,25 @@ export default function Image() {
         style={{
           fontWeight: 500,
           fontSize: "4rem",
+          display: "block",
         }}
       >
-        Welcome to Takumi Playground!
+        Welcome to{" "}
+        <span
+          style={{
+            color: "red",
+          }}
+        >
+          Takumi{" "}
+        </span>
+        Playground!
       </h1>
       <span
         style={{
           color: "rgb(0 0 0 60%)",
           fontWeight: 350,
           fontSize: "2.5rem",
+          display: "block",
         }}
       >
         You can try out and experiment with Takumi here.
