@@ -16,15 +16,17 @@ const exportsSchema = z.object({
   options: optionsSchema,
 });
 
-const [_, normalFont] = await Promise.all([
-  initWasm({ module_or_path: wasmUrl }),
-  fetch("/fonts/Geist.woff2").then((r) => r.arrayBuffer()),
-]);
+(async () => {
+  const [_, normalFont] = await Promise.all([
+    initWasm({ module_or_path: wasmUrl }),
+    fetch("/fonts/Geist.woff2").then((r) => r.arrayBuffer()),
+  ]);
 
-const renderer = new Renderer();
-renderer.loadFont(new Uint8Array(normalFont));
+  const renderer = new Renderer();
+  renderer.loadFont(new Uint8Array(normalFont));
 
-postMessage({ type: "ready" });
+  postMessage({ type: "ready" });
+})();
 
 function require(module: string) {
   if (module === "@takumi-rs/template/docs-template-v1") return DocsTemplateV1;
