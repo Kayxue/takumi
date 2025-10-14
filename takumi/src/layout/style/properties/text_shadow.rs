@@ -95,9 +95,11 @@ impl TryFrom<TextShadowsValue> for TextShadows {
         let mut shadows = SmallVec::new();
 
         loop {
-          let Ok(shadow) = TextShadow::from_css(&mut parser) else {
+          if parser.is_exhausted() {
             break;
-          };
+          }
+
+          let shadow = TextShadow::from_css(&mut parser).map_err(|e| e.to_string())?;
 
           shadows.push(shadow);
 

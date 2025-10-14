@@ -113,15 +113,17 @@ impl TryFrom<BoxShadowsValue> for BoxShadows {
         let mut shadows = SmallVec::new();
 
         loop {
-          let Ok(shadow) = BoxShadow::from_css(&mut parser).map_err(|e| e.to_string()) else {
+          if parser.is_exhausted() {
             break;
-          };
+          }
+
+          let shadow = BoxShadow::from_css(&mut parser).map_err(|e| e.to_string())?;
+
+          shadows.push(shadow);
 
           if parser.expect_comma().is_err() {
             break;
           }
-
-          shadows.push(shadow);
         }
 
         Ok(BoxShadows(shadows))
