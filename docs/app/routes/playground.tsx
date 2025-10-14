@@ -17,7 +17,6 @@ export default function Playground() {
         name="og:description"
         content="You can try out Takumi and make quick prototypes here."
       />
-      <link rel="canonical" href="https://takumi.kane.tw/playground/" />
       <Suspense fallback={<LoadingScreen />}>
         <ImageEditor />
       </Suspense>

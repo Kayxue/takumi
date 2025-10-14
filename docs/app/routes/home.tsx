@@ -22,7 +22,10 @@ export default function Home() {
           name="og:image"
           content="https://raw.githubusercontent.com/kane50613/takumi/master/example/twitter-images/output/og-image.png"
         />
-        <link rel="canonical" href="https://takumi.kane.tw/" />
+        <meta
+          name="twitter:image"
+          content="https://raw.githubusercontent.com/kane50613/takumi/master/example/twitter-images/output/og-image.png"
+        />
       </head>
       <div className="max-w-5xl w-full mx-auto">
         <div className="flex flex-col py-24 px-4 items-center justify-center">

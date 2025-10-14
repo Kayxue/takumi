@@ -60,8 +60,6 @@ export default function Page(props: Route.ComponentProps) {
 
   const og = ["/og", "docs", ...slugs, "image.webp"].join("/");
 
-  const canonical = `https://takumi.kane.tw/${["docs", ...slugs].join("/")}/`;
-
   return (
     <DocsLayout
       {...baseOptions}
@@ -80,7 +78,6 @@ export default function Page(props: Route.ComponentProps) {
         <meta name="og:title" content={title} />
         <meta name="og:description" content={page.data.description} />
         <meta name="og:image" content={og} />
-        <link rel="canonical" href={canonical} />
         <DocsTitle>{page.data.title}</DocsTitle>
         <DocsDescription>{page.data.description}</DocsDescription>
         <DocsBody>

@@ -26,6 +26,24 @@ export const links: Route.LinksFunction = () => [
   },
 ];
 
+export function meta({ location }: Route.MetaArgs) {
+  return [
+    {
+      tagName: "link",
+      rel: "canonical",
+      href: `https://takumi.kane.tw${location.pathname}`,
+    },
+    {
+      name: "twitter:url",
+      content: `https://takumi.kane.tw${location.pathname}`,
+    },
+    {
+      name: "og:url",
+      content: `https://takumi.kane.tw${location.pathname}`,
+    },
+  ] satisfies Route.MetaDescriptors;
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
@@ -33,6 +51,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:image:width" content="1200" />
+        <meta name="twitter:image:height" content="630" />
+        <meta name="twitter:creator" content="@kanewang_" />
+        <meta name="twitter:site" content="@kanewang_" />
+        <meta name="og:site_name" content="Takumi" />
         <Meta />
         <Links />
       </head>
