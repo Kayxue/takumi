@@ -7,6 +7,10 @@ Takumi provides [N-API bindings](https://napi.rs/) for Node.js and Bun, leveragi
 
 Checkout [the Next.js example](https://github.com/kane50613/takumi/blob/master/example/nextjs) for a full-functioning example of using Takumi in a Node.js environment.
 
+<Callout>
+If you are considering using Takumi in any framework or as an endpoint, check out the [From Next.js ImageResponse](/docs/migration/migrate-from-image-response) guide for usage of the `@takumi-rs/image-response` package.
+</Callout>
+
 ## Installation
 
 ```npm
@@ -55,8 +59,6 @@ function createOpenGraphImage(name: string) {
 Finally, render the layout to an image buffer.
 
 ```ts
-import type { OutputFormat } from "@takumi-rs/core";
-
 const imageBuffer = await renderer.render(createOpenGraphImage("John Doe"), {
   width: 1200,
   height: 630,
