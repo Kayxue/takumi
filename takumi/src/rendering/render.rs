@@ -84,7 +84,7 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
 
     drop(canvas);
 
-    create_blocking_canvas_loop(render_context.viewport, rx)
+    create_blocking_canvas_loop(render_context.viewport.into(), rx)
   };
 
   #[cfg(not(target_arch = "wasm32"))]
