@@ -178,7 +178,7 @@ fn render_node<'g, Nodes: Node<Nodes>>(
   }
 
   if node_context.should_construct_inline_layout() {
-    let (inline_layout, _, boxes) = node_context.create_inline_layout(layout.content_size);
+    let (inline_layout, _, boxes) = node_context.create_inline_layout(layout.content_box_size());
     let font_style = node_context
       .context
       .style

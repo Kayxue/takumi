@@ -67,7 +67,6 @@ features = [
   "taffy_tree",
   "strict_provenance",
   "block_layout",
-  "content_size",
 ]
 
 [dependencies.serde]
