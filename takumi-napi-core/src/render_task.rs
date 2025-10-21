@@ -56,7 +56,9 @@ impl RenderTask {
         .get_global()
         .unwrap()
         .get_named_property("fetch")
-        .unwrap()
+        .expect(
+          "No global fetch() function available. Please provide one using a third-party package.",
+        )
     });
 
     let (tx, rx) = channel();
