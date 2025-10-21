@@ -14,6 +14,8 @@ mod render;
 mod text_drawing;
 mod write;
 
+use std::{collections::HashMap, sync::Arc};
+
 pub(crate) use background_drawing::*;
 pub(crate) use canvas::*;
 pub(crate) use components::*;
@@ -27,9 +29,9 @@ use crate::{
   GlobalContext,
   layout::{
     Viewport,
-    node::Node,
     style::{Affine, Color, InheritedStyle},
   },
+  resources::image::ImageSource,
 };
 
 /// The context for the internal rendering. You should not construct this directly.
@@ -51,10 +53,16 @@ pub struct RenderContext<'g> {
   pub(crate) style: InheritedStyle,
   /// Whether to draw debug borders.
   pub(crate) draw_debug_border: bool,
+  /// The resources fetched externally.
+  pub(crate) fetched_resources: HashMap<Arc<str>, Arc<ImageSource>>,
 }
 
 impl<'g> RenderContext<'g> {
-  pub(crate) fn new(global: &'g GlobalContext, viewport: Viewport) -> Self {
+  pub(crate) fn new(
+    global: &'g GlobalContext,
+    viewport: Viewport,
+    fetched_resources: HashMap<Arc<str>, Arc<ImageSource>>,
+  ) -> Self {
     Self {
       global,
       viewport,
@@ -64,16 +72,7 @@ impl<'g> RenderContext<'g> {
       opacity: 1.0,
       style: InheritedStyle::default(),
       draw_debug_border: false,
+      fetched_resources,
     }
-  }
-}
-
-impl<'g, N: Node<N>> From<&RenderOptions<'g, N>> for RenderContext<'g> {
-  fn from(options: &RenderOptions<'g, N>) -> Self {
-    let mut context = RenderContext::new(options.global, options.viewport);
-
-    context.draw_debug_border = options.draw_debug_border;
-
-    context
   }
 }

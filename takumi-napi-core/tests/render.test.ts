@@ -97,17 +97,13 @@ test("no crash without fonts and images", () => {
 });
 
 describe("setup", () => {
-  test("loadFontsAsync", async () => {
-    const count = await renderer.loadFontsAsync(fontBuffers);
+  test("loadFonts", async () => {
+    const count = await renderer.loadFonts(fontBuffers);
     expect(count).toBe(files.length);
   });
 
-  test("putPersistentImageAsync / local", async () => {
-    await renderer.putPersistentImageAsync(localImagePath, localImage);
-  });
-
-  test("putPersistentImageAsync / remote", async () => {
-    await renderer.putPersistentImageAsync(remoteUrl, remoteImage);
+  test("putPersistentImage", async () => {
+    await renderer.putPersistentImage(localImagePath, localImage);
   });
 });
 
@@ -116,15 +112,6 @@ describe("render", () => {
     width: 1200,
     height: 630,
   };
-
-  test("webp sync", () => {
-    const result = renderer.renderSync(node, {
-      ...options,
-      format: "webp",
-    });
-
-    expect(result).toBeInstanceOf(Buffer);
-  });
 
   test("webp", async () => {
     const result = await renderer.render(node, {

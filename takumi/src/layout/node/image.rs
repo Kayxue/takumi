@@ -1,17 +1,21 @@
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 use taffy::{AvailableSpace, Layout, Size};
 
 #[cfg(feature = "image_data_uri")]
 use crate::resources::image::ImageResult;
 use crate::{
-  GlobalContext,
   layout::{
     inline::InlineContentKind,
     node::Node,
     style::{InheritedStyle, Style},
   },
   rendering::{Canvas, RenderContext, draw_image},
-  resources::image::{ImageResourceError, ImageSource, is_svg},
+  resources::{
+    image::{ImageResourceError, ImageSource, is_svg},
+    task::FetchTaskCollection,
+  },
 };
 
 /// A node that renders image content.
@@ -20,7 +24,7 @@ pub struct ImageNode {
   /// The styling properties for this image node
   pub style: Option<Style>,
   /// The source URL or path to the image
-  pub src: String,
+  pub src: Arc<str>,
   /// The width of the image
   pub width: Option<f32>,
   /// The height of the image
@@ -28,6 +32,12 @@ pub struct ImageNode {
 }
 
 impl<Nodes: Node<Nodes>> Node<Nodes> for ImageNode {
+  fn collect_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
+    if self.src.starts_with("https://") || self.src.starts_with("http://") {
+      collection.insert(self.src.clone());
+    }
+  }
+
   fn create_inherited_style(&mut self, parent_style: &InheritedStyle) -> InheritedStyle {
     self.style.take().unwrap_or_default().inherit(parent_style)
   }
@@ -43,7 +53,7 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for ImageNode {
     known_dimensions: Size<Option<f32>>,
     style: &taffy::Style,
   ) -> Size<f32> {
-    let Ok(image) = resolve_image(&self.src, context.global) else {
+    let Ok(image) = resolve_image(&self.src, context) else {
       return Size::zero();
     };
 
@@ -80,11 +90,15 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for ImageNode {
   }
 
   fn draw_content(&self, context: &RenderContext, canvas: &Canvas, layout: Layout) {
-    let Ok(image) = resolve_image(&self.src, context.global) else {
+    let Ok(image) = resolve_image(&self.src, context) else {
       return;
     };
 
     draw_image(&image, context, canvas, layout);
+  }
+
+  fn get_style(&self) -> Option<&Style> {
+    self.style.as_ref()
   }
 }
 
@@ -117,7 +131,7 @@ fn parse_data_uri_image(src: &str) -> ImageResult {
   load_image_source_from_bytes(&image_bytes)
 }
 
-fn resolve_image(src: &str, context: &GlobalContext) -> ImageResult {
+fn resolve_image(src: &str, context: &RenderContext) -> ImageResult {
   if is_data_uri(src) {
     #[cfg(feature = "image_data_uri")]
     return parse_data_uri_image(src);
@@ -132,7 +146,11 @@ fn resolve_image(src: &str, context: &GlobalContext) -> ImageResult {
     return Err(ImageResourceError::SvgParseNotSupported);
   }
 
-  if let Some(img) = context.persistent_image_store.get(src) {
+  if let Some(img) = context.fetched_resources.get(src) {
+    return Ok(img.clone());
+  }
+
+  if let Some(img) = context.global.persistent_image_store.get(src) {
     return Ok(img);
   }
 

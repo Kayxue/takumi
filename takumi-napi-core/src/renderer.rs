@@ -1,3 +1,4 @@
+use lru::LruCache;
 use napi::{De, bindgen_prelude::*};
 use napi_derive::napi;
 use serde::de::DeserializeOwned;
@@ -5,28 +6,39 @@ use takumi::{
   GlobalContext,
   layout::{Viewport, node::NodeKind},
   parley::{FontWeight, GenericFamily, fontique::FontInfoOverride},
-  rendering::{ImageOutputFormat, RenderOptionsBuilder, render, write_image},
-  resources::image::load_image_source_from_bytes,
+  rendering::ImageOutputFormat,
+  resources::{
+    image::{ImageSource, load_image_source_from_bytes},
+    task::FetchTask,
+  },
 };
 
 use crate::{
-  FontInput, FontInputOwned, load_font_task::LoadFontTask,
+  FetchFn, FontInput, FontInputOwned, load_font_task::LoadFontTask,
   put_persistent_image_task::PutPersistentImageTask, render_animation_task::RenderAnimationTask,
   render_task::RenderTask,
 };
-use std::{io::Cursor, sync::Arc};
+use std::{
+  num::NonZeroUsize,
+  sync::{Arc, Mutex},
+};
+
+pub(crate) type ResourceCache = Option<Arc<Mutex<LruCache<FetchTask, Arc<ImageSource>>>>>;
 
 #[napi]
-#[derive(Default)]
-pub struct Renderer(Arc<GlobalContext>);
+pub struct Renderer {
+  global: Arc<GlobalContext>,
+  resources_cache: ResourceCache,
+}
 
 #[napi(object)]
-pub struct RenderOptions {
+pub struct RenderOptions<'env> {
   pub width: u32,
   pub height: u32,
   pub format: Option<OutputFormat>,
   pub quality: Option<u8>,
   pub draw_debug_border: Option<bool>,
+  pub fetch: Option<FetchFn<'env>>,
 }
 
 #[napi(object)]
@@ -98,6 +110,7 @@ pub struct ConstructRendererOptions<'ctx> {
   #[napi(ts_type = "Font[] | undefined")]
   pub fonts: Option<Vec<Object<'ctx>>>,
   pub load_default_fonts: Option<bool>,
+  pub resource_cache_capacity: Option<u32>,
 }
 
 const EMBEDDED_FONTS: &[(&[u8], &str, GenericFamily)] = &[
@@ -113,6 +126,8 @@ const EMBEDDED_FONTS: &[(&[u8], &str, GenericFamily)] = &[
   ),
 ];
 
+const DEFAULT_RESOURCE_CACHE_CAPACITY: u32 = 8;
+
 #[napi]
 impl Renderer {
   #[napi(constructor)]
@@ -123,12 +138,25 @@ impl Renderer {
       .load_default_fonts
       .unwrap_or_else(|| options.fonts.is_none());
 
-    let renderer = Self(Arc::new(GlobalContext::default()));
+    let resource_cache_capacity = options
+      .resource_cache_capacity
+      .unwrap_or(DEFAULT_RESOURCE_CACHE_CAPACITY);
+
+    let renderer = Self {
+      global: Arc::new(GlobalContext::default()),
+      resources_cache: if resource_cache_capacity > 0 {
+        Some(Arc::new(Mutex::new(LruCache::new(
+          NonZeroUsize::new(resource_cache_capacity as usize).unwrap(),
+        ))))
+      } else {
+        None
+      },
+    };
 
     if load_default_fonts {
       for (font, name, generic) in EMBEDDED_FONTS {
         renderer
-          .0
+          .global
           .font_context
           .load_and_store(
             font,
@@ -147,7 +175,7 @@ impl Renderer {
         let image_source = load_image_source_from_bytes(&image.data).unwrap();
 
         renderer
-          .0
+          .global
           .persistent_image_store
           .insert(&image.src, image_source);
       }
@@ -160,7 +188,7 @@ impl Renderer {
           let buffer = unsafe { BufferSlice::from_napi_value(env.raw(), font.raw()).unwrap() };
 
           renderer
-            .0
+            .global
             .font_context
             .load_and_store(&buffer, None, None)
             .unwrap();
@@ -179,7 +207,7 @@ impl Renderer {
         };
 
         renderer
-          .0
+          .global
           .font_context
           .load_and_store(&font.data, Some(font_override), None)
           .unwrap();
@@ -190,10 +218,20 @@ impl Renderer {
   }
 
   #[napi]
-  pub fn purge_font_cache(&self) {
-    self.0.font_context.purge_cache();
+  pub fn purge_resources_cache(&self) {
+    if let Some(resource_cache) = self.resources_cache.as_ref() {
+      let mut lock = resource_cache.lock().unwrap();
+
+      lock.clear();
+    }
   }
 
+  #[napi]
+  pub fn purge_font_cache(&self) {
+    self.global.font_context.purge_cache();
+  }
+
+  /// @deprecated Use `putPersistentImage` instead (to align with the naming convention for sync/async functions).
   #[napi(
     ts_args_type = "src: string, data: Buffer | ArrayBuffer, signal?: AbortSignal",
     ts_return_type = "Promise<void>"
@@ -204,16 +242,30 @@ impl Renderer {
     data: Buffer,
     signal: Option<AbortSignal>,
   ) -> AsyncTask<PutPersistentImageTask> {
+    self.put_persistent_image(src, data, signal)
+  }
+
+  #[napi(
+    ts_args_type = "src: string, data: Buffer | ArrayBuffer, signal?: AbortSignal",
+    ts_return_type = "Promise<void>"
+  )]
+  pub fn put_persistent_image(
+    &self,
+    src: String,
+    data: Buffer,
+    signal: Option<AbortSignal>,
+  ) -> AsyncTask<PutPersistentImageTask> {
     AsyncTask::with_optional_signal(
       PutPersistentImageTask {
         src: Some(src),
-        context: Arc::clone(&self.0),
+        context: Arc::clone(&self.global),
         buffer: data,
       },
       signal,
     )
   }
 
+  /// @deprecated Use `loadFont` instead (to align with the naming convention for sync/async functions).
   #[napi(
     ts_args_type = "data: Font, signal?: AbortSignal",
     ts_return_type = "Promise<number>"
@@ -228,10 +280,37 @@ impl Renderer {
   }
 
   #[napi(
+    ts_args_type = "data: Font, signal?: AbortSignal",
+    ts_return_type = "Promise<number>"
+  )]
+  pub fn load_font(
+    &self,
+    env: Env,
+    data: Object,
+    signal: Option<AbortSignal>,
+  ) -> AsyncTask<LoadFontTask> {
+    self.load_fonts_async(env, vec![data], signal)
+  }
+
+  /// @deprecated Use `loadFonts` instead (to align with the naming convention for sync/async functions).
+  #[napi(
     ts_args_type = "fonts: Font[], signal?: AbortSignal",
     ts_return_type = "Promise<number>"
   )]
   pub fn load_fonts_async(
+    &self,
+    env: Env,
+    fonts: Vec<Object>,
+    signal: Option<AbortSignal>,
+  ) -> AsyncTask<LoadFontTask> {
+    self.load_fonts(env, fonts, signal)
+  }
+
+  #[napi(
+    ts_args_type = "fonts: Font[], signal?: AbortSignal",
+    ts_return_type = "Promise<number>"
+  )]
+  pub fn load_fonts(
     &self,
     env: Env,
     fonts: Vec<Object>,
@@ -256,7 +335,7 @@ impl Renderer {
 
     AsyncTask::with_optional_signal(
       LoadFontTask {
-        context: Arc::clone(&self.0),
+        context: Arc::clone(&self.global),
         buffers: fonts,
       },
       signal,
@@ -265,7 +344,7 @@ impl Renderer {
 
   #[napi]
   pub fn clear_image_store(&self) {
-    self.0.persistent_image_store.clear();
+    self.global.persistent_image_store.clear();
   }
 
   #[napi(
@@ -274,21 +353,21 @@ impl Renderer {
   )]
   pub fn render(
     &self,
+    env: Env,
     source: Object,
     options: RenderOptions,
     signal: Option<AbortSignal>,
   ) -> Result<AsyncTask<RenderTask>> {
-    let node = deserialize_with_tracing(source)?;
+    let node: NodeKind = deserialize_with_tracing(source)?;
 
     Ok(AsyncTask::with_optional_signal(
-      RenderTask {
-        node: Some(node),
-        context: Arc::clone(&self.0),
-        viewport: Viewport::new(options.width, options.height),
-        format: options.format.unwrap_or(OutputFormat::png),
-        quality: options.quality,
-        draw_debug_border: options.draw_debug_border.unwrap_or_default(),
-      },
+      RenderTask::from_options(
+        env,
+        node,
+        options,
+        &self.resources_cache,
+        self.global.clone(),
+      )?,
       signal,
     ))
   }
@@ -299,12 +378,13 @@ impl Renderer {
     ts_return_type = "Promise<Buffer>"
   )]
   pub fn render_async(
-    &self,
+    &mut self,
+    env: Env,
     source: Object,
     options: RenderOptions,
     signal: Option<AbortSignal>,
   ) -> Result<AsyncTask<RenderTask>> {
-    self.render(source, options, signal)
+    self.render(env, source, options, signal)
   }
 
   #[napi(
@@ -330,43 +410,13 @@ impl Renderer {
     Ok(AsyncTask::with_optional_signal(
       RenderAnimationTask {
         nodes: Some(nodes),
-        context: Arc::clone(&self.0),
+        context: Arc::clone(&self.global),
         viewport: Viewport::new(options.width, options.height),
         format: options.format.unwrap_or(AnimationOutputFormat::webp),
         draw_debug_border: options.draw_debug_border.unwrap_or_default(),
       },
       signal,
     ))
-  }
-
-  #[napi(ts_args_type = "source: AnyNode, options: RenderOptions")]
-  pub fn render_sync(&self, source: Object, options: RenderOptions) -> Result<Buffer> {
-    let node: NodeKind = deserialize_with_tracing(source)?;
-
-    let viewport = Viewport::new(options.width, options.height);
-    let image = render(
-      RenderOptionsBuilder::default()
-        .viewport(viewport)
-        .node(node)
-        .global(&self.0)
-        .draw_debug_border(options.draw_debug_border.unwrap_or_default())
-        .build()
-        .unwrap(),
-    )
-    .unwrap();
-
-    let format = options.format.unwrap_or(OutputFormat::png);
-
-    if format == OutputFormat::raw {
-      return Ok(image.into_raw().into());
-    }
-
-    let mut buffer = Vec::new();
-    let mut cursor = Cursor::new(&mut buffer);
-
-    write_image(&image, &mut cursor, format.into(), options.quality).unwrap();
-
-    Ok(buffer.into())
   }
 }
 

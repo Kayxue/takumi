@@ -5,7 +5,7 @@ const renderer = new Renderer();
 
 test("report deserialize error", () => {
   expect(() =>
-    renderer.renderSync(
+    renderer.render(
       {
         type: "container",
         children: [],

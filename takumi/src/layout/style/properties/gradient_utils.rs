@@ -202,7 +202,7 @@ mod tests {
     ];
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new(&context, Viewport::new(40, 40));
+    let render_context = RenderContext::new(&context, Viewport::new(40, 40), Default::default());
 
     let resolved = resolve_stops_along_axis(
       &stops,
@@ -253,7 +253,7 @@ mod tests {
     ];
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new(&context, Viewport::new(40, 40));
+    let render_context = RenderContext::new(&context, Viewport::new(40, 40), Default::default());
 
     let resolved = resolve_stops_along_axis(
       &stops,
@@ -301,7 +301,7 @@ mod tests {
     ];
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new(&context, Viewport::new(40, 40));
+    let render_context = RenderContext::new(&context, Viewport::new(40, 40), Default::default());
 
     let resolved = resolve_stops_along_axis(
       &stops,

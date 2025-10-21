@@ -1,4 +1,7 @@
-use std::sync::{Arc, mpsc::channel};
+use std::{
+  collections::HashMap,
+  sync::{Arc, mpsc::channel},
+};
 
 use derive_builder::Builder;
 use image::RgbaImage;
@@ -16,6 +19,7 @@ use crate::{
     BorderProperties, Canvas, create_blocking_canvas_loop, draw_debug_border,
     inline_drawing::draw_inline_layout,
   },
+  resources::image::ImageSource,
 };
 
 use crate::rendering::RenderContext;
@@ -32,6 +36,9 @@ pub struct RenderOptions<'g, N: Node<N>> {
   /// Whether to draw debug borders.
   #[builder(default)]
   pub(crate) draw_debug_border: bool,
+  /// The resources fetched externally.
+  #[builder(default)]
+  pub(crate) fetched_resources: HashMap<Arc<str>, Arc<ImageSource>>,
 }
 
 /// Renders a node to an image.
@@ -41,7 +48,10 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
   let (tx, rx) = channel();
   let canvas = Canvas::new(tx);
 
-  let render_context = (&options).into();
+  let render_context = RenderContext {
+    draw_debug_border: options.draw_debug_border,
+    ..RenderContext::new(options.global, options.viewport, options.fetched_resources)
+  };
 
   let tree = NodeTree::from_node(&render_context, options.node);
 
