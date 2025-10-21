@@ -63,6 +63,7 @@ impl<'g, N: Node<N>> NodeTree<'g, N> {
       font_size,
       current_color,
       opacity,
+      fetched_resources: parent_context.fetched_resources.clone(),
       ..*parent_context
     };
 
@@ -511,6 +512,7 @@ fn flush_inline_group<'g, N: Node<N>>(
     final_children.push(NodeTree {
       context: RenderContext {
         style: anonymous_box_style.clone(),
+        fetched_resources: Default::default(), // anonymous box has nothing to render, so provide an empty map.
         ..*context
       },
       children: Some(take(inline_group)),

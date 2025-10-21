@@ -102,12 +102,8 @@ describe("setup", () => {
     expect(count).toBe(files.length);
   });
 
-  test("putPersistentImageAsync / local", async () => {
+  test("putPersistentImageAsync", async () => {
     await renderer.putPersistentImageAsync(localImagePath, localImage);
-  });
-
-  test("putPersistentImageAsync / remote", async () => {
-    await renderer.putPersistentImageAsync(remoteUrl, remoteImage);
   });
 });
 
@@ -116,15 +112,6 @@ describe("render", () => {
     width: 1200,
     height: 630,
   };
-
-  test("webp sync", () => {
-    const result = renderer.renderSync(node, {
-      ...options,
-      format: "webp",
-    });
-
-    expect(result).toBeInstanceOf(Buffer);
-  });
 
   test("webp", async () => {
     const result = await renderer.render(node, {

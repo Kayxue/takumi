@@ -2258,6 +2258,7 @@ dependencies = [
 name = "takumi-napi-core"
 version = "0.0.0"
 dependencies = [
+ "lru",
  "napi",
  "napi-build",
  "napi-derive",

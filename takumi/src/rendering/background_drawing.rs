@@ -101,7 +101,15 @@ pub(crate) fn render_gradient_tile(
     BackgroundImage::Linear(gradient) => gradient.to_image(tile_w, tile_h, context),
     BackgroundImage::Radial(gradient) => gradient.to_image(tile_w, tile_h, context),
     BackgroundImage::Noise(noise) => noise.to_image(tile_w, tile_h, context),
-    BackgroundImage::Url(_url) => todo!(),
+    BackgroundImage::Url(url) => context
+      .fetched_resources
+      .get(url)
+      .map(|source| {
+        source
+          .render_to_rgba_image(tile_w, tile_h, context.style.image_rendering.into())
+          .into_owned()
+      })
+      .unwrap_or_else(|| RgbaImage::new(tile_w, tile_h)),
   }
 }
 

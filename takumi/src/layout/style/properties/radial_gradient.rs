@@ -559,7 +559,7 @@ mod tests {
     };
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new(&context, Viewport::new(200, 100));
+    let render_context = RenderContext::new(&context, Viewport::new(200, 100), Default::default());
     let resolved =
       gradient.resolve_stops_for_radius(render_context.viewport.width as f32, &render_context);
 
@@ -591,7 +591,7 @@ mod tests {
     };
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new(&context, Viewport::new(200, 100));
+    let render_context = RenderContext::new(&context, Viewport::new(200, 100), Default::default());
     let resolved =
       gradient.resolve_stops_for_radius(render_context.viewport.width as f32, &render_context);
 

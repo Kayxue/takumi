@@ -4,7 +4,6 @@ mod text;
 
 pub use container::*;
 pub use image::*;
-use smallvec::SmallVec;
 pub use text::*;
 
 use serde::{Deserialize, Serialize};
@@ -20,7 +19,7 @@ use crate::{
     BorderProperties, Canvas, RenderContext, SizedShadow, draw_background_layers, draw_border,
     resolve_layers_tiles,
   },
-  resources::task::FetchTask,
+  resources::task::FetchTaskCollection,
 };
 
 /// Implements the Node trait for an enum type that contains different node variants.
@@ -99,15 +98,15 @@ macro_rules! impl_node_enum {
         }
       }
 
-      fn create_fetch_tasks(&self) -> SmallVec<[FetchTask; 1]> {
+      fn collect_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
         match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::create_fetch_tasks(inner), )*
+          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::collect_fetch_tasks(inner, collection), )*
         }
       }
 
-      fn create_style_fetch_tasks(&self) -> SmallVec<[FetchTask; 1]> {
+      fn collect_style_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
         match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::create_style_fetch_tasks(inner), )*
+          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::collect_style_fetch_tasks(inner, collection), )*
         }
       }
 
@@ -134,41 +133,36 @@ macro_rules! impl_node_enum {
 /// rendered in the layout system, including containers, text, and images.
 pub trait Node<N: Node<N>>: Send + Sync + Clone {
   /// Creates resolving tasks for node's http resources.
-  fn create_fetch_tasks(&self) -> SmallVec<[FetchTask; 1]> {
-    SmallVec::new()
-  }
+  fn collect_fetch_tasks(&self, _collection: &mut FetchTaskCollection) {}
 
   /// Returns a reference to this node's raw [`Style`], if any.
   fn get_style(&self) -> Option<&Style>;
 
   /// Creates resolving tasks for style's http resources.
-  fn create_style_fetch_tasks(&self) -> SmallVec<[FetchTask; 1]> {
-    let mut tasks = SmallVec::new();
+  fn collect_style_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
     let Some(style) = self.get_style() else {
-      return tasks;
+      return;
     };
 
     if let CssValue::Value(CssOption(Some(images))) = &style.background_image {
-      tasks.extend(images.0.iter().filter_map(|image| {
+      collection.insert_many(images.0.iter().filter_map(|image| {
         if let BackgroundImage::Url(url) = image {
-          Some(FetchTask::new(url.clone()))
+          Some(url.clone())
         } else {
           None
         }
-      }));
+      }))
     };
 
     if let CssValue::Value(CssOption(Some(images))) = &style.mask_image {
-      tasks.extend(images.0.iter().filter_map(|image| {
+      collection.insert_many(images.0.iter().filter_map(|image| {
         if let BackgroundImage::Url(url) = image {
-          Some(FetchTask::new(url.clone()))
+          Some(url.clone())
         } else {
           None
         }
       }));
     };
-
-    tasks
   }
 
   /// Return reference to children nodes.

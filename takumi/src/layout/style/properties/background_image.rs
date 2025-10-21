@@ -32,7 +32,6 @@ impl<'i> FromCss<'i> for BackgroundImage {
     if let Ok(noise) = input.try_parse(NoiseV1::from_css) {
       return Ok(BackgroundImage::Noise(noise));
     }
-
     if let Ok(url) = input.try_parse(Parser::expect_url) {
       return Ok(BackgroundImage::Url((&*url).into()));
     }

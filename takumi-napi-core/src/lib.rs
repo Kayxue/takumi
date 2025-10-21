@@ -4,7 +4,10 @@ mod render_animation_task;
 mod render_task;
 mod renderer;
 
-use napi::bindgen_prelude::{Buffer, BufferSlice};
+use napi::{
+  JsString,
+  bindgen_prelude::{Buffer, BufferSlice, Function, Object, PromiseRaw},
+};
 use napi_derive::napi;
 pub use renderer::Renderer;
 use takumi::parley::FontStyle;
@@ -42,4 +45,15 @@ impl From<FontStyleInput> for FontStyle {
       FontStyleInput::oblique => FontStyle::Oblique(None),
     }
   }
+}
+
+// fetch(url: string): Promise<Response>
+pub(crate) type FetchFn<'env> = Function<'env, JsString<'env>, PromiseRaw<'env, Object<'env>>>;
+
+/// arrayBuffer(this: Response): Promise<ArrayBuffer>
+pub(crate) type ArrayBufferFn<'env> = Function<'env, (), PromiseRaw<'env, BufferSlice<'env>>>;
+
+pub(crate) enum MaybeInitialized<B, A> {
+  Uninitialized(B),
+  Initialized(A),
 }

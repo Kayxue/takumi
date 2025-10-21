@@ -111,10 +111,12 @@ summary(() => {
 
 await write(
   "tests/bench/bench.png",
-  renderer.renderSync(await createNode(), {
-    width: 1200,
-    height: 630,
-  }).buffer,
+  await renderer
+    .render(await createNode(), {
+      width: 1200,
+      height: 630,
+    })
+    .then((r) => r.buffer),
 );
 
 await run();

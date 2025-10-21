@@ -1,13 +1,11 @@
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
 use taffy::{AvailableSpace, Layout, Size};
 
 #[cfg(feature = "image_data_uri")]
 use crate::resources::image::ImageResult;
 use crate::{
-  GlobalContext,
   layout::{
     inline::InlineContentKind,
     node::Node,
@@ -16,7 +14,7 @@ use crate::{
   rendering::{Canvas, RenderContext, draw_image},
   resources::{
     image::{ImageResourceError, ImageSource, is_svg},
-    task::FetchTask,
+    task::FetchTaskCollection,
   },
 };
 
@@ -34,14 +32,10 @@ pub struct ImageNode {
 }
 
 impl<Nodes: Node<Nodes>> Node<Nodes> for ImageNode {
-  fn create_fetch_tasks(&self) -> SmallVec<[FetchTask; 1]> {
-    let mut tasks = SmallVec::new();
-
+  fn collect_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
     if self.src.starts_with("http") {
-      tasks.push(FetchTask::new(self.src.clone()));
+      collection.insert(self.src.clone());
     }
-
-    tasks
   }
 
   fn create_inherited_style(&mut self, parent_style: &InheritedStyle) -> InheritedStyle {
@@ -59,7 +53,7 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for ImageNode {
     known_dimensions: Size<Option<f32>>,
     style: &taffy::Style,
   ) -> Size<f32> {
-    let Ok(image) = resolve_image(&self.src, context.global) else {
+    let Ok(image) = resolve_image(&self.src, context) else {
       return Size::zero();
     };
 
@@ -96,7 +90,7 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for ImageNode {
   }
 
   fn draw_content(&self, context: &RenderContext, canvas: &Canvas, layout: Layout) {
-    let Ok(image) = resolve_image(&self.src, context.global) else {
+    let Ok(image) = resolve_image(&self.src, context) else {
       return;
     };
 
@@ -137,7 +131,7 @@ fn parse_data_uri_image(src: &str) -> ImageResult {
   load_image_source_from_bytes(&image_bytes)
 }
 
-fn resolve_image(src: &str, context: &GlobalContext) -> ImageResult {
+fn resolve_image(src: &str, context: &RenderContext) -> ImageResult {
   if is_data_uri(src) {
     #[cfg(feature = "image_data_uri")]
     return parse_data_uri_image(src);
@@ -152,7 +146,11 @@ fn resolve_image(src: &str, context: &GlobalContext) -> ImageResult {
     return Err(ImageResourceError::SvgParseNotSupported);
   }
 
-  if let Some(img) = context.persistent_image_store.get(src) {
+  if let Some(img) = context.fetched_resources.get(src) {
+    return Ok(img.clone());
+  }
+
+  if let Some(img) = context.global.persistent_image_store.get(src) {
     return Ok(img);
   }
 

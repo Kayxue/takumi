@@ -1,14 +1,31 @@
-use std::io::Cursor;
+use std::{
+  collections::HashMap,
+  io::Cursor,
+  iter::from_fn,
+  sync::mpsc::{Receiver, channel},
+  time::Duration,
+};
 
 use napi::bindgen_prelude::*;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
 use takumi::{
   GlobalContext,
-  layout::{Viewport, node::NodeKind},
+  layout::{
+    Viewport,
+    node::{Node, NodeKind},
+  },
   rendering::{RenderOptionsBuilder, render, write_image},
+  resources::{
+    image::{ImageSource, load_image_source_from_bytes},
+    task::{FetchTask, FetchTaskCollection},
+  },
 };
 
-use crate::renderer::OutputFormat;
+use crate::{
+  ArrayBufferFn, MaybeInitialized,
+  renderer::{OutputFormat, RenderOptions, ResourceCache},
+};
 
 pub struct RenderTask {
   pub draw_debug_border: bool,
@@ -17,6 +34,80 @@ pub struct RenderTask {
   pub viewport: Viewport,
   pub format: OutputFormat,
   pub quality: Option<u8>,
+  pub(crate) resource_cache: ResourceCache,
+  pub(crate) tasks_rx: Receiver<(FetchTask, MaybeInitialized<Buffer, Arc<ImageSource>>)>,
+}
+
+impl RenderTask {
+  pub fn from_options(
+    env: Env,
+    node: NodeKind,
+    options: RenderOptions,
+    resources_cache: &ResourceCache,
+    global: Arc<GlobalContext>,
+  ) -> Result<Self> {
+    let mut collection = FetchTaskCollection::default();
+
+    node.collect_fetch_tasks(&mut collection);
+    node.collect_style_fetch_tasks(&mut collection);
+
+    let collection = collection.into_inner();
+
+    let fetch = options.fetch.unwrap_or_else(|| {
+      env
+        .get_global()
+        .unwrap()
+        .get_named_property("fetch")
+        .unwrap()
+    });
+
+    let (tx, rx) = channel();
+
+    for task in collection {
+      if let Some(resources_cache) = resources_cache.as_ref() {
+        let mut lock = resources_cache.lock().unwrap();
+
+        if let Some(cached) = lock.get(&task).cloned() {
+          drop(lock);
+
+          tx.send((task, MaybeInitialized::Initialized(cached)))
+            .unwrap();
+
+          continue;
+        }
+      }
+
+      let tx = tx.clone();
+
+      fetch.call(env.create_string(&task)?)?.then(move |ctx| {
+        let array_buffer_fn = ctx
+          .value
+          .get_named_property::<ArrayBufferFn>("arrayBuffer")?;
+        println!("fetched");
+
+        array_buffer_fn.apply(ctx.value, ())?.then(move |ctx| {
+          tx.send((
+            task,
+            MaybeInitialized::Uninitialized(ctx.value.into_buffer(&ctx.env)?),
+          ))
+          .unwrap();
+
+          Ok(())
+        })
+      })?;
+    }
+
+    Ok(RenderTask {
+      node: Some(node),
+      context: global,
+      viewport: Viewport::new(options.width, options.height),
+      format: options.format.unwrap_or(OutputFormat::png),
+      quality: options.quality,
+      draw_debug_border: options.draw_debug_border.unwrap_or_default(),
+      tasks_rx: rx,
+      resource_cache: resources_cache.clone(),
+    })
+  }
 }
 
 impl Task for RenderTask {
@@ -26,9 +117,36 @@ impl Task for RenderTask {
   fn compute(&mut self) -> Result<Self::Output> {
     let node = self.node.take().unwrap();
 
+    let resources: Vec<_> =
+      from_fn(|| self.tasks_rx.recv_timeout(Duration::from_secs(3)).ok()).collect();
+
+    let fetched_resources: HashMap<_, _> = resources
+      .into_par_iter()
+      .filter_map(|(task, buffer)| {
+        Some((
+          task.clone(),
+          match buffer {
+            MaybeInitialized::Initialized(source) => source,
+            MaybeInitialized::Uninitialized(buffer) => {
+              let source = load_image_source_from_bytes(&buffer).ok()?;
+
+              if let Some(cache) = self.resource_cache.clone() {
+                let mut lock = cache.lock().unwrap();
+
+                lock.put(task, source.clone());
+              }
+
+              source
+            }
+          },
+        ))
+      })
+      .collect();
+
     let image = render(
       RenderOptionsBuilder::default()
         .viewport(self.viewport)
+        .fetched_resources(fetched_resources)
         .node(node)
         .global(&self.context)
         .draw_debug_border(self.draw_debug_border)
