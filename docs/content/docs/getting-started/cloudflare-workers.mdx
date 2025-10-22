@@ -85,7 +85,7 @@ const renderer = new Renderer();
 
 // auto detection or specify the format
 renderer.loadFont(new Uint8Array(font));
-renderer.loadFontWithInfo({
+renderer.loadFont({
   data: new Uint8Array(font),
   name: "Noto Sans",
   weight: 500, // leave it blank if it's a variable font

@@ -24,33 +24,32 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_APPEND_CONTENT: &'static str = r#"
-export interface AnyNode {
-  type: string;
-  [key: string]: any;
-}
+export type AnyNode = { type: string; [key: string]: any };
 
-export interface RenderOptions {
+export type RenderOptions = {
   width: number;
   height: number;
   format?: "png" | "jpeg" | "webp";
   quality?: number;
   fetchedResources?: Map<string, Uint8Array>;
   drawDebugBorder?: boolean;
-}
+};
 
-export interface RenderAnimationOptions {
+export type RenderAnimationOptions = {
   width: number;
   height: number;
   format?: "webp" | "apng";
   drawDebugBorder?: boolean;
-}
+};
 
-export interface FontInfo {
+export type FontDetails = {
   name?: string,
-  data: Uint8Array, 
-  weight?: f64,
+  data: Uint8Array,
+  weight?: number,
   style?: "normal" | "italic" | "oblique",
-}
+};
+
+export type Font = FontDetails | Uint8Array;
 "#;
 
 #[wasm_bindgen]
@@ -65,8 +64,11 @@ extern "C" {
   #[wasm_bindgen(typescript_type = "RenderAnimationOptions")]
   pub type RenderAnimationOptionsType;
 
-  #[wasm_bindgen(typescript_type = "FontInfo")]
-  pub type FontInfoType;
+  #[wasm_bindgen(typescript_type = "FontDetails")]
+  pub type FontDetailsType;
+
+  #[wasm_bindgen(typescript_type = "Font")]
+  pub type FontType;
 }
 
 #[derive(Deserialize)]
@@ -91,11 +93,18 @@ struct RenderAnimationOptions {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct FontInfo {
+struct FontDetails {
   name: Option<String>,
   data: Vec<u8>,
   weight: Option<f64>,
   style: Option<FontStyle>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum Font {
+  Buffer(Vec<u8>),
+  Object(FontDetails),
 }
 
 #[derive(Deserialize)]
@@ -154,36 +163,42 @@ impl Renderer {
     Renderer::default()
   }
 
+  /// @deprecated use `loadFont` instead.
   #[wasm_bindgen(js_name = loadFontWithInfo)]
-  pub fn load_font_with_info(&self, #[wasm_bindgen(js_name = fontData)] font_data: FontInfoType) {
-    let font_data: FontInfo = from_value(font_data.into()).unwrap();
-
-    self
-      .context
-      .font_context
-      .load_and_store(
-        &font_data.data,
-        Some(FontInfoOverride {
-          family_name: font_data.name.as_deref(),
-          style: font_data.style.map(Into::into),
-          weight: font_data
-            .weight
-            .map(|weight| FontWeight::new(weight as f32)),
-          axes: None,
-          width: None,
-        }),
-        None,
-      )
-      .unwrap();
+  pub fn load_font_with_info(&self, font: FontType) {
+    self.load_font(font)
   }
 
   #[wasm_bindgen(js_name = loadFont)]
-  pub fn load_font(&self, buffer: &[u8]) {
-    self
-      .context
-      .font_context
-      .load_and_store(buffer, None, None)
-      .unwrap();
+  pub fn load_font(&self, font: FontType) {
+    let input: Font = from_value(font.into()).unwrap();
+
+    match input {
+      Font::Buffer(buffer) => {
+        self
+          .context
+          .font_context
+          .load_and_store(&buffer, None, None)
+          .unwrap();
+      }
+      Font::Object(details) => {
+        self
+          .context
+          .font_context
+          .load_and_store(
+            &details.data,
+            Some(FontInfoOverride {
+              family_name: details.name.as_deref(),
+              style: details.style.map(Into::into),
+              weight: details.weight.map(|weight| FontWeight::new(weight as f32)),
+              axes: None,
+              width: None,
+            }),
+            None,
+          )
+          .unwrap();
+      }
+    }
   }
 
   #[wasm_bindgen(js_name = putPersistentImage)]
