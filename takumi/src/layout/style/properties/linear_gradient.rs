@@ -70,12 +70,7 @@ impl TryFrom<LinearGradientValue> for LinearGradient {
   fn try_from(value: LinearGradientValue) -> Result<Self, Self::Error> {
     match value {
       LinearGradientValue::Structured { angle, stops } => Ok(LinearGradient { angle, stops }),
-      LinearGradientValue::Css(css) => {
-        let mut input = ParserInput::new(&css);
-        let mut parser = Parser::new(&mut input);
-
-        LinearGradient::from_css(&mut parser).map_err(|e| e.to_string())
-      }
+      LinearGradientValue::Css(css) => LinearGradient::from_str(&css).map_err(|e| e.to_string()),
     }
   }
 }

@@ -1,4 +1,4 @@
-use cssparser::{Parser, ParserInput};
+use cssparser::Parser;
 use serde::{Deserialize, Serialize};
 use taffy::{MaxTrackSizingFunction, MinTrackSizingFunction, TrackSizingFunction};
 use ts_rs::TS;
@@ -25,23 +25,24 @@ pub(crate) enum GridTrackSizesValue {
   Css(String),
 }
 
+impl<'i> FromCss<'i> for GridTrackSizes {
+  fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
+    let mut components: Vec<GridTrackSize> = Vec::new();
+    while let Ok(size) = GridTrackSize::from_css(input) {
+      components.push(size);
+    }
+
+    Ok(GridTrackSizes(components))
+  }
+}
+
 impl TryFrom<GridTrackSizesValue> for GridTrackSizes {
   type Error = String;
 
   fn try_from(value: GridTrackSizesValue) -> Result<Self, Self::Error> {
     match value {
       GridTrackSizesValue::Components(components) => Ok(GridTrackSizes(components)),
-      GridTrackSizesValue::Css(css) => {
-        let mut input = ParserInput::new(&css);
-        let mut parser = Parser::new(&mut input);
-
-        let mut components: Vec<GridTrackSize> = Vec::new();
-        while let Ok(size) = GridTrackSize::from_css(&mut parser) {
-          components.push(size);
-        }
-
-        Ok(GridTrackSizes(components))
-      }
+      GridTrackSizesValue::Css(css) => GridTrackSizes::from_str(&css).map_err(|e| e.to_string()),
     }
   }
 }
@@ -107,13 +108,10 @@ mod tests {
   use crate::layout::style::LengthUnit;
 
   use super::*;
-  use cssparser::{Parser, ParserInput};
 
   #[test]
   fn test_parse_minmax_and_track_size() {
-    let mut parser_input = ParserInput::new("minmax(10px, 1fr)");
-    let mut parser = Parser::new(&mut parser_input);
-    let minmax = GridTrackSize::from_css(&mut parser).unwrap();
+    let minmax = GridTrackSize::from_str("minmax(10px, 1fr)").unwrap();
     match minmax {
       GridTrackSize::MinMax(m) => {
         assert_eq!(m.min, GridLengthUnit::Unit(LengthUnit::Px(10.0)));
@@ -122,9 +120,7 @@ mod tests {
       _ => panic!("expected minmax"),
     }
 
-    let mut parser_input = ParserInput::new("2fr");
-    let mut parser = Parser::new(&mut parser_input);
-    let fixed = GridTrackSize::from_css(&mut parser).unwrap();
+    let fixed = GridTrackSize::from_str("2fr").unwrap();
     assert_eq!(fixed, GridTrackSize::Fixed(GridLengthUnit::Fr(2.0)));
   }
 }

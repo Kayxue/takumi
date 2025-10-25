@@ -1,12 +1,7 @@
 use smallvec::smallvec;
 use takumi::layout::{
   node::{ContainerNode, NodeKind, TextNode},
-  style::{
-    BackgroundImagesValue, BackgroundPositionsValue, BackgroundRepeatsValue, BackgroundSizesValue,
-    Color, ColorInput, CssOption, FlexWrap, FontWeight, Gap,
-    LengthUnit::{Percentage, Px},
-    LineHeight, StyleBuilder, TextAlign, TextOverflow, TextShadow, TextShadows, TextTransform,
-  },
+  style::{LengthUnit::*, *},
 };
 
 mod test_utils;
@@ -311,9 +306,10 @@ fn fixtures_text_transform_all() {
 
 #[test]
 fn fixtures_text_mask_image_gradient_and_emoji() {
-  let gradient_images = BackgroundImagesValue::Css(
-    "linear-gradient(90deg, #ff3b30, #ffcc00, #34c759, #007aff, #5856d6)".to_string(),
-  );
+  let gradient_images = BackgroundImages::from_str(
+    "linear-gradient(90deg, #ff3b30, #ffcc00, #34c759, #007aff, #5856d6)",
+  )
+  .unwrap();
 
   let text = TextNode {
     style: Some(
@@ -321,21 +317,15 @@ fn fixtures_text_mask_image_gradient_and_emoji() {
         .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
         .width(Percentage(100.0))
         .font_size(CssOption::some(Px(72.0)))
-        .mask_image(CssOption::some(gradient_images.try_into().unwrap()))
+        .mask_image(CssOption::some(gradient_images))
         .mask_size(CssOption::some(
-          BackgroundSizesValue::Css("100% 100%".to_string())
-            .try_into()
-            .unwrap(),
+          BackgroundSizes::from_str("100% 100%").unwrap(),
         ))
         .mask_position(CssOption::some(
-          BackgroundPositionsValue::Css("0 0".to_string())
-            .try_into()
-            .unwrap(),
+          BackgroundPositions::from_str("0 0").unwrap(),
         ))
         .mask_repeat(CssOption::some(
-          BackgroundRepeatsValue::Css("no-repeat".to_string())
-            .try_into()
-            .unwrap(),
+          BackgroundRepeats::from_str("no-repeat").unwrap(),
         ))
         .build()
         .unwrap(),

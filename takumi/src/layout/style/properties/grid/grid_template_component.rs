@@ -1,4 +1,4 @@
-use cssparser::{Parser, ParserInput};
+use cssparser::Parser;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -33,16 +33,7 @@ impl TryFrom<GridTemplateComponentsValue> for GridTemplateComponents {
     match value {
       GridTemplateComponentsValue::Components(components) => Ok(GridTemplateComponents(components)),
       GridTemplateComponentsValue::Css(css) => {
-        let mut input = ParserInput::new(&css);
-        let mut parser = Parser::new(&mut input);
-
-        let mut components = Vec::new();
-
-        while let Ok(component) = GridTemplateComponent::from_css(&mut parser) {
-          components.push(component);
-        }
-
-        Ok(GridTemplateComponents(components))
+        GridTemplateComponents::from_str(&css).map_err(|e| e.to_string())
       }
     }
   }
@@ -138,6 +129,16 @@ impl<'i> FromCss<'i> for GridTemplateComponent {
     // Single track-size
     let size = GridTrackSize::from_css(input)?;
     Ok(GridTemplateComponent::Single(size))
+  }
+}
+
+impl<'i> FromCss<'i> for GridTemplateComponents {
+  fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
+    let mut components = Vec::new();
+    while let Ok(component) = GridTemplateComponent::from_css(input) {
+      components.push(component);
+    }
+    Ok(GridTemplateComponents(components))
   }
 }
 

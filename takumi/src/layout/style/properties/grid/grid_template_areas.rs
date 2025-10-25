@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use cssparser::{Parser, ParserInput, Token};
+use cssparser::{Parser, Token};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -39,9 +39,7 @@ impl TryFrom<GridTemplateAreasValue> for GridTemplateAreas {
         Ok(GridTemplateAreas(matrix))
       }
       GridTemplateAreasValue::Css(css) => {
-        let mut input = ParserInput::new(&css);
-        let mut parser = Parser::new(&mut input);
-        GridTemplateAreas::from_css(&mut parser).map_err(|e| e.to_string())
+        GridTemplateAreas::from_str(&css).map_err(|e| e.to_string())
       }
     }
   }

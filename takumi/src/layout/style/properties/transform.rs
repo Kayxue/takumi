@@ -1,6 +1,6 @@
 use std::{fmt::Display, ops::Mul};
 
-use cssparser::{Parser, ParserInput, Token, match_ignore_ascii_case};
+use cssparser::{Parser, Token, match_ignore_ascii_case};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use taffy::{Layout, Point, Size};
@@ -99,25 +99,26 @@ pub(crate) enum TransformsValue {
   Css(String),
 }
 
+impl<'i> FromCss<'i> for Transforms {
+  fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
+    let mut transforms = SmallVec::new();
+
+    while !input.is_exhausted() {
+      let transform = Transform::from_css(input)?;
+      transforms.push(transform);
+    }
+
+    Ok(Transforms(transforms))
+  }
+}
+
 impl TryFrom<TransformsValue> for Transforms {
   type Error = String;
 
   fn try_from(value: TransformsValue) -> Result<Self, Self::Error> {
     match value {
       TransformsValue::Transforms(transforms) => Ok(Transforms(transforms)),
-      TransformsValue::Css(css) => {
-        let mut input = ParserInput::new(&css);
-        let mut parser = Parser::new(&mut input);
-
-        let mut transforms = SmallVec::new();
-
-        while !parser.is_exhausted() {
-          let transform = Transform::from_css(&mut parser).map_err(|e| e.to_string())?;
-          transforms.push(transform);
-        }
-
-        Ok(Transforms(transforms))
-      }
+      TransformsValue::Css(css) => Transforms::from_str(&css).map_err(|e| e.to_string()),
     }
   }
 }
@@ -453,10 +454,8 @@ mod tests {
   use super::*;
 
   #[test]
-  fn test_transform_from_css() {
-    let mut input = ParserInput::new("translate(10, 20px)");
-    let mut parser = Parser::new(&mut input);
-    let transform = Transform::from_css(&mut parser).unwrap();
+  fn test_transform_from_str() {
+    let transform = Transform::from_str("translate(10, 20px)").unwrap();
 
     assert_eq!(
       transform,
@@ -465,10 +464,8 @@ mod tests {
   }
 
   #[test]
-  fn test_transform_from_css_scale() {
-    let mut input = ParserInput::new("scale(10)");
-    let mut parser = Parser::new(&mut input);
-    let transform = Transform::from_css(&mut parser).unwrap();
+  fn test_transform_scale_from_str() {
+    let transform = Transform::from_str("scale(10)").unwrap();
 
     assert_eq!(transform, Transform::Scale(10.0, 10.0));
   }

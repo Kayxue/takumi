@@ -1,4 +1,4 @@
-use cssparser::{Parser, ParserInput};
+use cssparser::Parser;
 use serde::{Deserialize, Deserializer, Serialize, de::Error as DeError};
 use taffy::Rect;
 use ts_rs::TS;
@@ -70,12 +70,7 @@ impl<T: TS + Copy + for<'i> FromCss<'i>> TryFrom<SidesValue<T>> for Sides<T> {
 
   fn try_from(value: SidesValue<T>) -> Result<Self, Self::Error> {
     match value {
-      SidesValue::Css(string) => {
-        let mut input = ParserInput::new(&string);
-        let mut parser = Parser::new(&mut input);
-
-        Self::from_css(&mut parser).map_err(|e| e.to_string())
-      }
+      SidesValue::Css(string) => Self::from_str(&string).map_err(|e| e.to_string()),
       SidesValue::AllSides(top, right, bottom, left) => Ok(Sides([top, right, bottom, left])),
       SidesValue::AxisSidesArray(vertical, horizontal) => {
         Ok(Sides([vertical, horizontal, vertical, horizontal]))

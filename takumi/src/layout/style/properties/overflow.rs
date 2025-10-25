@@ -99,21 +99,14 @@ mod tests {
   use super::*;
 
   #[test]
-  fn test_overflow_from_css() {
-    let mut input = ParserInput::new("visible");
-    let mut parser = Parser::new(&mut input);
-    assert_eq!(Overflow::from_css(&mut parser).unwrap(), Overflow::Visible);
-
-    let mut input = ParserInput::new("hidden");
-    let mut parser = Parser::new(&mut input);
-    assert_eq!(Overflow::from_css(&mut parser).unwrap(), Overflow::Hidden);
+  fn test_overflow_from_str() {
+    assert_eq!(Overflow::from_str("visible").unwrap(), Overflow::Visible);
+    assert_eq!(Overflow::from_str("hidden").unwrap(), Overflow::Hidden);
   }
 
   #[test]
-  fn test_overflow_from_css_invalid() {
-    let mut input = ParserInput::new("invalid");
-    let mut parser = Parser::new(&mut input);
-    assert!(Overflow::from_css(&mut parser).is_err());
+  fn test_overflow_from_str_invalid() {
+    assert!(Overflow::from_str("invalid").is_err());
   }
 
   #[test]

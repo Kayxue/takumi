@@ -1,4 +1,4 @@
-use cssparser::{Parser, ParserInput, Token, match_ignore_ascii_case};
+use cssparser::{Parser, Token, match_ignore_ascii_case};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -94,12 +94,7 @@ impl TryFrom<BackgroundPositionValue> for BackgroundPosition {
   fn try_from(value: BackgroundPositionValue) -> Result<Self, Self::Error> {
     match value {
       BackgroundPositionValue::Position(x, y) => Ok(Self { x, y }),
-      BackgroundPositionValue::Css(css) => {
-        let mut input = ParserInput::new(&css);
-        let mut parser = Parser::new(&mut input);
-
-        Self::from_css(&mut parser).map_err(|e| e.to_string())
-      }
+      BackgroundPositionValue::Css(css) => Self::from_str(&css).map_err(|e| e.to_string()),
     }
   }
 }
@@ -166,16 +161,20 @@ impl TryFrom<BackgroundPositionsValue> for BackgroundPositions {
   fn try_from(value: BackgroundPositionsValue) -> Result<Self, Self::Error> {
     match value {
       BackgroundPositionsValue::Positions(v) => Ok(Self(v)),
-      BackgroundPositionsValue::Css(css) => {
-        let mut input = ParserInput::new(&css);
-        let mut parser = Parser::new(&mut input);
-        let mut values =
-          vec![BackgroundPosition::from_css(&mut parser).map_err(|e| e.to_string())?];
-        while parser.expect_comma().is_ok() {
-          values.push(BackgroundPosition::from_css(&mut parser).map_err(|e| e.to_string())?);
-        }
-        Ok(Self(values))
-      }
+      BackgroundPositionsValue::Css(css) => Self::from_str(&css).map_err(|e| e.to_string()),
     }
+  }
+}
+
+impl<'i> FromCss<'i> for BackgroundPositions {
+  fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
+    let mut values = Vec::new();
+    values.push(BackgroundPosition::from_css(input)?);
+
+    while input.expect_comma().is_ok() {
+      values.push(BackgroundPosition::from_css(input)?);
+    }
+
+    Ok(Self(values))
   }
 }

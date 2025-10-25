@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use csscolorparser::{NAMED_COLORS, ParseColorError};
-use cssparser::{Parser, ParserInput, ToCss, Token};
+use cssparser::{Parser, ToCss, Token};
 use image::Rgba;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -121,12 +121,7 @@ impl TryFrom<ColorInputValue> for ColorInput {
 
         Ok(ColorInput::Value(Color([r, g, b, 255])))
       }
-      ColorInputValue::Css(css) => {
-        let mut input = ParserInput::new(&css);
-        let mut parser = Parser::new(&mut input);
-
-        ColorInput::from_css(&mut parser).map_err(|e| e.to_string())
-      }
+      ColorInputValue::Css(css) => ColorInput::from_str(&css).map_err(|e| e.to_string()),
     }
   }
 }

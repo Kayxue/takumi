@@ -1,4 +1,4 @@
-use cssparser::{Parser, ParserInput, Token, match_ignore_ascii_case};
+use cssparser::{Parser, Token, match_ignore_ascii_case};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -186,12 +186,7 @@ impl TryFrom<ClipPathValue> for BasicShape {
       ClipPathValue::Ellipse(shape) => Ok(BasicShape::Ellipse(shape)),
       ClipPathValue::Polygon(shape) => Ok(BasicShape::Polygon(shape)),
       ClipPathValue::Path(shape) => Ok(BasicShape::Path(shape)),
-      ClipPathValue::Css(css) => {
-        let mut input = ParserInput::new(&css);
-        let mut parser = Parser::new(&mut input);
-
-        BasicShape::from_css(&mut parser).map_err(|e| e.to_string())
-      }
+      ClipPathValue::Css(css) => BasicShape::from_str(&css).map_err(|e| e.to_string()),
     }
   }
 }
