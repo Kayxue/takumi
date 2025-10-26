@@ -9,7 +9,7 @@ use crate::{
   layout::{
     Viewport,
     node::Node,
-    style::{Affine, InheritedStyle, Overflow, Overflows},
+    style::{Affine, Color, InheritedStyle, Overflow, Overflows},
     tree::NodeTree,
   },
   rendering::{BorderProperties, Canvas, draw_debug_border, inline_drawing::draw_inline_layout},
@@ -197,6 +197,26 @@ fn render_node<'g, Nodes: Node<Nodes>>(
 
   if node_context.context.draw_debug_border {
     draw_debug_border(canvas, layout, node_context.context.transform);
+  }
+
+  if let Some(clip) = &node_context.context.style.clip_path.0 {
+    let (mask, mut placement) = clip.render_mask(&node_context.context, layout);
+
+    let inner_canvas = Canvas::new(layout.size.map(|axis| axis as u32));
+
+    for child_id in taffy.children(node_id).unwrap() {
+      render_node(taffy, child_id, &inner_canvas, Point::zero(), transform);
+    }
+
+    placement.top += layout.location.x as i32;
+    placement.left += layout.location.y as i32;
+
+    return canvas.draw_mask(
+      &mask,
+      placement,
+      Color::transparent(),
+      Some(inner_canvas.into_inner()),
+    );
   }
 
   let overflow = Overflows(
