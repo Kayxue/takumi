@@ -208,8 +208,8 @@ fn render_node<'g, Nodes: Node<Nodes>>(
       render_node(taffy, child_id, &inner_canvas, Point::zero(), transform);
     }
 
-    placement.top += layout.location.x as i32;
-    placement.left += layout.location.y as i32;
+    placement.left += layout.location.x as i32;
+    placement.top += layout.location.y as i32;
 
     return canvas.draw_mask(
       &mask,

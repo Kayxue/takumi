@@ -28,7 +28,7 @@ pub enum SidesValue<T> {
   SingleValue(T),
 }
 
-impl<'i, T: TS + Copy + FromCss<'i>> FromCss<'i> for Sides<T> {
+impl<'i, T: TS + Copy + for<'j> FromCss<'j>> FromCss<'i> for Sides<T> {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
     // Parse between 1 and 4 values of T using FromCss
     let first = T::from_css(input)?;

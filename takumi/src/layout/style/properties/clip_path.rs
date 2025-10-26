@@ -401,6 +401,17 @@ impl<'i> FromCss<'i> for BasicShape {
 
             Ok(BasicShape::Inset(inset_shape))
           }),
+          "circle" => parser.parse_nested_block(|input| {
+            let radius = input.try_parse(ShapeRadius::from_css).unwrap_or_default();
+
+            let position = if input.try_parse(|input| input.expect_ident_matching("at")).is_ok() {
+              ShapePosition::from_css(input)?
+            } else {
+              ShapePosition::default()
+            };
+
+            Ok(BasicShape::Ellipse(EllipseShape { radius_x: radius, radius_y: radius, position }))
+          }),
           "ellipse" => parser.parse_nested_block(|input| {
             let radius_x = ShapeRadius::from_css(input)?;
             let radius_y = input.try_parse(ShapeRadius::from_css).unwrap_or_default();
