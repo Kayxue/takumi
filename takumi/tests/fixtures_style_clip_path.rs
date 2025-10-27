@@ -39,7 +39,7 @@ fn fixtures_clip_path_text_stroke_filled() {
             }))
             .color(ColorInput::Value(Color::white())) // White fill
             .clip_path(CssOption::some(
-              BasicShape::from_str("polygon(0 0, 100% 0, 0 100%)").unwrap(),
+              BasicShape::from_str("inset(0 0 50% 0)").unwrap(),
             ))
             .build()
             .unwrap(),
@@ -63,7 +63,7 @@ fn fixtures_clip_path_text_stroke_filled() {
               128, 128, 128, 255,
             ])))) // Semi-transparent white stroke
             .clip_path(CssOption::some(
-              BasicShape::from_str("polygon(0 100%, 100% 0, 100% 100%)").unwrap(),
+              BasicShape::from_str("inset(50% 0 0 0)").unwrap(),
             ))
             .build()
             .unwrap(),
