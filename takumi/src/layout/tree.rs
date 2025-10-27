@@ -35,6 +35,10 @@ impl<'g, N: Node<N>> NodeTree<'g, N> {
   }
 
   pub fn draw_inline(&self, canvas: &Canvas, layout: Layout) {
+    if self.context.opacity == 0.0 {
+      return;
+    }
+
     let (inline_layout, _, boxes) = self.create_inline_layout(layout.content_box_size());
     let font_style = self.context.style.to_sized_font_style(&self.context);
 

@@ -100,6 +100,10 @@ pub(crate) fn draw_inline_box<N: Node<N>>(
   mut layout: Layout,
   canvas: &Canvas,
 ) {
+  if context.opacity == 0.0 {
+    return;
+  }
+
   let translated = context.transform
     * Affine::translation(Size {
       width: inline_box.x,
