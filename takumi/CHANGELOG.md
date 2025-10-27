@@ -1,5 +1,15 @@
 # takumi
 
+## 0.40.0
+
+### Minor Changes
+
+- ae7062f: support `clip-path`, `clip-rule`
+
+### Patch Changes
+
+- ae7062f: fix inline content not being clipped by overflow constraints
+
 ## 0.39.0
 
 ### Minor Changes
