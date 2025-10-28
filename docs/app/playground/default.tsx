@@ -2,41 +2,52 @@ export default function Image() {
   return (
     <div
       style={{
-        justifyContent: "center",
-        alignItems: "center",
-        flexDirection: "column",
+        backgroundImage: "url(https://picsum.photos/1200/630)",
         width: "100%",
         height: "100%",
-        backgroundColor: "white",
+        justifyContent: "center",
+        alignItems: "center",
       }}
     >
-      <h1
+      <div
         style={{
-          fontWeight: 500,
-          fontSize: "4rem",
-          display: "block",
+          padding: "2rem",
+          backgroundColor: "rgb(255 255 255 / 0.5)",
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "column",
         }}
       >
-        Welcome to{" "}
-        <span
+        <h1
           style={{
-            color: "red",
+            marginTop: 0,
+            fontWeight: 500,
+            fontSize: "4rem",
+            display: "block",
           }}
         >
-          Takumi{" "}
+          Welcome to{" "}
+          <span
+            style={{
+              color: "red",
+            }}
+          >
+            Takumi{" "}
+          </span>
+          Playground!
+        </h1>
+        <span
+          style={{
+            color: "rgb(0 0 0 60%)",
+            fontWeight: 350,
+            fontSize: "2.5rem",
+            display: "block",
+            marginBottom: 0,
+          }}
+        >
+          You can try out and experiment with Takumi here.
         </span>
-        Playground!
-      </h1>
-      <span
-        style={{
-          color: "rgb(0 0 0 60%)",
-          fontWeight: 350,
-          fontSize: "2.5rem",
-          display: "block",
-        }}
-      >
-        You can try out and experiment with Takumi here.
-      </span>
+      </div>
     </div>
   );
 }
