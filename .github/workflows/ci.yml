@@ -362,9 +362,10 @@ jobs:
           - host: windows-2025
             target: x86_64-pc-windows-msvc
           # Windows ARM64 can be built atm, but since bun does not have ARM64 support yet https://github.com/oven-sh/bun/issues/9824,
-          # we don't test it.
-          # - host: windows-11-arm
-          #   target: aarch64-pc-windows-msvc
+          # we run with x64 version.
+          - host: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            bun-binary-url: https://github.com/oven-sh/bun/releases/latest/download/bun-windows-x64-baseline.zip
           - host: macos-15-intel
             target: x86_64-apple-darwin
             build: bun run build --target x86_64-apple-darwin
@@ -386,6 +387,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+          bun-download-url: ${{ matrix.settings.bun-binary-url }}
 
       - name: Download helpers artifact
         uses: actions/download-artifact@v6
