@@ -6,6 +6,7 @@ import { __iconNode as axeIconNode } from "lucide-react/dist/esm/icons/axe";
 import { __iconNode as bookIconNode } from "lucide-react/dist/esm/icons/book";
 import { __iconNode as brainIconNode } from "lucide-react/dist/esm/icons/brain";
 import { __iconNode as flaskConicalIconNode } from "lucide-react/dist/esm/icons/flask-conical";
+import { __iconNode as handIconNode } from "lucide-react/dist/esm/icons/hand";
 import { __iconNode as leafIconNode } from "lucide-react/dist/esm/icons/leaf";
 import { createElement } from "react";
 
@@ -24,6 +25,7 @@ const icons = {
   FlaskConical: flaskConicalIconNode,
   Axe: axeIconNode,
   ArrowBigRight: arrowBigRightIconNode,
+  Hand: handIconNode,
 };
 
 export const source = loader({
