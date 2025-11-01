@@ -1,18 +1,47 @@
 ---
-title: Overview
-description: An overview of what is Takumi.
+title: Quick Start
+description: The fastest and simplest way to start using Takumi
 icon: Axe
 ---
 
-Takumi is an **image rendering engine** written in Rust that provides bindings for Node.js and WebAssembly. Suitable for high-throughput image rendering workloads such as Open Graph images and Twitter images.
+Takumi is an **image rendering engine** written in Rust that provides [various integrations](/docs/integrations). The design is mainly inspired by [satori](https://github.com/vercel/satori), but with a focus on portability and performance.
 
-The design is mainly inspired by [satori](https://github.com/vercel/satori), but with a focus on portability and performance.
+You can experience Takumi in [Playground](/playground) without any installation.
 
-## Why build a satori alternative?
+## Installation
 
-Takumi's focus is on how to rasterize images fast, while satori focuses on SVG output.
+The fastest/simplest way to use Takumi is with the `ImageResponse` wrapper, it manages the internal state for font & image cache.
 
-I'm not saying you should just use Takumi everywhere, there are places where SVG output could be a better fit. Pick the right tool for the job.
+```npm
+npm i @takumi-rs/image-response @takumi-rs/helpers @takumi-rs/core
+```
+
+## Usage
+
+Since `ImageResponse` extends standard [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) class, you can plug it into anywhere you want.
+
+It comes with pre-bundled [Geist](https://vercel.com/font) and Geist Mono as default fonts (OFL License).
+
+```tsx
+import ImageResponse from "@takumi-rs/image-response";
+import { serve } from "bun";
+
+serve({
+  fetch() {
+    return new ImageResponse(<div>Hello</div>, {
+      format: "webp",
+    });
+  }
+});
+```
+
+For detailed framework/runtime integration guide, check the [Integrations](/docs/integrations) category.
+
+## Learn More
+
+### Why build a satori alternative?
+
+Takumi's focus is on how to rasterize images fast, while satori outputs SVG.
 
 <Callout type="info">
 More discussion can be found in [this X thread by @shuding_](https://x.com/shuding_/status/1958853749004542445).
@@ -25,26 +54,3 @@ More discussion can be found in [this X thread by @shuding_](https://x.com/shudi
 - WOFF2 font format support.
 - PNG, JPEG, WebP, AVIF output support.
 - WebP, APNG animation rendering support.
-
-## Goals
-
-- Takes your existing JSX components and drops them in, it should just work.
-- Minimal binary size targets to run everywhere.
-- Be the go-to library for image/animation rendering.
-- Have a great developer experience.
-
-## Start Here
-
-These two guides are the best way to get started.
-
-<Cards>
-<Card title="Integrations" href="/docs/integrations" icon={<BookOpen />}>
-  Learn how to use Takumi for image generation in various environments.
-</Card>
-<Card title="From Next.js ImageResponse" href="/docs/migration/migrate-from-image-response" icon={<ArrowBigRight />}>
-  Start using Takumi just by changing the import.
-</Card>
-<Card title="Playground" href="/playground" icon={<Shovel />}>
-  Try out Takumi in browser without installation.
-</Card>
-</Cards>
