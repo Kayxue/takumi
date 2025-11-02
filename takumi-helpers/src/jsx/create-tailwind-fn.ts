@@ -37,17 +37,19 @@ const defaultShadows: TwPlugin = {
         boxShadow: "inset 0 2px 4px 0 rgb(0 0 0 / 0.05)",
       },
       "shadow-none": { boxShadow: "0 0 #0000" },
+      block: {
+        display: "block",
+      },
     });
   },
 };
 
 /**
- * @description Creates a function that can be used to create tailwind classes.
+ * @description Creates a function that can be used to parse tailwind classes into inline styles.
  * @param config The tailwind config to use.
- * @returns A function that can be used to create tailwind classes.
  */
 export function createTailwindFn(config?: TwConfig) {
-  return create(
+  const inner = create(
     {
       ...config,
       plugins: [...(config?.plugins ?? []), defaultShadows],
@@ -59,4 +61,16 @@ export function createTailwindFn(config?: TwConfig) {
       patch: 0,
     },
   );
+
+  return function tw(...args: Parameters<typeof inner.style>) {
+    const styles = inner.style(...args);
+
+    // twrnc converts line height to a pixel value,
+    // but by default number means em, so we need to mark it as px explicitly.
+    if (typeof styles.lineHeight === "number") {
+      styles.lineHeight = `${styles.lineHeight}px`;
+    }
+
+    return styles;
+  };
 }

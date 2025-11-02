@@ -234,6 +234,36 @@ const webkitPropertiesMapping = {
   WebkitTextStrokeColor: "textStrokeColor",
 } satisfies Partial<Record<keyof CSSProperties, keyof PartialStyle>>;
 
+function processTailwindStyle(
+  element: ReactElementLike,
+  base: PartialStyle,
+  options: FromJsxOptions,
+) {
+  if (
+    !options.tailwindFn ||
+    typeof element.props !== "object" ||
+    element.props === null
+  )
+    return;
+
+  const tw =
+    "tw" in element.props && typeof element.props.tw === "string"
+      ? element.props.tw
+      : false;
+
+  const className =
+    "className" in element.props && typeof element.props.className === "string"
+      ? element.props.className
+      : false;
+
+  const classProp =
+    "class" in element.props && typeof element.props.class === "string"
+      ? element.props.class
+      : false;
+
+  Object.assign(base, options.tailwindFn(tw, className, classProp));
+}
+
 function extractStyle(
   element: ReactElementLike,
   options: FromJsxOptions,
@@ -247,17 +277,7 @@ function extractStyle(
     );
   }
 
-  const tw =
-    typeof element.props === "object" &&
-    element.props !== null &&
-    "tw" in element.props &&
-    typeof element.props.tw === "string"
-      ? element.props.tw
-      : undefined;
-
-  if (tw && options?.tailwindFn) {
-    Object.assign(base, options.tailwindFn`${tw}`);
-  }
+  processTailwindStyle(element, base, options);
 
   const style =
     typeof element.props === "object" &&
