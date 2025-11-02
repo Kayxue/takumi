@@ -42,6 +42,12 @@ const defaultShadows: TwPlugin = {
       block: {
         display: "block",
       },
+      inline: {
+        display: "inline",
+      },
+      grid: {
+        display: "grid",
+      },
     });
   },
 };
