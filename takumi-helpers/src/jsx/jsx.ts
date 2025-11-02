@@ -246,22 +246,24 @@ function processTailwindStyle(
   )
     return;
 
-  const tw =
-    "tw" in element.props && typeof element.props.tw === "string"
-      ? element.props.tw
-      : false;
+  const classes = [];
 
-  const className =
-    "className" in element.props && typeof element.props.className === "string"
-      ? element.props.className
-      : false;
+  if ("tw" in element.props && typeof element.props.tw === "string") {
+    classes.push(element.props.tw);
+  }
 
-  const classProp =
-    "class" in element.props && typeof element.props.class === "string"
-      ? element.props.class
-      : false;
+  if (
+    "className" in element.props &&
+    typeof element.props.className === "string"
+  ) {
+    classes.push(element.props.className);
+  }
 
-  Object.assign(base, options.tailwindFn(tw, className, classProp));
+  if ("class" in element.props && typeof element.props.class === "string") {
+    classes.push(element.props.class);
+  }
+
+  Object.assign(base, options.tailwindFn(...classes));
 }
 
 function extractStyle(

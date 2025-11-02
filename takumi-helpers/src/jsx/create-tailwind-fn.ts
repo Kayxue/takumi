@@ -1,3 +1,5 @@
+// Modified from https://github.com/vercel/satori/blob/2a0878a7f329bdba3a17ad68f71186a47add0dde/src/handler/tailwind.ts
+
 import type { TwConfig } from "twrnc";
 import { create } from "twrnc/create";
 
@@ -69,6 +71,15 @@ export function createTailwindFn(config?: TwConfig) {
     // but by default number means em, so we need to mark it as px explicitly.
     if (typeof styles.lineHeight === "number") {
       styles.lineHeight = `${styles.lineHeight}px`;
+    }
+
+    // Since color and shadow definitions are separated,
+    // we need to merge them together.
+    if (styles.shadowColor && typeof styles.boxShadow === "string") {
+      styles.boxShadow = styles.boxShadow.replace(
+        /rgba?\([^)]+\)/g,
+        styles.shadowColor.toString(),
+      );
     }
 
     return styles;

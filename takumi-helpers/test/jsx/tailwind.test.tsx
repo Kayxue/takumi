@@ -12,7 +12,7 @@ describe("createTailwindFn", () => {
 
   test("tailwind function processes basic classes", () => {
     const tw = createTailwindFn();
-    const styles = tw`text-red-500 bg-blue-100 p-4`;
+    const styles = tw("text-red-500 bg-blue-100 p-4");
 
     expect(styles).toEqual(
       expect.objectContaining({
@@ -29,14 +29,55 @@ describe("createTailwindFn", () => {
   test("includes default shadow utilities", () => {
     const tw = createTailwindFn();
 
-    const shadowStyles = tw`shadow`;
+    const shadowStyles = tw("shadow");
     expect(shadowStyles).toHaveProperty("boxShadow");
 
-    const shadowMdStyles = tw`shadow-md`;
+    const shadowMdStyles = tw("shadow-md");
     expect(shadowMdStyles).toHaveProperty("boxShadow");
 
-    const shadowNoneStyles = tw`shadow-none`;
+    const shadowNoneStyles = tw("shadow-none");
     expect(shadowNoneStyles).toHaveProperty("boxShadow", "0 0 #0000");
+  });
+
+  test("parses box-shadow utilities correctly", () => {
+    const tw = createTailwindFn();
+
+    // Test various shadow sizes
+    const shadowSm = tw("shadow-sm");
+    expect(shadowSm).toHaveProperty("boxShadow");
+
+    const shadowLg = tw("shadow-lg");
+    expect(shadowLg).toHaveProperty("boxShadow");
+
+    const shadowXl = tw("shadow-xl");
+    expect(shadowXl).toHaveProperty("boxShadow");
+
+    const shadow2xl = tw("shadow-2xl");
+    expect(shadow2xl).toHaveProperty("boxShadow");
+
+    const shadowInner = tw("shadow-inner");
+    expect(shadowInner).toHaveProperty("boxShadow");
+  });
+
+  test("parses line-height utility correctly", () => {
+    const tw = createTailwindFn();
+
+    const leading3 = tw("leading-3");
+    expect(leading3).toHaveProperty("lineHeight", "12px");
+  });
+
+  test("parses relative line-height utilities with font-size", () => {
+    const tw = createTailwindFn();
+
+    // Relative line-heights require font-size to be set
+    const leadingNoneWithFont = tw("text-base leading-none");
+    expect(leadingNoneWithFont).toHaveProperty("lineHeight", "16px"); // 1 * 16px
+
+    const leadingNormalWithFont = tw("text-base leading-normal");
+    expect(leadingNormalWithFont).toHaveProperty("lineHeight", "24px"); // 1.5 * 16px
+
+    const leadingTightWithFont = tw("text-lg leading-tight");
+    expect(leadingTightWithFont).toHaveProperty("lineHeight", "22.5px"); // 1.25 * 18px
   });
 
   test("merges custom config with defaults", () => {
@@ -51,7 +92,7 @@ describe("createTailwindFn", () => {
     };
 
     const tw = createTailwindFn(customConfig);
-    const styles = tw`text-custom`;
+    const styles = tw("text-custom");
 
     expect(styles).toHaveProperty("color", "#123456");
   });
@@ -72,23 +113,33 @@ describe("createTailwindFn", () => {
     const tw = createTailwindFn(customConfig);
 
     // Should have both custom utility and default shadows
-    const customStyles = tw`custom-utility`;
+    const customStyles = tw("custom-utility");
     expect(customStyles).toHaveProperty("fontSize", "24px");
 
-    const shadowStyles = tw`shadow`;
+    const shadowStyles = tw("shadow");
     expect(shadowStyles).toHaveProperty("boxShadow");
   });
 
   test("handles empty config", () => {
     const tw = createTailwindFn({});
-    const styles = tw`text-center`;
+    const styles = tw("text-center");
     expect(styles).toHaveProperty("textAlign", "center");
   });
 
   test("handles undefined config", () => {
     const tw = createTailwindFn(undefined);
-    const styles = tw`text-center`;
+    const styles = tw("text-center");
     expect(styles).toHaveProperty("textAlign", "center");
+  });
+
+  test("parses shadow with color", () => {
+    const tw = createTailwindFn();
+
+    const shadowMdBlack = tw("shadow-md shadow-blue-500");
+    expect(shadowMdBlack).toHaveProperty(
+      "boxShadow",
+      "0 4px 6px -1px #3b82f6, 0 2px 4px -2px #3b82f6",
+    );
   });
 });
 
