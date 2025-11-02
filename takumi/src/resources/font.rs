@@ -6,7 +6,7 @@ use std::{
 
 use parley::{
   GenericFamily, LayoutContext, Run, TextStyle, TreeBuilder,
-  fontique::{Blob, FallbackKey, FontInfoOverride, Script},
+  fontique::{Blob, Collection, CollectionOptions, FallbackKey, FontInfoOverride, Script},
 };
 use swash::{
   FontRef, Setting,
@@ -94,9 +94,23 @@ fn guess_font_format(source: &[u8]) -> Result<FontFormat, FontError> {
 }
 
 /// A context for managing fonts in the rendering system.
-#[derive(Default)]
+#[derive(Clone)]
 pub struct FontContext {
   inner: parley::FontContext,
+}
+
+impl Default for FontContext {
+  fn default() -> Self {
+    Self {
+      inner: parley::FontContext {
+        collection: Collection::new(CollectionOptions {
+          system_fonts: false,
+          shared: false,
+        }),
+        ..Default::default()
+      },
+    }
+  }
 }
 
 impl FontContext {
