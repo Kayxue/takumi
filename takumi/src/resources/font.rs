@@ -107,7 +107,7 @@ impl Default for FontContext {
           system_fonts: false,
           shared: false,
         }),
-        ..Default::default()
+        source_cache: Default::default(),
       },
     }
   }

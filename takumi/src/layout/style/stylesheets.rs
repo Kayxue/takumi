@@ -1,7 +1,7 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, marker::PhantomData};
 
 use derive_builder::Builder;
-use parley::{FontSettings, FontStack, TextStyle};
+use parley::{FontSettings, FontStack, FontWidth, TextStyle};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use taffy::{Point, Size, prelude::FromLength};
@@ -228,7 +228,17 @@ impl<'s> From<&'s SizedFontStyle<'s>> for TextStyle<'s, InlineBrush> {
         decoration_color: style.text_decoration_color,
         stroke_color: style.text_stroke_color,
       },
-      ..Default::default()
+
+      font_width: FontWidth::NORMAL,
+      locale: None,
+      has_underline: false,
+      underline_offset: None,
+      underline_size: None,
+      underline_brush: None,
+      has_strikethrough: false,
+      strikethrough_offset: None,
+      strikethrough_size: None,
+      strikethrough_brush: None,
     }
   }
 }
@@ -534,7 +544,12 @@ impl InheritedStyle {
         x: self.overflow_x.unwrap_or(self.overflow.0).into(),
         y: self.overflow_y.unwrap_or(self.overflow.1).into(),
       },
-      ..Default::default()
+
+      dummy: PhantomData,
+      item_is_table: false,
+      item_is_replaced: false,
+      scrollbar_width: 0.0,
+      text_align: taffy::TextAlign::Auto,
     }
   }
 }
