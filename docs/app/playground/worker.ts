@@ -95,8 +95,6 @@ self.onmessage = async (event: MessageEvent) => {
           },
         );
 
-        console.log(node);
-
         const resourceUrls = collectNodeFetchTasks(node);
 
         const fetchedResources = new Map(
