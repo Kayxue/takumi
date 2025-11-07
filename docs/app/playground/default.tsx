@@ -1,17 +1,19 @@
 export default function Image() {
   return (
     <div
-      tw="w-full h-full justify-center items-center"
+      tw="w-full h-full justify-center bg-white items-center"
       style={{
-        backgroundImage: "url(https://picsum.photos/1200/630)",
+        backgroundImage:
+          "radial-gradient(circle at 25px 25px, lightgray 2%, transparent 0%), radial-gradient(circle at 75px 75px, lightgray 2%, transparent 0%)",
+        backgroundSize: "100px 100px",
       }}
     >
-      <div tw="p-8 bg-white/75 justify-center items-center flex flex-col rounded-2xl">
-        <h1 tw="mt-0 font-medium text-7xl block whitespace-pre">
+      <div tw="justify-center items-center flex flex-col rounded-2xl">
+        <h1 tw="font-semibold text-6xl block whitespace-pre">
           Welcome to <span tw="text-[#ff3535]">Takumi </span>
           Playground!
         </h1>
-        <span tw="text-black/75 text-4xl mb-0">
+        <span tw="text-black/75 text-4xl font-[Geist_Mono]">
           You can try out and experiment with Takumi here.
         </span>
       </div>

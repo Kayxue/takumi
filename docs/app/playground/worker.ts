@@ -40,13 +40,21 @@ async function cachedFetch(url: string): Promise<ArrayBuffer> {
 }
 
 (async () => {
-  const [_, normalFont] = await Promise.all([
+  const [_, normalFont, monoFont] = await Promise.all([
     initWasm({ module_or_path: wasmUrl }),
     fetch("/fonts/Geist.woff2").then((r) => r.arrayBuffer()),
+    fetch("/fonts/GeistMono.woff2").then((r) => r.arrayBuffer()),
   ]);
 
   renderer = new Renderer();
-  renderer.loadFont(new Uint8Array(normalFont));
+  renderer.loadFont({
+    data: normalFont,
+    name: "Geist",
+  });
+  renderer.loadFont({
+    data: monoFont,
+    name: "Geist Mono",
+  });
 
   postMessage({ type: "ready" });
 })();
