@@ -1,5 +1,14 @@
 # takumi
 
+## 0.45.2
+
+### Patch Changes
+
+- d28e982: add `background-image` arbitrary value parsing
+- 3c0243b: fix gradient step parsing
+- 1ba2585: bump minimum rust version to 1.88
+- 3c0243b: prevent panicing in font weight parsing
+
 ## 0.45.1
 
 ### Patch Changes
