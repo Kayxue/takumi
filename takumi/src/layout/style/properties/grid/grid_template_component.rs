@@ -116,10 +116,10 @@ impl<'i> FromCss<'i> for GridTemplateComponent {
         }
 
         // Any remaining pending names after the final size are the trailing names of the repeat fragment
-        if !pending_leading_names.is_empty() {
-          if let Some(last) = tracks.last_mut() {
-            last.end_names = Some(std::mem::take(&mut pending_leading_names));
-          }
+        if !pending_leading_names.is_empty()
+          && let Some(last) = tracks.last_mut()
+        {
+          last.end_names = Some(std::mem::take(&mut pending_leading_names));
         }
 
         Ok(GridTemplateComponent::Repeat(repetition, tracks))

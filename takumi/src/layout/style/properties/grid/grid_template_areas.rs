@@ -115,16 +115,16 @@ impl<'i> FromCss<'i> for GridTemplateAreas {
     }
 
     // Validate consistent column counts across rows
-    if let Some(width) = rows.first().map(Vec::len) {
-      if rows.iter().any(|r| r.len() != width) {
-        // Create a parse error for inconsistent row lengths
-        let location = input.current_source_location();
-        return Err(
-          location
-            .new_basic_unexpected_token_error(Token::Ident("inconsistent-rows".into()))
-            .into(),
-        );
-      }
+    if let Some(width) = rows.first().map(Vec::len)
+      && rows.iter().any(|r| r.len() != width)
+    {
+      // Create a parse error for inconsistent row lengths
+      let location = input.current_source_location();
+      return Err(
+        location
+          .new_basic_unexpected_token_error(Token::Ident("inconsistent-rows".into()))
+          .into(),
+      );
     }
 
     Ok(GridTemplateAreas(rows))

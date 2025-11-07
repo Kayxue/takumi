@@ -130,19 +130,19 @@ impl<'i> FromCss<'i> for Flex {
     let mut basis = None;
 
     loop {
-      if grow.is_none() {
-        if let Ok(val) = input.try_parse(Parser::expect_number) {
-          grow = Some(val);
-          shrink = input.try_parse(Parser::expect_number).ok();
-          continue;
-        }
+      if grow.is_none()
+        && let Ok(val) = input.try_parse(Parser::expect_number)
+      {
+        grow = Some(val);
+        shrink = input.try_parse(Parser::expect_number).ok();
+        continue;
       }
 
-      if basis.is_none() {
-        if let Ok(val) = input.try_parse(LengthUnit::from_css) {
-          basis = Some(val);
-          continue;
-        }
+      if basis.is_none()
+        && let Ok(val) = input.try_parse(LengthUnit::from_css)
+      {
+        basis = Some(val);
+        continue;
       }
 
       break;

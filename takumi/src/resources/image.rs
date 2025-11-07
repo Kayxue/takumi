@@ -86,10 +86,10 @@ pub fn load_image_source_from_bytes(bytes: &[u8]) -> ImageResult {
   {
     use std::str::from_utf8;
 
-    if let Ok(text) = from_utf8(bytes) {
-      if is_svg(text) {
-        return parse_svg_str(text);
-      }
+    if let Ok(text) = from_utf8(bytes)
+      && is_svg(text)
+    {
+      return parse_svg_str(text);
     }
   }
 

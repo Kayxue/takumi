@@ -149,11 +149,11 @@ impl<'i> FromCss<'i> for TextShadow {
       }
 
       // Try to parse a color value if not already found
-      if color.is_none() {
-        if let Ok(value) = input.try_parse(ColorInput::from_css) {
-          color = Some(value);
-          continue;
-        }
+      if color.is_none()
+        && let Ok(value) = input.try_parse(ColorInput::from_css)
+      {
+        color = Some(value);
+        continue;
       }
 
       // If we can't parse anything else, break out of the loop
