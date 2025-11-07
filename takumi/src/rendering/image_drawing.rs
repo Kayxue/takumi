@@ -5,7 +5,7 @@ use image::imageops::crop_imm;
 use taffy::{Layout, Point, Rect, Size};
 
 use crate::{
-  layout::style::{Affine, ObjectFit},
+  layout::style::{Affine, LengthUnit, ObjectFit},
   rendering::{BorderProperties, Canvas, RenderContext},
   resources::image::ImageSource,
 };
@@ -38,20 +38,10 @@ pub fn process_image_for_object_fit<'i>(
 ) -> (Cow<'i, RgbaImage>, Point<f32>) {
   let (image_width, image_height) = image.size();
 
-  let object_position_x = context
-    .style
-    .object_position
-    .0
-    .x
-    .to_length_unit()
-    .resolve_to_px(context, content_box.width);
-  let object_position_y = context
-    .style
-    .object_position
-    .0
-    .y
-    .to_length_unit()
-    .resolve_to_px(context, content_box.height);
+  let object_position_x =
+    LengthUnit::from(context.style.object_position.0.x).resolve_to_px(context, content_box.width);
+  let object_position_y =
+    LengthUnit::from(context.style.object_position.0.y).resolve_to_px(context, content_box.height);
 
   let filter_type = context.style.image_rendering.into();
 

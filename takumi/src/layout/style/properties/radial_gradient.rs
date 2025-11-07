@@ -6,88 +6,11 @@ use ts_rs::TS;
 use super::gradient_utils::{color_from_stops, resolve_stops_along_axis};
 use crate::{
   layout::style::{
-    Color, FromCss, Gradient, GradientStop, LengthUnit, ParseResult, ResolvedGradientStop,
+    BackgroundPosition, Color, FromCss, Gradient, GradientStop, LengthUnit, ParseResult,
+    ResolvedGradientStop,
   },
   rendering::RenderContext,
 };
-
-/// Horizontal keywords for center position.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-pub enum CenterKeywordX {
-  /// Align to the left edge.
-  Left,
-  /// Align to the horizontal center.
-  Center,
-  /// Align to the right edge.
-  Right,
-}
-
-/// Vertical keywords for center position.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-pub enum CenterKeywordY {
-  /// Align to the top edge.
-  Top,
-  /// Align to the vertical center.
-  Center,
-  /// Align to the bottom edge.
-  Bottom,
-}
-
-/// A center position component that can be a keyword or length unit.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq)]
-#[serde(untagged)]
-pub enum CenterPositionComponent {
-  /// A horizontal keyword.
-  KeywordX(CenterKeywordX),
-  /// A vertical keyword.
-  KeywordY(CenterKeywordY),
-  /// An absolute length value.
-  Length(LengthUnit),
-}
-
-impl From<CenterPositionComponent> for LengthUnit {
-  fn from(component: CenterPositionComponent) -> Self {
-    match component {
-      CenterPositionComponent::KeywordX(keyword) => match keyword {
-        CenterKeywordX::Center => Self::Percentage(50.0),
-        CenterKeywordX::Left => Self::Percentage(0.0),
-        CenterKeywordX::Right => Self::Percentage(100.0),
-      },
-      CenterPositionComponent::KeywordY(keyword) => match keyword {
-        CenterKeywordY::Center => Self::Percentage(50.0),
-        CenterKeywordY::Top => Self::Percentage(0.0),
-        CenterKeywordY::Bottom => Self::Percentage(100.0),
-      },
-      CenterPositionComponent::Length(length) => length,
-    }
-  }
-}
-
-/// Center position for radial gradients, supporting keywords and length units.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq)]
-pub struct CenterPosition(pub LengthUnit, pub LengthUnit);
-
-impl Default for CenterPosition {
-  fn default() -> Self {
-    Self(LengthUnit::Percentage(50.0), LengthUnit::Percentage(50.0))
-  }
-}
-
-impl CenterPosition {
-  /// Resolves the center position to pixel coordinates.
-  pub(crate) fn resolve_to_pixels(
-    self,
-    context: &RenderContext,
-    width: f32,
-    height: f32,
-  ) -> (f32, f32) {
-    let cx = self.0.resolve_to_px(context, width);
-    let cy = self.1.resolve_to_px(context, height);
-    (cx, cy)
-  }
-}
 
 /// Represents a radial gradient.
 #[derive(Debug, Clone, PartialEq, TS, Deserialize, Serialize)]
@@ -96,8 +19,8 @@ pub struct RadialGradient {
   pub shape: RadialShape,
   /// The sizing mode for the gradient
   pub size: RadialSize,
-  /// Center position supporting keywords and length units
-  pub center: CenterPosition,
+  /// Center position
+  pub center: BackgroundPosition,
   /// Gradient stops
   pub stops: Vec<GradientStop>,
 }
@@ -186,7 +109,8 @@ impl RadialGradient {
 impl RadialGradientDrawContext {
   /// Builds a drawing context from a gradient and a target viewport.
   pub fn new(gradient: &RadialGradient, width: f32, height: f32, context: &RenderContext) -> Self {
-    let (cx, cy) = gradient.center.resolve_to_pixels(context, width, height);
+    let cx = LengthUnit::from(gradient.center.0.x).resolve_to_px(context, width);
+    let cy = LengthUnit::from(gradient.center.0.y).resolve_to_px(context, height);
 
     // Distances to sides and corners
     let dx_left = cx;
@@ -272,7 +196,7 @@ impl<'i> FromCss<'i> for RadialGradient {
     input.parse_nested_block(|input| {
       let mut shape = RadialShape::Ellipse;
       let mut size = RadialSize::FarthestCorner;
-      let mut center = CenterPosition::default();
+      let mut center = BackgroundPosition::default();
 
       loop {
         if let Ok(s) = input.try_parse(RadialShape::from_css) {
@@ -286,7 +210,7 @@ impl<'i> FromCss<'i> for RadialGradient {
         }
 
         if input.try_parse(|i| i.expect_ident_matching("at")).is_ok() {
-          center = CenterPosition::from_css(input)?;
+          center = BackgroundPosition::from_css(input)?;
           continue;
         }
 
@@ -342,47 +266,6 @@ impl<'i> FromCss<'i> for RadialSize {
   }
 }
 
-impl<'i> FromCss<'i> for CenterPosition {
-  fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    let first = CenterPositionComponent::from_css(input)?;
-    // If a second exists, parse it; otherwise, 1-value syntax means y=center
-    let second = input.try_parse(CenterPositionComponent::from_css).ok();
-
-    let (x, y) = match (first, second) {
-      (CenterPositionComponent::KeywordY(_), None) => (
-        CenterPositionComponent::KeywordX(CenterKeywordX::Center),
-        first,
-      ),
-      (CenterPositionComponent::KeywordY(_), Some(second)) => (second, first),
-      (x, None) => (x, CenterPositionComponent::KeywordY(CenterKeywordY::Center)),
-      (x, Some(y)) => (x, y),
-    };
-
-    Ok(CenterPosition(x.into(), y.into()))
-  }
-}
-
-impl<'i> FromCss<'i> for CenterPositionComponent {
-  fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    if let Ok(v) = input.try_parse(LengthUnit::from_css) {
-      return Ok(CenterPositionComponent::Length(v));
-    }
-
-    let location = input.current_source_location();
-    let token = input.expect_ident()?;
-
-    match_ignore_ascii_case! {
-      &token,
-      "left" => Ok(CenterPositionComponent::KeywordX(CenterKeywordX::Left)),
-      "center" => Ok(CenterPositionComponent::KeywordX(CenterKeywordX::Center)),
-      "right" => Ok(CenterPositionComponent::KeywordX(CenterKeywordX::Right)),
-      "top" => Ok(CenterPositionComponent::KeywordY(CenterKeywordY::Top)),
-      "bottom" => Ok(CenterPositionComponent::KeywordY(CenterKeywordY::Bottom)),
-      _ => Err(location.new_basic_unexpected_token_error(Token::Ident(token.clone())).into()),
-    }
-  }
-}
-
 /// Proxy type for `RadialGradient` Css deserialization.
 #[derive(Debug, Clone, PartialEq, TS, Deserialize)]
 #[serde(untagged)]
@@ -394,7 +277,7 @@ pub(crate) enum RadialGradientValue {
     /// The size keyword of the gradient.
     size: RadialSize,
     /// The center of the gradient supporting keywords and length units.
-    center: CenterPosition,
+    center: BackgroundPosition,
     /// The steps of the gradient.
     stops: Vec<GradientStop>,
   },
@@ -426,7 +309,9 @@ impl TryFrom<RadialGradientValue> for RadialGradient {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::layout::style::{LengthUnit, StopPosition};
+  use crate::layout::style::{
+    LengthUnit, PositionComponent, PositionKeywordX, PositionKeywordY, SpacePair, StopPosition,
+  };
   use crate::{GlobalContext, layout::Viewport, rendering::RenderContext};
 
   #[test]
@@ -438,7 +323,7 @@ mod tests {
       Ok(RadialGradient {
         shape: RadialShape::Ellipse,
         size: RadialSize::FarthestCorner,
-        center: CenterPosition(LengthUnit::Percentage(50.0), LengthUnit::Percentage(50.0)),
+        center: BackgroundPosition::default(),
         stops: vec![
           GradientStop::ColorHint {
             color: Color([255, 0, 0, 255]).into(),
@@ -463,7 +348,7 @@ mod tests {
       Ok(RadialGradient {
         shape: RadialShape::Circle,
         size: RadialSize::FarthestSide,
-        center: CenterPosition(LengthUnit::Percentage(50.0), LengthUnit::Percentage(50.0)),
+        center: BackgroundPosition::default(),
         stops: vec![
           GradientStop::ColorHint {
             color: Color([255, 0, 0, 255]).into(),
@@ -488,7 +373,10 @@ mod tests {
       Ok(RadialGradient {
         shape: RadialShape::Ellipse,
         size: RadialSize::FarthestCorner,
-        center: CenterPosition(LengthUnit::Percentage(0.0), LengthUnit::Percentage(0.0)),
+        center: BackgroundPosition(SpacePair::from_pair(
+          PositionComponent::KeywordX(PositionKeywordX::Left),
+          PositionComponent::KeywordY(PositionKeywordY::Top),
+        )),
         stops: vec![
           GradientStop::ColorHint {
             color: Color([255, 0, 0, 255]).into(),
@@ -506,17 +394,17 @@ mod tests {
   #[test]
   fn test_parse_radial_gradient_size_then_position() {
     let gradient =
-      RadialGradient::from_str("radial-gradient(farthest-corner at 25% 60%, #ffffff, #000000)");
+      RadialGradient::from_str("radial-gradient(farthest-corner at 25% 70%, #ffffff, #000000)");
 
     assert_eq!(
       gradient,
       Ok(RadialGradient {
         shape: RadialShape::Ellipse,
         size: RadialSize::FarthestCorner,
-        center: CenterPosition(
-          LengthUnit::Percentage(25.0),
-          LengthUnit::Percentage(60.000004)
-        ),
+        center: BackgroundPosition(SpacePair::from_pair(
+          PositionComponent::Length(LengthUnit::Percentage(25.0)),
+          PositionComponent::Length(LengthUnit::Percentage(70.0)),
+        )),
         stops: vec![
           GradientStop::ColorHint {
             color: Color::white().into(),
@@ -542,7 +430,9 @@ mod tests {
       Ok(RadialGradient {
         shape: RadialShape::Circle,
         size: RadialSize::FarthestCorner,
-        center: CenterPosition(LengthUnit::Px(25.0), LengthUnit::Px(25.0)),
+        center: BackgroundPosition(SpacePair::from_single(PositionComponent::Length(
+          LengthUnit::Px(25.0),
+        ))),
         stops: vec![
           GradientStop::ColorHint {
             color: Color([211, 211, 211, 255]).into(),
@@ -567,7 +457,7 @@ mod tests {
       Ok(RadialGradient {
         shape: RadialShape::Circle,
         size: RadialSize::FarthestCorner,
-        center: CenterPosition(LengthUnit::Percentage(50.0), LengthUnit::Percentage(50.0)),
+        center: BackgroundPosition::default(),
         stops: vec![
           GradientStop::ColorHint {
             color: Color([255, 0, 0, 255]).into(),
@@ -591,7 +481,7 @@ mod tests {
     let gradient = RadialGradient {
       shape: RadialShape::Ellipse,
       size: RadialSize::FarthestCorner,
-      center: CenterPosition(LengthUnit::Percentage(50.0), LengthUnit::Percentage(50.0)),
+      center: BackgroundPosition::default(),
       stops: vec![
         GradientStop::ColorHint {
           color: Color::black().into(),
@@ -623,7 +513,7 @@ mod tests {
     let gradient = RadialGradient {
       shape: RadialShape::Ellipse,
       size: RadialSize::FarthestCorner,
-      center: CenterPosition(LengthUnit::Percentage(50.0), LengthUnit::Percentage(50.0)),
+      center: BackgroundPosition::default(),
       stops: vec![
         GradientStop::ColorHint {
           color: Color::black().into(),

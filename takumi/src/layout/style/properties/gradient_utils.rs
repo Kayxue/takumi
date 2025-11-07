@@ -54,52 +54,67 @@ pub(crate) fn color_from_stops(position: f32, resolved_stops: &[ResolvedGradient
   }
 }
 
-/// Resolves gradient steps into color stops with positions expressed in pixels along an axis.
+const UNDEFINED_POSITION: f32 = -1.0;
+
 pub(crate) fn resolve_stops_along_axis(
   stops: &[GradientStop],
   axis_size_px: f32,
   context: &RenderContext,
 ) -> SmallVec<[ResolvedGradientStop; 4]> {
   let mut resolved: SmallVec<[ResolvedGradientStop; 4]> = SmallVec::new();
+  let mut last_position = 0.0;
+
   for (i, step) in stops.iter().enumerate() {
     match step {
-      GradientStop::ColorHint { color, hint } => {
-        let last_position = resolved.last().map(|s| s.position).unwrap_or(0.0);
-
+      GradientStop::ColorHint {
+        color,
+        hint: Some(hint),
+      } => {
         let position = hint
-          .map(|position| {
-            position
-              .0
-              .resolve_to_px(context, axis_size_px)
-              .max(last_position)
-          })
-          .unwrap_or(last_position);
+          .0
+          .resolve_to_px(context, axis_size_px)
+          .max(last_position);
+
+        last_position = position;
 
         resolved.push(ResolvedGradientStop {
           color: color.resolve(context.current_color, context.opacity),
           position,
         });
       }
+      GradientStop::ColorHint { color, hint: None } => {
+        resolved.push(ResolvedGradientStop {
+          color: color.resolve(context.current_color, context.opacity),
+          position: UNDEFINED_POSITION,
+        });
+      }
       GradientStop::Hint(hint) => {
-        let before_color = resolved
-          .get(i - 1)
-          .expect("Gradient hint found without a preceding color stop. Each hint must follow a color stop.")
-          .color;
+        let Some(before) = resolved.last() else {
+          continue;
+        };
 
-        let after_color = stops
-          .get(i + 1)
-          .and_then(|stop| match stop {
-            GradientStop::ColorHint { color, hint: _ } => Some(color.resolve(context.current_color, context.opacity)),
-            GradientStop::Hint(_) => None,
-          })
-          .expect("Gradient hint found without a following color stop. Each hint must be followed by a color stop.");
+        let Some(after_color) = stops.get(i + 1).and_then(|stop| match stop {
+          GradientStop::ColorHint { color, hint: _ } => {
+            Some(color.resolve(context.current_color, context.opacity))
+          }
+          GradientStop::Hint(_) => None,
+        }) else {
+          continue;
+        };
 
-        let interpolated_color = interpolate_rgba(before_color, after_color, 0.5);
+        let interpolated_color = interpolate_rgba(before.color, after_color, 0.5);
+
+        let position = hint
+          .0
+          .resolve_to_px(context, axis_size_px)
+          .max(last_position);
 
         resolved.push(ResolvedGradientStop {
           color: interpolated_color,
-          position: hint.0.resolve_to_px(context, axis_size_px),
+          position,
         });
+
+        last_position = position;
       }
     }
   }
@@ -109,58 +124,56 @@ pub(crate) fn resolve_stops_along_axis(
     return resolved;
   }
 
-  if resolved[0].position == -1.0 {
-    resolved[0].position = 0.0;
-  }
-
-  // If there is only one stop, set its position to 0.0
+  // if there is only one stop, treat it as pure color image
   if resolved.len() == 1 {
+    if let Some(first_stop) = resolved.first_mut() {
+      first_stop.position = axis_size_px;
+    }
+
     return resolved;
   }
 
+  if let Some(first_stop) = resolved.first_mut()
+    && first_stop.position == UNDEFINED_POSITION
+  {
+    first_stop.position = 0.0;
+  }
+
+  if let Some(last_stop) = resolved.last_mut()
+    && last_stop.position == UNDEFINED_POSITION
+  {
+    last_stop.position = axis_size_px;
+  }
+
   // Distribute unspecified or non-increasing positions in pixel domain
-  let mut i = 0usize;
-  while i < resolved.len() {
-    // if the position is defined, skip it
-    if resolved[i].position >= 0.0 {
+  let mut i = 1usize;
+  while i < resolved.len() - 1 {
+    // if the position is defined and valid, skip it
+    if resolved[i].position != UNDEFINED_POSITION {
       i += 1;
       continue;
     }
 
-    let last_defined_position = if i == 0 {
-      0.0
-    } else {
-      resolved
-        .get(i - 1)
-        .map(|s| s.position)
-        .unwrap_or(0.0)
-        .max(0.0)
-    };
+    let last_defined_position = resolved.get(i - 1).map(|s| s.position).unwrap_or(0.0);
 
-    // try to find next defined position, if not found, use the axis size
-    let next_index = match resolved.iter().skip(i + 1).position(|s| s.position >= 0.0) {
-      Some(rel_idx) => i + 1 + rel_idx,
-      None => resolved.len() - 1,
-    };
+    // try to find next defined position
+    let next_index = resolved
+      .iter()
+      .skip(i + 1)
+      .position(|s| s.position != UNDEFINED_POSITION)
+      .map(|idx| i + 1 + idx)
+      .unwrap_or(resolved.len() - 1);
 
-    let next_position = if resolved[next_index].position < 0.0 {
-      axis_size_px
-    } else {
-      resolved[next_index].position
-    };
+    let next_position = resolved[next_index].position;
 
-    // number of segments between last defined and next position includes the next slot
+    // number of segments between last defined and next position
     let segments_count = (next_index - i + 1) as f32;
     let step_for_each_segment = (next_position - last_defined_position) / segments_count;
 
-    // distribute the step evenly between the stops, ensuring the last stop reaches next_position
-    for (stop_index, stop) in resolved
-      .iter_mut()
-      .enumerate()
-      .skip(i)
-      .take(next_index - i + 1)
-    {
-      stop.position = last_defined_position + step_for_each_segment * ((stop_index - i + 1) as f32);
+    // distribute the step evenly between the stops
+    for j in i..next_index {
+      let offset = (j - i + 1) as f32;
+      resolved[j].position = last_defined_position + step_for_each_segment * offset;
     }
 
     i = next_index + 1;
@@ -227,7 +240,7 @@ mod tests {
       resolved[2],
       ResolvedGradientStop {
         color: Color([0, 0, 255, 255]),
-        position: render_context.viewport.width as f32 * 0.3,
+        position: 20.0, // since 30% (12px) is smaller than the last
       },
     );
   }
@@ -259,27 +272,21 @@ mod tests {
     );
 
     assert_eq!(
-      resolved[0],
-      ResolvedGradientStop {
-        color: Color([255, 0, 0, 255]),
-        position: 0.0,
-      },
-    );
-
-    assert_eq!(
-      resolved[1],
-      ResolvedGradientStop {
-        color: Color([0, 255, 0, 255]),
-        position: render_context.viewport.width as f32 / 2.0,
-      },
-    );
-
-    assert_eq!(
-      resolved[2],
-      ResolvedGradientStop {
-        color: Color([0, 0, 255, 255]),
-        position: render_context.viewport.width as f32,
-      },
+      resolved.as_slice(),
+      &[
+        ResolvedGradientStop {
+          color: Color([255, 0, 0, 255]),
+          position: 0.0,
+        },
+        ResolvedGradientStop {
+          color: Color([0, 255, 0, 255]),
+          position: render_context.viewport.width as f32 / 2.0,
+        },
+        ResolvedGradientStop {
+          color: Color([0, 0, 255, 255]),
+          position: render_context.viewport.width as f32,
+        },
+      ]
     );
   }
 

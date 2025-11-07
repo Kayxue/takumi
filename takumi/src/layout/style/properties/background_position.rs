@@ -42,18 +42,18 @@ pub enum PositionComponent {
   Length(LengthUnit),
 }
 
-impl PositionComponent {
-  pub(crate) fn to_length_unit(self) -> LengthUnit {
-    match self {
+impl From<PositionComponent> for LengthUnit {
+  fn from(component: PositionComponent) -> Self {
+    match component {
       PositionComponent::KeywordX(keyword) => match keyword {
-        PositionKeywordX::Center => LengthUnit::Percentage(50.0),
-        PositionKeywordX::Left => LengthUnit::Percentage(0.0),
-        PositionKeywordX::Right => LengthUnit::Percentage(100.0),
+        PositionKeywordX::Center => Self::Percentage(50.0),
+        PositionKeywordX::Left => Self::Percentage(0.0),
+        PositionKeywordX::Right => Self::Percentage(100.0),
       },
       PositionComponent::KeywordY(keyword) => match keyword {
-        PositionKeywordY::Center => LengthUnit::Percentage(50.0),
-        PositionKeywordY::Top => LengthUnit::Percentage(0.0),
-        PositionKeywordY::Bottom => LengthUnit::Percentage(100.0),
+        PositionKeywordY::Center => Self::Percentage(50.0),
+        PositionKeywordY::Top => Self::Percentage(0.0),
+        PositionKeywordY::Bottom => Self::Percentage(100.0),
       },
       PositionComponent::Length(length) => length,
     }

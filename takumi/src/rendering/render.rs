@@ -9,7 +9,7 @@ use crate::{
   layout::{
     Viewport,
     node::Node,
-    style::{Affine, Color, Display, InheritedStyle, Overflow},
+    style::{Affine, Color, Display, InheritedStyle, LengthUnit, Overflow},
     tree::NodeTree,
   },
   rendering::{BorderProperties, Canvas},
@@ -92,16 +92,8 @@ fn create_transform(style: &InheritedStyle, layout: &Layout, context: &RenderCon
   let transform_origin = style.transform_origin.0.unwrap_or_default();
 
   let center = Point {
-    x: transform_origin
-      .0
-      .x
-      .to_length_unit()
-      .resolve_to_px(context, layout.size.width),
-    y: transform_origin
-      .0
-      .y
-      .to_length_unit()
-      .resolve_to_px(context, layout.size.height),
+    x: LengthUnit::from(transform_origin.0.x).resolve_to_px(context, layout.size.width),
+    y: LengthUnit::from(transform_origin.0.y).resolve_to_px(context, layout.size.height),
   };
 
   // According to https://www.w3.org/TR/css-transforms-2/#ctm
