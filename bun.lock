@@ -1,10 +1,11 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 1,
   "workspaces": {
     "": {
       "name": "takumi",
       "devDependencies": {
-        "@biomejs/biome": "^2.3.2",
+        "@biomejs/biome": "^2.3.4",
         "@changesets/cli": "^2.29.7",
         "@takumi-rs/core": "workspace:*",
         "lefthook": "^2.0.2",
@@ -144,11 +145,11 @@
     },
     "takumi": {
       "name": "takumi",
-      "version": "0.44.0",
+      "version": "0.45.2",
     },
     "takumi-helpers": {
       "name": "@takumi-rs/helpers",
-      "version": "0.44.0",
+      "version": "0.45.2",
       "devDependencies": {
         "@types/bun": "catalog:",
         "@types/react": "^19.2.2",
@@ -163,7 +164,7 @@
     },
     "takumi-image-response": {
       "name": "@takumi-rs/image-response",
-      "version": "0.44.0",
+      "version": "0.45.2",
       "devDependencies": {
         "@takumi-rs/core": "workspace:*",
         "@takumi-rs/helpers": "workspace:*",
@@ -178,14 +179,14 @@
         "typescript": "catalog:",
       },
       "peerDependencies": {
-        "@takumi-rs/core": "0.44.0",
-        "@takumi-rs/helpers": "0.44.0",
-        "@takumi-rs/wasm": "0.44.0",
+        "@takumi-rs/core": "0.45.2",
+        "@takumi-rs/helpers": "0.45.2",
+        "@takumi-rs/wasm": "0.45.2",
       },
     },
     "takumi-napi-core": {
       "name": "@takumi-rs/core",
-      "version": "0.44.0",
+      "version": "0.45.2",
       "devDependencies": {
         "@napi-rs/cli": "3.4.1",
         "@takumi-rs/helpers": "workspace:*",
@@ -201,7 +202,7 @@
     },
     "takumi-template": {
       "name": "@takumi-rs/template",
-      "version": "0.44.0",
+      "version": "0.45.2",
       "devDependencies": {
         "@takumi-rs/core": "workspace:*",
         "@takumi-rs/helpers": "workspace:*",
@@ -216,7 +217,7 @@
     },
     "takumi-wasm": {
       "name": "@takumi-rs/wasm",
-      "version": "0.44.0",
+      "version": "0.45.2",
       "devDependencies": {
         "@takumi-rs/helpers": "workspace:*",
         "@types/bun": "catalog:",
