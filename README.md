@@ -11,6 +11,7 @@ For newcomers, you can try out Takumi in [playground](https://takumi.kane.tw/pla
 - All in one. No need to output SVG then have [resvg-js](https://github.com/thx/resvg-js) rendering it again to output PNG.
 - Inline layout support (display `block` or `inline`).
 - RTL support.
+- Tailwind CSS support out of the box.
 - Variable fonts support.
 - WOFF2 font format support.
 - PNG, JPEG, WebP, AVIF output support.

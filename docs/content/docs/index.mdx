@@ -6,21 +6,21 @@ icon: Axe
 
 Takumi is an **image rendering engine** written in Rust that provides [various integrations](/docs/integrations). The design is mainly inspired by [satori](https://github.com/vercel/satori), but with a focus on portability and performance.
 
-You can experience Takumi in [Playground](/playground) without any installation.
+You can try Takumi in [Playground](/playground) without any installation.
 
 ## Installation
 
-The fastest/simplest way to use Takumi is with the `ImageResponse` wrapper, it manages the internal state for font & image cache.
+The fastest/simplest way to use Takumi is with the `ImageResponse` API. It handles the internal state for font & image cache and it tries to be compatible with [Next.js ImageResponse API](https://nextjs.org/docs/app/api-reference/functions/image-response).
 
 ```npm
-npm i @takumi-rs/image-response @takumi-rs/helpers @takumi-rs/core
+npm i @takumi-rs/image-response
 ```
 
 ## Usage
 
 Since `ImageResponse` extends standard [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) class, you can plug it into anywhere you want.
 
-It comes with pre-bundled [Geist](https://vercel.com/font) and Geist Mono as default fonts (OFL License).
+It comes with pre-bundled [Geist](https://vercel.com/font) and Geist Mono as default fonts (OFL License). [Tailwind CSS](https://tailwindcss.com/) is also supported out of the box.
 
 ```tsx
 import ImageResponse from "@takumi-rs/image-response";
@@ -28,13 +28,21 @@ import { serve } from "bun";
 
 serve({
   fetch() {
-    return new ImageResponse(<div tw="text-2xl bg-white w-full h-full grid place-items-center">Hello</div>, {
+    return new ImageResponse(<Hello />, {
       width: 1200,
       height: 630,
       format: "webp",
     });
-  }
+  },
 });
+
+function Hello() {
+  return (
+    <div tw="bg-white w-full h-full flex items-center justify-center">
+      <h1 tw="text-4xl font-bold">Hello</h1>
+    </div>
+  );
+}
 ```
 
 For detailed framework/runtime integration guide, check the [Integrations](/docs/integrations) category.
@@ -51,6 +59,7 @@ More discussion can be found in [this X thread by @shuding_](https://x.com/shudi
 
 - All in one. No need to output SVG then have [resvg-js](https://github.com/thx/resvg-js) rendering it again to output PNG.
 - Inline layout support (display `block` or `inline`).
+- Tailwind CSS support out of the box.
 - RTL support.
 - Variable fonts support.
 - WOFF2 font format support.
