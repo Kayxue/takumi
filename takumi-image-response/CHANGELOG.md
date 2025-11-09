@@ -1,5 +1,14 @@
 # @takumi-rs/image-response
 
+## 0.46.3
+
+### Patch Changes
+
+- b153ef3: fix dependency version on `prepublishOnly` script
+  - @takumi-rs/core@0.46.3
+  - @takumi-rs/wasm@0.46.3
+  - @takumi-rs/helpers@0.46.3
+
 ## 0.46.2
 
 ### Patch Changes
