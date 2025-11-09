@@ -131,6 +131,8 @@ pub enum Error {
   IoError(std::io::Error),
   /// Represents an error that occurs during PNG encoding.
   PngError(png::EncodingError),
+  /// Represents an error that occurs from image crate.
+  ImageError(image::ImageError),
 }
 
 impl From<std::io::Error> for Error {
@@ -142,5 +144,11 @@ impl From<std::io::Error> for Error {
 impl From<png::EncodingError> for Error {
   fn from(error: png::EncodingError) -> Self {
     Error::PngError(error)
+  }
+}
+
+impl From<image::ImageError> for Error {
+  fn from(error: image::ImageError) -> Self {
+    Error::ImageError(error)
   }
 }

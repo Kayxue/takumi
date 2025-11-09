@@ -1,18 +1,13 @@
-use std::io::Write;
+use std::{borrow::Cow, io::Write};
 
-use image::{
-  ExtendedColorType, ImageEncoder, ImageFormat, RgbaImage,
-  codecs::{
-    jpeg::JpegEncoder,
-    png::{CompressionType, FilterType, PngEncoder},
-  },
-};
+use image::{ExtendedColorType, ImageEncoder, ImageFormat, RgbaImage, codecs::jpeg::JpegEncoder};
+use png::{ColorType, Compression, Filter};
 use serde::{Deserialize, Serialize};
 
-use image_webp::{ColorType, WebPEncoder};
+use image_webp::WebPEncoder;
 
 #[cfg(feature = "rayon")]
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::prelude::*;
 
 use crate::Error::IoError;
 
@@ -79,21 +74,61 @@ impl AnimationFrame {
 
 const U24_MAX: u32 = 0xffffff;
 
+// Strip alpha channel into a tightly packed RGB buffer
+fn strip_alpha_channel(image: &RgbaImage) -> Vec<u8> {
+  let raw = image.as_raw();
+  let pixel_count = raw.len() / 4 * 3;
+  let mut rgb = vec![0u8; pixel_count];
+
+  #[cfg(feature = "rayon")]
+  {
+    rgb
+      .par_chunks_exact_mut(3)
+      .zip(raw.par_chunks_exact(4))
+      .for_each(|(dst, src)| {
+        dst.copy_from_slice(&src[..3]);
+      });
+    rgb
+  }
+
+  #[cfg(not(feature = "rayon"))]
+  {
+    for chunk in raw.chunks_exact(4) {
+      rgb.push(chunk[0]);
+      rgb.push(chunk[1]);
+      rgb.push(chunk[2]);
+    }
+    rgb
+  }
+}
+
+fn has_any_alpha_pixel(image: &RgbaImage) -> bool {
+  let raw = image.as_raw();
+
+  #[cfg(feature = "rayon")]
+  {
+    raw
+      .par_chunks_exact(4)
+      .with_min_len(1024)
+      .any(|chunk| chunk[3] != u8::MAX)
+  }
+
+  #[cfg(not(feature = "rayon"))]
+  {
+    raw.chunks_exact(4).any(|chunk| chunk[3] != u8::MAX)
+  }
+}
+
 /// Writes a single rendered image to `destination` using `format`.
 pub fn write_image<T: Write + std::io::Seek>(
   image: &RgbaImage,
   destination: &mut T,
   format: ImageOutputFormat,
   quality: Option<u8>,
-) -> Result<(), image::ImageError> {
+) -> Result<(), crate::Error> {
   match format {
     ImageOutputFormat::Jpeg => {
-      // Strip alpha channel into a tightly packed RGB buffer
-      let raw = image.as_raw();
-      let mut rgb = Vec::with_capacity(raw.len() / 4 * 3);
-      for px in raw.chunks_exact(4) {
-        rgb.extend_from_slice(&px[..3]);
-      }
+      let rgb = strip_alpha_channel(image);
 
       let encoder = JpegEncoder::new_with_quality(destination, quality.unwrap_or(75));
       encoder.write_image(&rgb, image.width(), image.height(), ExtendedColorType::Rgb8)?;
@@ -114,15 +149,30 @@ pub fn write_image<T: Write + std::io::Seek>(
       )?;
     }
     ImageOutputFormat::Png => {
-      let encoder =
-        PngEncoder::new_with_quality(destination, CompressionType::Fast, FilterType::Sub);
+      let has_alpha = has_any_alpha_pixel(image);
 
-      encoder.write_image(
-        image.as_raw(),
-        image.width(),
-        image.height(),
-        ExtendedColorType::Rgba8,
-      )?;
+      let image_data = if has_alpha {
+        Cow::Borrowed(image.as_raw())
+      } else {
+        Cow::Owned(strip_alpha_channel(image))
+      };
+
+      let mut encoder = png::Encoder::new(destination, image.width(), image.height());
+
+      encoder.set_color(if has_alpha {
+        ColorType::Rgba
+      } else {
+        ColorType::Rgb
+      });
+
+      encoder.set_compression(Compression::Fast);
+      encoder.set_filter(Filter::Sub);
+
+      let mut writer = encoder.write_header()?;
+
+      writer.write_image_data(image_data.as_ref())?;
+
+      writer.finish()?;
     }
     _ => {
       image.write_to(destination, format.into())?;
@@ -175,7 +225,7 @@ pub fn encode_animated_webp<W: Write>(
           &frame.image,
           frame.image.width(),
           frame.image.height(),
-          ColorType::Rgba8,
+          image_webp::ColorType::Rgba8,
         )
         .map_err(|_| IoError(std::io::Error::other("WebP encode error")))?;
 
@@ -319,7 +369,7 @@ pub fn encode_animated_png<W: Write>(
     frames[0].image.height(),
   );
 
-  encoder.set_color(png::ColorType::Rgba);
+  encoder.set_color(ColorType::Rgba);
   encoder.set_compression(png::Compression::Fastest);
   encoder.set_animated(frames.len() as u32, loop_count.unwrap_or(0) as u32)?;
 
