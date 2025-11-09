@@ -33,7 +33,8 @@
     }
   },
   "scripts": {
-    "build": "tsup-node src/backends/*.ts --clean --minify --dts --format esm,cjs --no-splitting"
+    "build": "tsup-node src/backends/*.ts --clean --minify --dts --format esm,cjs --no-splitting",
+    "version": "jq '.publishConfig.dependencies[\"@takumi-rs/core\"] = .version | .publishConfig.dependencies[\"@takumi-rs/helpers\"] = .version | .publishConfig.dependencies[\"@takumi-rs/wasm\"] = .version' package.json > tmp.json && mv tmp.json package.json"
   },
   "files": [
     "dist",
