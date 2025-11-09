@@ -9,7 +9,7 @@ export default function Image() {
       }}
     >
       <div tw="justify-center items-center flex flex-col rounded-2xl">
-        <h1 tw="font-semibold text-6xl block whitespace-pre">
+        <h1 tw="font-semibold text-6xl block whitespace-pre mt-0">
           Welcome to <span tw="text-[#ff3535]">Takumi </span>
           Playground!
         </h1>
