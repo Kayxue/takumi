@@ -14,12 +14,13 @@ use takumi::{
 };
 
 use crate::{
-  FetchFn, FontInput, FontInputOwned, load_font_task::LoadFontTask,
+  FetchFn, FontInput, load_font_task::LoadFontTask,
   put_persistent_image_task::PutPersistentImageTask, render_animation_task::RenderAnimationTask,
   render_task::RenderTask,
 };
 use std::{
   num::NonZeroUsize,
+  ops::Deref,
   sync::{Arc, Mutex},
 };
 
@@ -99,8 +100,8 @@ impl From<OutputFormat> for ImageOutputFormat {
 #[napi(object)]
 pub struct PersistentImage<'ctx> {
   pub src: String,
-  #[napi(ts_type = "Buffer | ArrayBuffer")]
-  pub data: BufferSlice<'ctx>,
+  #[napi(ts_type = "Uint8Array | ArrayBuffer")]
+  pub data: Object<'ctx>,
 }
 
 #[napi(object)]
@@ -162,10 +163,7 @@ impl Renderer {
 
     if let Some(fonts) = options.fonts {
       for font in fonts {
-        if font.is_arraybuffer().unwrap() || font.is_buffer().unwrap() {
-          // SAFETY: We know the font is a buffer
-          let buffer = unsafe { BufferSlice::from_napi_value(env.raw(), font.raw()).unwrap() };
-
+        if let Ok(buffer) = buffer_slice_from_object(env, font) {
           global
             .font_context
             .load_and_store(&buffer, None, None)
@@ -174,11 +172,13 @@ impl Renderer {
           continue;
         }
 
-        let font: FontInput = unsafe { FontInput::from_napi_value(env.raw(), font.raw()).unwrap() };
+        let buffer =
+          buffer_slice_from_object(env, font.get_named_property("data").unwrap()).unwrap();
+        let font: FontInput = deserialize_with_tracing(font).unwrap();
 
         let font_override = FontInfoOverride {
           family_name: font.name.as_deref(),
-          style: font.style.map(Into::into),
+          style: font.style.map(|style| style.0),
           weight: font.weight.map(|weight| FontWeight::new(weight as f32)),
           axes: None,
           width: None,
@@ -186,7 +186,7 @@ impl Renderer {
 
         global
           .font_context
-          .load_and_store(&font.data, Some(font_override), None)
+          .load_and_store(&buffer, Some(font_override), None)
           .unwrap();
       }
     }
@@ -204,7 +204,8 @@ impl Renderer {
 
     if let Some(images) = options.persistent_images {
       for image in images {
-        let image_source = load_image_source_from_bytes(&image.data).unwrap();
+        let buffer = buffer_slice_from_object(env, image.data).unwrap();
+        let image_source = load_image_source_from_bytes(&buffer).unwrap();
 
         renderer
           .global
@@ -231,36 +232,40 @@ impl Renderer {
 
   /// @deprecated Use `putPersistentImage` instead (to align with the naming convention for sync/async functions).
   #[napi(
-    ts_args_type = "src: string, data: Buffer | ArrayBuffer, signal?: AbortSignal",
+    ts_args_type = "src: string, data: Uint8Array | ArrayBuffer, signal?: AbortSignal",
     ts_return_type = "Promise<void>"
   )]
   pub fn put_persistent_image_async(
     &'_ self,
+    env: Env,
     src: String,
-    data: Buffer,
+    data: Object,
     signal: Option<AbortSignal>,
-  ) -> AsyncTask<PutPersistentImageTask<'_>> {
-    self.put_persistent_image(src, data, signal)
+  ) -> Result<AsyncTask<PutPersistentImageTask<'_>>> {
+    self.put_persistent_image(env, src, data, signal)
   }
 
   #[napi(
-    ts_args_type = "src: string, data: Buffer | ArrayBuffer, signal?: AbortSignal",
+    ts_args_type = "src: string, data: Uint8Array | ArrayBuffer, signal?: AbortSignal",
     ts_return_type = "Promise<void>"
   )]
   pub fn put_persistent_image(
     &'_ self,
+    env: Env,
     src: String,
-    data: Buffer,
+    data: Object,
     signal: Option<AbortSignal>,
-  ) -> AsyncTask<PutPersistentImageTask<'_>> {
-    AsyncTask::with_optional_signal(
+  ) -> Result<AsyncTask<PutPersistentImageTask<'_>>> {
+    let buffer = buffer_from_object(env, data)?;
+
+    Ok(AsyncTask::with_optional_signal(
       PutPersistentImageTask {
         src: Some(src),
         store: &self.global.persistent_image_store,
-        buffer: data,
+        buffer,
       },
       signal,
-    )
+    ))
   }
 
   /// @deprecated Use `loadFont` instead (to align with the naming convention for sync/async functions).
@@ -274,7 +279,7 @@ impl Renderer {
     data: Object,
     signal: Option<AbortSignal>,
   ) -> AsyncTask<LoadFontTask<'_>> {
-    self.load_fonts_async(env, vec![data], signal)
+    self.load_fonts(env, vec![data], signal)
   }
 
   #[napi(
@@ -287,7 +292,7 @@ impl Renderer {
     data: Object,
     signal: Option<AbortSignal>,
   ) -> AsyncTask<LoadFontTask<'_>> {
-    self.load_fonts_async(env, vec![data], signal)
+    self.load_fonts(env, vec![data], signal)
   }
 
   /// @deprecated Use `loadFonts` instead (to align with the naming convention for sync/async functions).
@@ -314,19 +319,16 @@ impl Renderer {
     fonts: Vec<Object>,
     signal: Option<AbortSignal>,
   ) -> AsyncTask<LoadFontTask<'_>> {
-    let fonts = fonts
+    let buffers = fonts
       .into_iter()
       .map(|font| {
-        if font.is_arraybuffer().unwrap() || font.is_buffer().unwrap() {
-          FontInputOwned {
-            name: None,
-            // SAFETY: We know the font is a buffer
-            data: unsafe { Buffer::from_napi_value(env.raw(), font.raw()).unwrap() },
-            weight: None,
-            style: None,
-          }
+        if let Ok(buffer) = buffer_from_object(env, font) {
+          (FontInput::default(), buffer)
         } else {
-          unsafe { FontInputOwned::from_napi_value(env.raw(), font.raw()).unwrap() }
+          let buffer = buffer_from_object(env, font.get_named_property("data").unwrap()).unwrap();
+          let font: FontInput = deserialize_with_tracing(font).unwrap();
+
+          (font, buffer)
         }
       })
       .collect();
@@ -334,7 +336,7 @@ impl Renderer {
     AsyncTask::with_optional_signal(
       LoadFontTask {
         context: &mut self.global,
-        buffers: fonts,
+        buffers,
       },
       signal,
     )
@@ -410,6 +412,39 @@ impl Renderer {
       signal,
     ))
   }
+}
+
+fn buffer_from_object(env: Env, value: Object) -> Result<Buffer> {
+  // Uint8Array has a `buffer` property that contains the underlying array buffer.
+  if let Ok(buffer) = unsafe { ArrayBuffer::from_napi_value(env.raw(), value.raw()) } {
+    return Ok((*buffer).into());
+  }
+
+  unsafe { Buffer::from_napi_value(env.raw(), value.raw()) }
+}
+
+enum MaybeOwnedBuffer<'env> {
+  Borrowed(ArrayBuffer<'env>),
+  Owned(Buffer),
+}
+
+impl<'env> Deref for MaybeOwnedBuffer<'env> {
+  type Target = [u8];
+
+  fn deref(&self) -> &Self::Target {
+    match self {
+      MaybeOwnedBuffer::Borrowed(buffer) => buffer,
+      MaybeOwnedBuffer::Owned(buffer) => buffer,
+    }
+  }
+}
+
+fn buffer_slice_from_object<'env>(env: Env, value: Object) -> Result<MaybeOwnedBuffer<'env>> {
+  if let Ok(buffer) = unsafe { ArrayBuffer::from_napi_value(env.raw(), value.raw()) } {
+    return Ok(MaybeOwnedBuffer::Borrowed(buffer));
+  }
+
+  unsafe { Buffer::from_napi_value(env.raw(), value.raw()).map(MaybeOwnedBuffer::Owned) }
 }
 
 fn deserialize_with_tracing<T: DeserializeOwned>(value: Object) -> Result<T> {

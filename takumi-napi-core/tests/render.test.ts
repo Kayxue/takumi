@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { readFile } from "node:fs/promises";
 import { container, image, percentage, rem, text } from "@takumi-rs/helpers";
 import { Glob } from "bun";
 import { Renderer } from "../index";
@@ -73,9 +74,7 @@ const node = container({
 });
 
 test("Renderer initialization with fonts and images", async () => {
-  const font = await Bun.file(
-    "../assets/fonts/geist/Geist[wght].woff2",
-  ).arrayBuffer();
+  const font = await readFile("../assets/fonts/geist/Geist[wght].woff2");
 
   new Renderer({
     fonts: [font],

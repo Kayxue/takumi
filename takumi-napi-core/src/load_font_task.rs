@@ -4,11 +4,11 @@ use takumi::{
   parley::{FontWeight, fontique::FontInfoOverride},
 };
 
-use crate::FontInputOwned;
+use crate::FontInput;
 
 pub struct LoadFontTask<'g> {
   pub context: &'g mut GlobalContext,
-  pub(crate) buffers: Vec<FontInputOwned>,
+  pub(crate) buffers: Vec<(FontInput, Buffer)>,
 }
 
 impl Task for LoadFontTask<'_> {
@@ -22,17 +22,17 @@ impl Task for LoadFontTask<'_> {
 
     let mut loaded_count = 0;
 
-    for buffer in &self.buffers {
+    for (font, buffer) in &self.buffers {
       if self
         .context
         .font_context
         .load_and_store(
-          &buffer.data,
+          buffer,
           Some(FontInfoOverride {
-            family_name: buffer.name.as_deref(),
+            family_name: font.name.as_deref(),
             width: None,
-            style: buffer.style.map(Into::into),
-            weight: buffer.weight.map(|weight| FontWeight::new(weight as f32)),
+            style: font.style.map(|style| style.0),
+            weight: font.weight.map(|weight| FontWeight::new(weight as f32)),
             axes: None,
           }),
           None,

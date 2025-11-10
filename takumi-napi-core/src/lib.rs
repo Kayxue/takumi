@@ -6,44 +6,29 @@ mod renderer;
 
 use napi::{
   JsString,
-  bindgen_prelude::{Buffer, BufferSlice, Function, Object, PromiseRaw},
+  bindgen_prelude::{BufferSlice, Function, Object, PromiseRaw},
 };
-use napi_derive::napi;
 pub use renderer::Renderer;
+use serde::{Deserialize, Deserializer};
 use takumi::parley::FontStyle;
 
-#[napi(object)]
-pub(crate) struct FontInput<'ctx> {
+#[derive(Deserialize, Default)]
+pub(crate) struct FontInput {
   pub name: Option<String>,
-  pub data: BufferSlice<'ctx>,
   pub weight: Option<f64>,
   pub style: Option<FontStyleInput>,
 }
 
-#[napi(object)]
-pub(crate) struct FontInputOwned {
-  pub name: Option<String>,
-  pub data: Buffer,
-  pub weight: Option<f64>,
-  pub style: Option<FontStyleInput>,
-}
-
-#[napi(string_enum)]
-#[allow(non_camel_case_types)]
 #[derive(Clone, Copy)]
-pub enum FontStyleInput {
-  normal,
-  italic,
-  oblique,
-}
+pub struct FontStyleInput(pub FontStyle);
 
-impl From<FontStyleInput> for FontStyle {
-  fn from(value: FontStyleInput) -> Self {
-    match value {
-      FontStyleInput::normal => FontStyle::Normal,
-      FontStyleInput::italic => FontStyle::Italic,
-      FontStyleInput::oblique => FontStyle::Oblique(None),
-    }
+impl<'de> Deserialize<'de> for FontStyleInput {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: Deserializer<'de>,
+  {
+    let s = String::deserialize(deserializer)?;
+    Ok(FontStyleInput(FontStyle::parse(&s).unwrap_or_default()))
   }
 }
 
