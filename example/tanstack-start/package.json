@@ -8,8 +8,6 @@
     "serve": "vite preview"
   },
   "dependencies": {
-    "@takumi-rs/core": "workspace:*",
-    "@takumi-rs/helpers": "workspace:*",
     "@takumi-rs/image-response": "workspace:*",
     "@takumi-rs/template": "workspace:*",
     "@tanstack/react-router": "^1.134.17",

@@ -1,21 +1,90 @@
 ---
-title: Stylesheets
-description: Takumi aims to support a wide range of CSS properties, read this to understand how to use them.
+title: Reference
+description: List of everything in Takumi.
+icon: BookMarked
 ---
 
-## How is it implemented?
+import { TypeTable } from "../../app/components/type-table";
 
-Takumi uses [Taffy](https://github.com/DioxusLabs/taffy) to layout the positions, and [Parley](https://github.com/linebender/parley) to layout the text, so it mostly depends on the features that these two libraries support.
+## Node Types
 
-But for transform, box shadow and linear gradient, Takumi has its own implementation.
+### Container
 
-## CSS Properties
+A container node is used to group other nodes and arrange them in a layout.
 
-We support CSS values parsing or structured values parsing.
+<TypeTable
+  type={{
+    children: {
+      type: 'Node[]',
+      description: 'Children nodes',
+    },
+    style: {
+      type: 'Style',
+      description: 'Styling properties for this container',
+      typeDescriptionLink: '#style-properties'
+    },
+    tw: {
+      type: 'string',
+      description: 'Tailwind classes for this container node',
+    },
+  }}
+/>
 
-You can check the [`Style` interface in `@takumi-rs/helpers`](https://github.com/kane50613/takumi/blob/master/takumi-helpers/src/bindings/Style.ts) or [`Style` struct on docs.rs](https://docs.rs/takumi/latest/takumi/layout/style/struct.Style.html) to see how structured values are parsed.
+### Text
 
-## All Supported Properties
+A text node displays text.
+
+<TypeTable
+  type={{
+    text: {
+      type: 'string',
+      required: true,
+      description: 'Text content to be displayed',
+    },
+    style: {
+      type: 'Style',
+      description: 'Styling properties for this container',
+      typeDescriptionLink: '#style-properties'
+    },
+    tw: {
+      type: 'string',
+      description: 'Tailwind classes for this container node',
+    },
+  }}
+/>
+
+### Image
+
+An image node displays rasterized or svg images.
+
+<TypeTable
+  type={{
+    src: {
+      type: 'string',
+      required: true,
+      description: 'The source URL / persistent image key to the image',
+    },
+    width: {
+      type: 'number',
+      description: 'Overwrite the intrinsic width of the image',
+    },
+    height: {
+      type: 'number',
+      description: 'Overwrite the intrinsic height of the image',
+    },
+    style: {
+      type: 'Style',
+      description: 'Styling properties for this container',
+      typeDescriptionLink: '#style-properties'
+    },
+    tw: {
+      type: 'string',
+      description: 'Tailwind classes for this container node',
+    },
+  }}
+/>
+
+## Style Properties
 
 <table>
   <thead>

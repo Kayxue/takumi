@@ -1,0 +1,76 @@
+---
+title: From Satori
+description: Migrate from Satori to Takumi with your existing components.
+---
+
+Takumi aims to create a universal image generation library that can be used in any environment and not just limited to JavaScript runtime.
+
+If you are migrating from `next/og`, check out the [From Next.js ImageResponse](/docs/migration/image-response) guide instead.
+
+<Callout type="warning">
+Takumi renders your nodes/components to rasterized images directly, we don't support rendering to SVG at this moment.
+</Callout>
+
+## Installation
+
+```npm
+npm i @takumi-rs/core @takumi-rs/helpers
+```
+
+<Callout>
+Make sure to mark `@takumi-rs/core` as `external` if you are using a bundler like Vite or Webpack
+</Callout>
+
+## Code changes
+
+```tsx twoslash
+/** @jsxImportSource react */
+
+// ---cut-before---
+
+// @noErrors
+import satori from "satori"; // [!code --]
+import { Resvg } from "@resvg/resvg-js"; // [!code --]
+import { fromJsx } from "@takumi-rs/helpers/jsx"; // [!code ++]
+import { Renderer } from "@takumi-rs/core"; // [!code ++]
+
+// You can use variable fonts with Takumi!
+// Takumi comes with full axis Geist and Geist Mono by default, 
+// if this is what you want, you can just remove fonts array.
+const fonts = [
+  {
+    name: "Inter",
+    data: await fetch("/fonts/Inter-Regular.ttf").then((res) => res.arrayBuffer()),
+    style: "normal" as const,
+    weight: 400
+  }
+];
+
+const svg = await satori(<OgImage title="Satori" />, { // [!code --]
+  fonts, // [!code --]
+}); // [!code --]
+const buffer = new Resvg(svg).render().asPng(); // [!code --]
+
+const renderer = new Renderer({ // [!code ++]
+  fonts,
+});
+
+const node = await fromJsx(<OgImage title="Takumi" />); // [!code ++]
+const png = await renderer.render(node, { // [!code ++]
+  width: 1200, // [!code ++]
+  height: 630, // [!code ++]
+  format: "png", // "webp" is recommended as well. // [!code ++]
+}); // [!code ++]
+
+function OgImage({ title }: { title: string }) {
+  return (
+    <div>
+      <h1>Hello from {title}!</h1>
+    </div>
+  );
+}
+```
+
+Now you have Takumi setup!
+
+If theres any issues or unexpected behavior, please open an issue on [our GitHub repository](https://github.com/kane50613/takumi/issues).

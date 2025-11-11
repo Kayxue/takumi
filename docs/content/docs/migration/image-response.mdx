@@ -1,0 +1,80 @@
+---
+title: From Next.js ImageResponse
+description: Migrate from Next.js ImageResponse to Takumi with your existing components.
+---
+
+Takumi aims to create a universal image generation library that can be used in any environment and not just limited to JavaScript runtime.
+
+It delivers up to 10x performance improvement compared to next/og shown in the [Image Bench](https://image-bench.kane.tw/).
+
+## Installation
+
+```npm
+npm i @takumi-rs/image-response
+```
+
+### Mark as external
+
+By default Next.js bundles the `@takumi-rs/core` package, which requires native Node.js `require` function to resolve the native binary. You need to opt-out from the bundling by setting the `serverExternalPackages` option.
+
+```ts title="next.config.ts"
+export const config = {
+  serverExternalPackages: ["@takumi-rs/image-response"],
+};
+```
+
+## Code changes
+
+```tsx
+import { ImageResponse } from "next/og"; // [!code --]
+import { ImageResponse } from "@takumi-rs/image-response"; // [!code ++]
+
+// Takumi comes with full axis Geist and Geist Mono by default, 
+// if this is what you want, you can just remove fonts array.
+const fonts = [
+  {
+    name: "Inter",
+    data: await fetch("/fonts/Inter-Regular.ttf").then((res) => res.arrayBuffer()),
+    style: "normal",
+    weight: 400
+  }
+];
+
+function OgImage({ title }: { title: string }) {
+  return (
+    <div>
+      <h1>Hello from {title}!</h1>
+    </div>
+  );
+}
+
+export function GET(request: Request) {
+  return new ImageResponse(<OgImage title="Next.js" />, {
+   width: 1200,
+   height: 630,
+   fonts,
+ });
+}
+```
+
+### For WASM environment
+
+If you are using WASM environment, you can import from the `@takumi-rs/image-response/wasm` package.
+
+```tsx
+import { ImageResponse } from "@takumi-rs/image-response"; // [!code --]
+import { ImageResponse } from "@takumi-rs/image-response/wasm"; // [!code ++]
+import init from "@takumi-rs/wasm";
+
+await init({
+  module_or_path: fetch(
+    import.meta.resolve("@takumi-rs/wasm/takumi_wasm_bg.wasm"),
+  ),
+});
+
+// Same as above ...
+```
+
+Now you have an `GET` handler with Takumi setup!
+
+If theres any issues or unexpected behavior, please open an issue on [our GitHub repository](https://github.com/kane50613/takumi/issues).

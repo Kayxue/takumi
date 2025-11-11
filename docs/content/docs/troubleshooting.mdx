@@ -1,0 +1,41 @@
+---
+title: Troubleshooting
+description: Common issues and solutions when using Takumi.
+icon: Bug
+---
+
+import { Accordion, Accordions } from "../../app/components/accordion";
+
+## General Issues
+
+<Accordions type="single">
+  <Accordion title="Layout is not correct">
+You can try to use the `drawDebugBorder` option to draw a border around the nodes.
+
+```tsx twoslash
+/** @jsxImportSource react */
+// ---cut-before---
+
+import { ImageResponse } from "@takumi-rs/image-response";
+
+export function GET() {
+  return new ImageResponse(<></>, {
+    width: 100,
+    height: 100,
+    drawDebugBorder: true,
+    // ...
+  });
+}
+```
+
+If the issue still exists, please file an issue on [our GitHub repository](https://github.com/kane50613/takumi/issues).
+  </Accordion>
+</Accordions>
+
+## Node.js Related issues
+
+<Accordions type="single">
+  <Accordion title="Cannot find native binding.">
+This happens when `@takumi-rs/core` package failed to find the native binding. Make sure you have finished the [Additional Bundler Setup](/docs/index#additional-bundler-setup) step.
+  </Accordion>
+</Accordions>

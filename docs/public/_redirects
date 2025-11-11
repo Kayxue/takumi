@@ -1,1 +1,6 @@
-/getting-started/* /integrations/:splat 301
+/docs/getting-started/* /docs/integrations/:splat 301
+/docs/integrations /docs 301
+/docs/integrations/* /docs 301
+/docs/deep-dives /docs/architecture 301
+/docs/deep-dives/stylesheets /docs/reference 301
+/docs/deep-dives/* /docs/architecture 301

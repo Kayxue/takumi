@@ -7,8 +7,9 @@
     "[Brain][llms-full.txt](https://takumi.kane.tw/llms-full.txt)",
     "--- For Human ---",
     "index",
-    "integrations",
+    "architecture",
     "migration",
-    "deep-dives"
+    "troubleshooting",
+    "reference"
   ]
 }
