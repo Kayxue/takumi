@@ -61,7 +61,7 @@
 //! global.font_context.load_and_store(include_bytes!("../../assets/fonts/geist/Geist[wght].woff2"), None, None);
 //!
 //! // Create a viewport
-//! let viewport = Viewport::new(1200, 630);
+//! let viewport = Viewport::new(Some(1200), Some(630));
 //!
 //! // Create render options
 //! let options = RenderOptionsBuilder::default()

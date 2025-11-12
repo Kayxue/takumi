@@ -75,8 +75,6 @@ function putPersistentImage(image: PersistentImage, renderer: Renderer) {
 }
 
 const defaultOptions: ImageResponseOptions = {
-  width: 1200,
-  height: 630,
   format: "webp",
 };
 

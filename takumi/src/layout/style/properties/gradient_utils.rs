@@ -186,10 +186,7 @@ pub(crate) fn resolve_stops_along_axis(
 mod tests {
   use crate::{
     GlobalContext,
-    layout::{
-      Viewport,
-      style::{LengthUnit, StopPosition},
-    },
+    layout::style::{LengthUnit, StopPosition},
   };
 
   use super::*;
@@ -212,11 +209,11 @@ mod tests {
     ];
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new(&context, Viewport::new(40, 40), Default::default());
+    let render_context = RenderContext::new(&context, (40, 40).into(), Default::default());
 
     let resolved = resolve_stops_along_axis(
       &stops,
-      render_context.viewport.width as f32,
+      render_context.viewport.width.unwrap() as f32,
       &render_context,
     );
 
@@ -263,11 +260,11 @@ mod tests {
     ];
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new(&context, Viewport::new(40, 40), Default::default());
+    let render_context = RenderContext::new(&context, (40, 40).into(), Default::default());
 
     let resolved = resolve_stops_along_axis(
       &stops,
-      render_context.viewport.width as f32,
+      render_context.viewport.width.unwrap_or_default() as f32,
       &render_context,
     );
 
@@ -280,11 +277,11 @@ mod tests {
         },
         ResolvedGradientStop {
           color: Color([0, 255, 0, 255]),
-          position: render_context.viewport.width as f32 / 2.0,
+          position: render_context.viewport.width.unwrap_or_default() as f32 / 2.0,
         },
         ResolvedGradientStop {
           color: Color([0, 0, 255, 255]),
-          position: render_context.viewport.width as f32,
+          position: render_context.viewport.width.unwrap_or_default() as f32,
         },
       ]
     );
@@ -305,11 +302,11 @@ mod tests {
     ];
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new(&context, Viewport::new(40, 40), Default::default());
+    let render_context = RenderContext::new(&context, (40, 40).into(), Default::default());
 
     let resolved = resolve_stops_along_axis(
       &stops,
-      render_context.viewport.width as f32,
+      render_context.viewport.width.unwrap_or_default() as f32,
       &render_context,
     );
 
@@ -326,7 +323,7 @@ mod tests {
       resolved[1],
       ResolvedGradientStop {
         color: interpolate_rgba(Color([255, 0, 0, 255]), Color([0, 0, 255, 255]), 0.5),
-        position: render_context.viewport.width as f32 * 0.1,
+        position: render_context.viewport.width.unwrap_or_default() as f32 * 0.1,
       },
     );
 
@@ -334,7 +331,7 @@ mod tests {
       resolved[2],
       ResolvedGradientStop {
         color: Color([0, 0, 255, 255]),
-        position: render_context.viewport.width as f32,
+        position: render_context.viewport.width.unwrap_or_default() as f32,
       },
     );
   }

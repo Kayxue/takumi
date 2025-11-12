@@ -4,10 +4,7 @@ use taffy::{Layout, Size};
 use ts_rs::TS;
 
 use crate::{
-  layout::{
-    Viewport,
-    style::{FromCss, ParseResult, SpacePair, tw::TailwindPropertyParser},
-  },
+  layout::style::{FromCss, ParseResult, SpacePair, tw::TailwindPropertyParser},
   rendering::Canvas,
 };
 
@@ -77,15 +74,15 @@ impl Overflows {
     *self != Overflows(SpacePair::from_single(Overflow::Visible))
   }
 
-  pub(crate) fn create_clip_canvas(&self, viewport: Viewport, layout: Layout) -> Option<Canvas> {
+  pub(crate) fn create_clip_canvas(&self, root_size: Size<u32>, layout: Layout) -> Option<Canvas> {
     let inner_size = Size {
       width: if self.0.x == Overflow::Visible {
-        viewport.width
+        root_size.width
       } else {
         (layout.size.width - layout.padding.right - layout.border.right) as u32
       },
       height: if self.0.y == Overflow::Visible {
-        viewport.height
+        root_size.height
       } else {
         (layout.size.height - layout.padding.bottom - layout.border.bottom) as u32
       },

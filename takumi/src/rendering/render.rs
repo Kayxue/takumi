@@ -39,8 +39,6 @@ pub struct RenderOptions<'g, N: Node<N>> {
 pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage, crate::Error> {
   let mut taffy = TaffyTree::new();
 
-  let mut canvas = Canvas::new(options.viewport.into());
-
   let render_context = RenderContext {
     draw_debug_border: options.draw_debug_border,
     ..RenderContext::new(options.global, options.viewport, options.fetched_resources)
@@ -50,15 +48,10 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
 
   let root_node_id = tree.insert_into_taffy(&mut taffy);
 
-  let available_space = Size {
-    width: AvailableSpace::Definite(render_context.viewport.width as f32),
-    height: AvailableSpace::Definite(render_context.viewport.height as f32),
-  };
-
   taffy
     .compute_layout_with_measure(
       root_node_id,
-      available_space,
+      render_context.viewport.into(),
       |known_dimensions, available_space, _node_id, node_context, style| {
         if let Size {
           width: Some(width),
@@ -75,12 +68,29 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
     )
     .unwrap();
 
+  let root_size = taffy
+    .layout(root_node_id)
+    .unwrap()
+    .size
+    .map(|size| size.round() as u32);
+
+  let root_size = root_size.zip_map(options.viewport.into(), |size, viewport| {
+    if let AvailableSpace::Definite(defined) = viewport {
+      defined as u32
+    } else {
+      size
+    }
+  });
+
+  let mut canvas = Canvas::new(root_size);
+
   render_node(
     &mut taffy,
     root_node_id,
     &mut canvas,
     Point::ZERO,
     Affine::identity(),
+    root_size,
   );
 
   Ok(canvas.into_inner())
@@ -135,6 +145,7 @@ fn render_node<'g, Nodes: Node<Nodes>>(
   canvas: &mut Canvas,
   offset: Point<f32>,
   mut transform: Affine,
+  root_size: Size<u32>,
 ) {
   let mut layout = *taffy.layout(node_id).unwrap();
   let node_context = taffy.get_node_context_mut(node_id).unwrap();
@@ -176,7 +187,14 @@ fn render_node<'g, Nodes: Node<Nodes>>(
       node_context.draw_inline(&mut inner_canvas, inner_layout);
     } else {
       for child_id in taffy.children(node_id).unwrap() {
-        render_node(taffy, child_id, &mut inner_canvas, Point::zero(), transform);
+        render_node(
+          taffy,
+          child_id,
+          &mut inner_canvas,
+          Point::zero(),
+          transform,
+          root_size,
+        );
       }
     }
 
@@ -197,8 +215,7 @@ fn render_node<'g, Nodes: Node<Nodes>>(
 
   if overflow.should_clip_content() {
     // if theres no space for canvas to draw, just return.
-    let Some(mut inner_canvas) = overflow.create_clip_canvas(node_context.context.viewport, layout)
-    else {
+    let Some(mut inner_canvas) = overflow.create_clip_canvas(root_size, layout) else {
       return;
     };
 
@@ -229,7 +246,14 @@ fn render_node<'g, Nodes: Node<Nodes>>(
       );
     } else {
       for child_id in taffy.children(node_id).unwrap() {
-        render_node(taffy, child_id, &mut inner_canvas, offset, transform);
+        render_node(
+          taffy,
+          child_id,
+          &mut inner_canvas,
+          offset,
+          transform,
+          root_size,
+        );
       }
     }
 
@@ -258,7 +282,14 @@ fn render_node<'g, Nodes: Node<Nodes>>(
     node_context.draw_inline(canvas, layout);
   } else {
     for child_id in taffy.children(node_id).unwrap() {
-      render_node(taffy, child_id, canvas, layout.location, transform);
+      render_node(
+        taffy,
+        child_id,
+        canvas,
+        layout.location,
+        transform,
+        root_size,
+      );
     }
   }
 }

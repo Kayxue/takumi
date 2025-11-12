@@ -266,10 +266,14 @@ impl LengthUnit {
       LengthUnit::Rem(value) => CompactLength::length(value * context.viewport.font_size),
       LengthUnit::Em(value) => CompactLength::length(value * context.font_size),
       LengthUnit::Vh(value) => {
-        CompactLength::length(context.viewport.height as f32 * value / 100.0)
+        CompactLength::length(context.viewport.height.unwrap_or_default() as f32 * value / 100.0)
       }
-      LengthUnit::Vw(value) => CompactLength::length(context.viewport.width as f32 * value / 100.0),
-      _ => CompactLength::length(self.resolve_to_px(context, context.viewport.width as f32)),
+      LengthUnit::Vw(value) => {
+        CompactLength::length(context.viewport.width.unwrap_or_default() as f32 * value / 100.0)
+      }
+      _ => CompactLength::length(
+        self.resolve_to_px(context, context.viewport.width.unwrap_or_default() as f32),
+      ),
     }
   }
 
@@ -300,8 +304,8 @@ impl LengthUnit {
       LengthUnit::Percentage(value) => (value / 100.0) * percentage_full_px,
       LengthUnit::Rem(value) => value * context.viewport.font_size,
       LengthUnit::Em(value) => value * context.font_size,
-      LengthUnit::Vh(value) => value * context.viewport.height as f32 / 100.0,
-      LengthUnit::Vw(value) => value * context.viewport.width as f32 / 100.0,
+      LengthUnit::Vh(value) => value * context.viewport.height.unwrap_or_default() as f32 / 100.0,
+      LengthUnit::Vw(value) => value * context.viewport.width.unwrap_or_default() as f32 / 100.0,
       LengthUnit::Cm(value) => value * ONE_CM_IN_PX,
       LengthUnit::Mm(value) => value * ONE_MM_IN_PX,
       LengthUnit::In(value) => value * ONE_IN_PX,

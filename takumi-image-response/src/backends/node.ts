@@ -37,8 +37,6 @@ export type ImageResponseOptions =
   | ImageResponseOptionsWithoutRenderer;
 
 const defaultOptions: ImageResponseOptions = {
-  width: 1200,
-  height: 630,
   format: "webp",
 };
 

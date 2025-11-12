@@ -312,7 +312,7 @@ mod tests {
   use crate::layout::style::{
     LengthUnit, PositionComponent, PositionKeywordX, PositionKeywordY, SpacePair, StopPosition,
   };
-  use crate::{GlobalContext, layout::Viewport, rendering::RenderContext};
+  use crate::{GlobalContext, rendering::RenderContext};
 
   #[test]
   fn test_parse_radial_gradient_basic() {
@@ -499,9 +499,11 @@ mod tests {
     };
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new(&context, Viewport::new(200, 100), Default::default());
-    let resolved =
-      gradient.resolve_stops_for_radius(render_context.viewport.width as f32, &render_context);
+    let render_context = RenderContext::new(&context, (200, 100).into(), Default::default());
+    let resolved = gradient.resolve_stops_for_radius(
+      render_context.viewport.width.unwrap_or_default() as f32,
+      &render_context,
+    );
 
     assert_eq!(resolved.len(), 3);
     assert!((resolved[0].position - 0.0).abs() < 1e-3);
@@ -531,9 +533,11 @@ mod tests {
     };
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new(&context, Viewport::new(200, 100), Default::default());
-    let resolved =
-      gradient.resolve_stops_for_radius(render_context.viewport.width as f32, &render_context);
+    let render_context = RenderContext::new(&context, (200, 100).into(), Default::default());
+    let resolved = gradient.resolve_stops_for_radius(
+      render_context.viewport.width.unwrap_or_default() as f32,
+      &render_context,
+    );
 
     assert_eq!(resolved.len(), 3);
     assert!(resolved[0].position >= 0.0);

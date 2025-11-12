@@ -66,7 +66,7 @@ fn create_test_context() -> GlobalContext {
 }
 
 pub fn create_test_viewport() -> Viewport {
-  Viewport::new(1200, 630)
+  (1200, 630).into()
 }
 
 /// Helper function to run style width tests

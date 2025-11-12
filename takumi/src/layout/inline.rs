@@ -44,22 +44,26 @@ pub(crate) fn create_inline_constraint(
   available_space: Size<AvailableSpace>,
   known_dimensions: Size<Option<f32>>,
 ) -> (f32, Option<MaxHeight>) {
-  let width_constraint = known_dimensions.width.or(match available_space.width {
-    AvailableSpace::MinContent => Some(0.0),
-    AvailableSpace::MaxContent => None,
-    AvailableSpace::Definite(width) => Some(width),
-  });
+  let width_constraint = known_dimensions
+    .width
+    .or(match available_space.width {
+      AvailableSpace::MinContent => Some(0.0),
+      AvailableSpace::MaxContent => None,
+      AvailableSpace::Definite(width) => Some(width),
+    })
+    .unwrap_or(f32::MAX);
 
-  (
-    width_constraint.unwrap_or(f32::MAX),
-    // applies a maximum height to reduce unnecessary calculation.
-    context
-      .style
-      .line_clamp
-      .as_ref()
-      .map(|lines| MaxHeight::HeightAndLines(context.viewport.height as f32, lines.count))
-      .or(Some(MaxHeight::Absolute(context.viewport.height as f32))),
-  )
+  // applies a maximum height to reduce unnecessary calculation.
+  let max_height = match (context.viewport.height, &context.style.line_clamp.0) {
+    (Some(height), Some(line_clamp)) => {
+      Some(MaxHeight::HeightAndLines(height as f32, line_clamp.count))
+    }
+    (Some(height), None) => Some(MaxHeight::Absolute(height as f32)),
+    (None, Some(line_clamp)) => Some(MaxHeight::Lines(line_clamp.count)),
+    (None, None) => None,
+  };
+
+  (width_constraint, max_height)
 }
 
 pub(crate) fn break_lines(

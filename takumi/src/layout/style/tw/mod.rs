@@ -154,15 +154,18 @@ impl Breakpoint {
 
   /// Check if the breakpoint matches the viewport width.
   pub fn matches(&self, viewport: Viewport) -> bool {
-    let viewport_width = viewport.width as f32;
+    let Some(viewport_width) = viewport.width else {
+      return false;
+    };
+
     let breakpoint_width = match self.0 {
       LengthUnit::Rem(value) => value * viewport.font_size,
       LengthUnit::Px(value) => value,
-      LengthUnit::Vw(value) => (value / 100.0) * viewport_width,
+      LengthUnit::Vw(value) => (value / 100.0) * viewport_width as f32,
       _ => 0.0,
     };
 
-    viewport_width >= breakpoint_width
+    viewport_width >= breakpoint_width as u32
   }
 }
 
@@ -1062,22 +1065,14 @@ mod tests {
 
   #[test]
   fn test_breakpoint_matches() {
-    let viewport = Viewport {
-      width: 1000,
-      height: 1000,
-      font_size: 16.0,
-    };
+    let viewport = (1000, 1000).into();
 
     assert!(Breakpoint::parse("sm").unwrap().matches(viewport));
   }
 
   #[test]
   fn test_breakpoint_does_not_match() {
-    let viewport = Viewport {
-      width: 1000,
-      height: 1000,
-      font_size: 16.0,
-    };
+    let viewport = (1000, 1000).into();
 
     // 80 * 16 = 1280 > 1000
     assert!(!Breakpoint::parse("xl").unwrap().matches(viewport));

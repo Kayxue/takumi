@@ -4,7 +4,6 @@ use std::fs::File;
 use takumi::{
   GlobalContext,
   layout::{
-    Viewport,
     node::{ContainerNode, NodeKind, TextNode},
     style::{CssOption, StyleBuilder},
   },
@@ -50,7 +49,7 @@ pub fn say_hello_to(name: &str) {
 
   // Create render options
   let options = RenderOptionsBuilder::<NodeKind>::default()
-    .viewport(Viewport::new(1200, 630))
+    .viewport((1200, 630).into())
     .node(root.into())
     .global(&context)
     .build()

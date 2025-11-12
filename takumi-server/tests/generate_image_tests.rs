@@ -17,8 +17,8 @@ async fn test_generate_image_handler() {
       quality: None,
       payload: NODE.to_owned(),
       draw_debug_border: Some(false),
-      width: 1200,
-      height: 630,
+      width: Some(1200),
+      height: Some(630),
     }),
     state,
   )

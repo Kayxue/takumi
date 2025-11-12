@@ -494,7 +494,7 @@ impl<'i> FromCss<'i> for Angle {
 
 #[cfg(test)]
 mod tests {
-  use crate::{GlobalContext, layout::Viewport};
+  use crate::GlobalContext;
   use smallvec::smallvec;
 
   use super::*;
@@ -888,7 +888,7 @@ mod tests {
 
     // Test at the top (should be red)
     let context = GlobalContext::default();
-    let dummy_context = RenderContext::new(&context, Viewport::new(100, 100), Default::default());
+    let dummy_context = RenderContext::new(&context, (100, 100).into(), Default::default());
     let ctx = gradient.to_draw_context(100.0, 100.0, &dummy_context);
     let color_top = gradient.at(50, 0, &ctx);
     assert_eq!(color_top, Color([255, 0, 0, 255]));
@@ -925,7 +925,7 @@ mod tests {
 
     // Test at the left (should be red)
     let context = GlobalContext::default();
-    let dummy_context = RenderContext::new(&context, Viewport::new(100, 100), Default::default());
+    let dummy_context = RenderContext::new(&context, (100, 100).into(), Default::default());
     let ctx = gradient.to_draw_context(100.0, 100.0, &dummy_context);
     let color_left = gradient.at(0, 50, &ctx);
     assert_eq!(color_left, Color([255, 0, 0, 255]));
@@ -947,7 +947,7 @@ mod tests {
 
     // Should always return the same color
     let context = GlobalContext::default();
-    let dummy_context = RenderContext::new(&context, Viewport::new(100, 100), Default::default());
+    let dummy_context = RenderContext::new(&context, (100, 100).into(), Default::default());
     let ctx = gradient.to_draw_context(100.0, 100.0, &dummy_context);
     let color = gradient.at(50, 50, &ctx);
     assert_eq!(color, Color([255, 0, 0, 255]));
@@ -962,7 +962,7 @@ mod tests {
 
     // Should return transparent
     let context = GlobalContext::default();
-    let dummy_context = RenderContext::new(&context, Viewport::new(100, 100), Default::default());
+    let dummy_context = RenderContext::new(&context, (100, 100).into(), Default::default());
     let ctx = gradient.to_draw_context(100.0, 100.0, &dummy_context);
     let color = gradient.at(50, 50, &ctx);
     assert_eq!(color, Color([0, 0, 0, 0]));
@@ -975,7 +975,7 @@ mod tests {
     let gradient = LinearGradient::from_css(&mut parser).unwrap();
 
     let context = GlobalContext::default();
-    let dummy_context = RenderContext::new(&context, Viewport::new(40, 40), Default::default());
+    let dummy_context = RenderContext::new(&context, (40, 40).into(), Default::default());
     let ctx = gradient.to_draw_context(40.0, 40.0, &dummy_context);
 
     // grey at 0,0
@@ -998,7 +998,7 @@ mod tests {
     let gradient = LinearGradient::from_css(&mut parser).unwrap();
 
     let context = GlobalContext::default();
-    let dummy_context = RenderContext::new(&context, Viewport::new(40, 40), Default::default());
+    let dummy_context = RenderContext::new(&context, (40, 40).into(), Default::default());
     let ctx = gradient.to_draw_context(40.0, 40.0, &dummy_context);
 
     // color at top-left (0, 0) should be grey (1px hard stop)
@@ -1061,9 +1061,10 @@ mod tests {
     };
 
     let context = GlobalContext::default();
-    let ctx = RenderContext::new(&context, Viewport::new(200, 100), Default::default());
+    let ctx = RenderContext::new(&context, (200, 100).into(), Default::default());
 
-    let resolved = gradient.resolve_stops_for_axis_size(ctx.viewport.width as f32, &ctx);
+    let resolved =
+      gradient.resolve_stops_for_axis_size(ctx.viewport.width.unwrap_or_default() as f32, &ctx);
     assert_eq!(resolved.len(), 3);
     assert!((resolved[0].position - 0.0).abs() < 1e-3);
     assert!((resolved[1].position - 100.0).abs() < 1e-3);
@@ -1086,9 +1087,10 @@ mod tests {
       ],
     };
     let context = GlobalContext::default();
-    let ctx = RenderContext::new(&context, Viewport::new(200, 100), Default::default());
+    let ctx = RenderContext::new(&context, (200, 100).into(), Default::default());
 
-    let resolved = gradient.resolve_stops_for_axis_size(ctx.viewport.width as f32, &ctx);
+    let resolved =
+      gradient.resolve_stops_for_axis_size(ctx.viewport.width.unwrap_or_default() as f32, &ctx);
     assert_eq!(resolved.len(), 2);
     assert!((resolved[0].position - 0.0).abs() < 1e-3);
     assert!((resolved[1].position - 0.0).abs() < 1e-3);

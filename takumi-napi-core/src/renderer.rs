@@ -4,7 +4,7 @@ use napi_derive::napi;
 use serde::de::DeserializeOwned;
 use takumi::{
   GlobalContext,
-  layout::{Viewport, node::NodeKind},
+  layout::node::NodeKind,
   parley::{FontWeight, GenericFamily, fontique::FontInfoOverride},
   rendering::ImageOutputFormat,
   resources::{
@@ -34,8 +34,8 @@ pub struct Renderer {
 
 #[napi(object)]
 pub struct RenderOptions<'env> {
-  pub width: u32,
-  pub height: u32,
+  pub width: Option<u32>,
+  pub height: Option<u32>,
   pub format: Option<OutputFormat>,
   pub quality: Option<u8>,
   pub draw_debug_border: Option<bool>,
@@ -405,7 +405,7 @@ impl Renderer {
       RenderAnimationTask {
         nodes: Some(nodes),
         context: &self.global,
-        viewport: Viewport::new(options.width, options.height),
+        viewport: (options.width, options.height).into(),
         format: options.format.unwrap_or(AnimationOutputFormat::webp),
         draw_debug_border: options.draw_debug_border.unwrap_or_default(),
       },

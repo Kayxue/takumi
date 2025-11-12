@@ -21,8 +21,8 @@ pub struct GenerateImageQuery {
   pub quality: Option<u8>,
   pub payload: String,
   pub draw_debug_border: Option<bool>,
-  pub width: u32,
-  pub height: u32,
+  pub width: Option<u32>,
+  pub height: Option<u32>,
 }
 
 pub async fn generate_image_handler(

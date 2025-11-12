@@ -1,8 +1,8 @@
 import { z } from "zod/mini";
 
 export const optionsSchema = z.object({
-  width: z.int().check(z.positive(), z.minimum(1)),
-  height: z.int().check(z.positive(), z.minimum(1)),
+  width: z.optional(z.int().check(z.positive(), z.minimum(1))),
+  height: z.optional(z.int().check(z.positive(), z.minimum(1))),
   quality: z.optional(
     z.int().check(z.positive(), z.minimum(1), z.maximum(100)),
   ),

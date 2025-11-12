@@ -34,8 +34,8 @@ export type AnyNode = { type: string; [key: string]: any };
 export type ByteBuf = Uint8Array | ArrayBuffer | Buffer;
 
 export type RenderOptions = {
-  width: number,
-  height: number,
+  width?: number,
+  height?: number,
   format?: "png" | "jpeg" | "webp",
   quality?: number,
   fetchedResources?: Map<string, ByteBuf>,
@@ -84,8 +84,8 @@ extern "C" {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RenderOptions {
-  width: u32,
-  height: u32,
+  width: Option<u32>,
+  height: Option<u32>,
   format: Option<ImageOutputFormat>,
   quality: Option<u8>,
   fetched_resources: Option<HashMap<Arc<str>, ByteBuf>>,
@@ -307,7 +307,7 @@ impl Renderer {
 
         let image = render(
           RenderOptionsBuilder::default()
-            .viewport(Viewport::new(options.width, options.height))
+            .viewport((options.width, options.height).into())
             .node(node)
             .global(&self.context)
             .draw_debug_border(options.draw_debug_border.unwrap_or_default())
