@@ -1,5 +1,11 @@
 # @takumi-rs/core
 
+## 0.51.0
+
+### Minor Changes
+
+- 27ac6c5: support `devicePixelRatio` value
+
 ## 0.50.0
 
 ## 0.49.1
