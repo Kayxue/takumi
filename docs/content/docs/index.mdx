@@ -56,18 +56,23 @@ npm i @takumi-rs/wasm
 
 <Accordions type="single">
   <Accordion title="Cloudflare Workers">
-Wrangler's bundling process handles the wasm initialization for you by default, you can just load it in synchronous way.
+Cloudflare Workers prohibited fetching WASM then initialize on the fly. You can import from `@takumi-rs/wasm/takumi_wasm_bg.wasm` and pass it to the `module` option.
 
 ```tsx twoslash
 /** @jsxImportSource react */
 // ---cut-before---
 
 import { ImageResponse } from "@takumi-rs/image-response/wasm";
-import module from "@takumi-rs/wasm/takumi_wasm_bg.wasm";
+import module from "@takumi-rs/wasm/takumi_wasm_bg.wasm"; // [!code highlight]
 
-new ImageResponse(<div />, {
-  module,
-})
+export default {
+  fetch() {
+    return new ImageResponse(<div />, {
+      module, // [!code highlight]
+      // ...
+    });
+  },
+}
 ```
 
 And make sure you have `wrangler.jsonc` / `wrangler.toml` setup to load assets. `compatibility_date` should be set to at least `2025-10-30`.
@@ -75,7 +80,7 @@ And make sure you have `wrangler.jsonc` / `wrangler.toml` setup to load assets. 
 ```jsonc title="wrangler.jsonc"
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "compatibility_date": "2025-10-30", 
+  "compatibility_date": "2025-10-30",  // [!code highlight]
   "rules": [
     {
       "type": "Data",
