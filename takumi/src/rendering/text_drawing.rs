@@ -26,10 +26,10 @@ pub(crate) fn draw_decoration(
   layout: Layout,
   transform: Affine,
 ) {
-  let transform = Affine::translation(Size {
-    width: layout.border.left + layout.padding.left + glyph_run.offset(),
-    height: layout.border.top + layout.padding.top + offset,
-  }) * transform;
+  let transform = Affine::translation(
+    layout.border.left + layout.padding.left + glyph_run.offset(),
+    layout.border.top + layout.padding.top + offset,
+  ) * transform;
 
   canvas.fill_color(
     Point {
@@ -57,10 +57,10 @@ pub(crate) fn draw_glyph(
   transform: Affine,
   text_style: &parley::Style<InlineBrush>,
 ) {
-  let transform = Affine::translation(Size {
-    width: layout.border.left + layout.padding.left + glyph.x,
-    height: layout.border.top + layout.padding.top + glyph.y,
-  }) * transform;
+  let transform = Affine::translation(
+    layout.border.left + layout.padding.left + glyph.x,
+    layout.border.top + layout.padding.top + glyph.y,
+  ) * transform;
 
   if let ResolvedGlyph::Image(bitmap) = glyph_content {
     let border = BorderProperties {

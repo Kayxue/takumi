@@ -218,10 +218,8 @@ pub fn draw_image(
   let transform_offset_x = layout.border.left + layout.padding.left;
   let transform_offset_y = layout.border.top + layout.padding.top;
 
-  let transform_with_content_offset = Affine::translation(Size {
-    width: transform_offset_x,
-    height: transform_offset_y,
-  }) * context.transform;
+  let transform_with_content_offset =
+    Affine::translation(transform_offset_x, transform_offset_y) * context.transform;
 
   // First inset the border by the border width to get the correct inner radius, THEN set the offset to zero.
   // Since we already applied the border width to `transform_with_content_offset`, we have to avoid double-applying it.

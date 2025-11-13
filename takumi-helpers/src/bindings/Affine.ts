@@ -2,6 +2,9 @@
 
 /**
  * Represents an affine transform matrix
+ * | a c x |
+ * | b d y |
+ * | 0 0 1 |
  */
 export type Affine = {
   /**

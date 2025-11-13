@@ -100,47 +100,41 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
   Ok(canvas.into_inner())
 }
 
-fn create_transform(style: &InheritedStyle, layout: &Layout, context: &RenderContext) -> Affine {
-  let mut transform = Affine::identity();
-
+fn create_transform(
+  style: &InheritedStyle,
+  border_box: Size<f32>,
+  context: &RenderContext,
+) -> Affine {
   let transform_origin = style.transform_origin.0.unwrap_or_default();
 
-  let center = Point {
-    x: LengthUnit::from(transform_origin.0.x).resolve_to_px(context, layout.size.width),
-    y: LengthUnit::from(transform_origin.0.y).resolve_to_px(context, layout.size.height),
-  };
+  let center_x = LengthUnit::from(transform_origin.0.x).resolve_to_px(context, border_box.width);
+  let center_y = LengthUnit::from(transform_origin.0.y).resolve_to_px(context, border_box.height);
+
+  let mut transform = Affine::translation(-center_x, -center_y);
 
   // According to https://www.w3.org/TR/css-transforms-2/#ctm
   // the order is `translate` -> `rotate` -> `scale` -> `transform`.
   // But we need to invert the order because of matrix multiplication.
   if let Some(node_transform) = &*style.transform {
-    transform = transform * node_transform.to_affine(context, layout, center);
+    transform *= node_transform.to_affine(context, border_box);
   }
 
   if let Some(scale) = *style.scale {
-    transform = transform
-      * Affine::scale(
-        Size {
-          width: scale.x.0,
-          height: scale.y.0,
-        },
-        center,
-      );
+    transform *= Affine::scale(scale.x.0, scale.y.0);
   }
 
   if let Some(rotate) = *style.rotate {
-    transform = transform * Affine::rotation(rotate, center);
+    transform *= Affine::rotation(rotate);
   }
 
   if let Some(translate) = *style.translate {
-    transform = transform
-      * Affine::translation(Size {
-        width: translate.x.resolve_to_px(context, layout.size.width),
-        height: translate.y.resolve_to_px(context, layout.size.height),
-      });
+    transform *= Affine::translation(
+      translate.x.resolve_to_px(context, border_box.width),
+      translate.y.resolve_to_px(context, border_box.height),
+    );
   }
 
-  transform
+  transform * Affine::translation(center_x, center_y)
 }
 
 fn render_node<'g, Nodes: Node<Nodes>>(
@@ -160,8 +154,11 @@ fn render_node<'g, Nodes: Node<Nodes>>(
 
   layout.location = layout.location + offset;
 
-  transform =
-    transform * create_transform(&node_context.context.style, &layout, &node_context.context);
+  transform *= create_transform(
+    &node_context.context.style,
+    layout.size,
+    &node_context.context,
+  );
 
   node_context.context.transform = transform;
 

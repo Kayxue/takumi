@@ -1,9 +1,12 @@
-use std::{fmt::Display, ops::Mul};
+use std::{
+  fmt::Display,
+  ops::{Mul, MulAssign},
+};
 
 use cssparser::{Parser, Token, match_ignore_ascii_case};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use taffy::{Layout, Point, Size};
+use taffy::{Point, Size};
 use ts_rs::TS;
 use zeno::{Command, Vector};
 
@@ -38,48 +41,28 @@ pub struct Transforms(pub SmallVec<[Transform; 4]>);
 
 impl Transforms {
   /// Converts the transforms to a [`Affine`] instance
-  pub(crate) fn to_affine(
-    &self,
-    context: &RenderContext,
-    layout: &Layout,
-    center: Point<f32>,
-  ) -> Affine {
+  pub(crate) fn to_affine(&self, context: &RenderContext, border_box: Size<f32>) -> Affine {
     let mut instance = Affine::identity();
 
     for transform in self.0.iter().rev() {
       match *transform {
         Transform::Translate(x_length, y_length) => {
-          instance = instance
-            * Affine::translation(Size {
-              width: x_length.resolve_to_px(context, layout.size.width),
-              height: y_length.resolve_to_px(context, layout.size.height),
-            });
+          instance *= Affine::translation(
+            x_length.resolve_to_px(context, border_box.width),
+            y_length.resolve_to_px(context, border_box.height),
+          );
         }
         Transform::Scale(x_scale, y_scale) => {
-          instance = instance
-            * Affine::scale(
-              Size {
-                width: x_scale,
-                height: y_scale,
-              },
-              center,
-            );
+          instance *= Affine::scale(x_scale, y_scale);
         }
         Transform::Rotate(angle) => {
-          instance = instance * Affine::rotation(angle, center);
+          instance *= Affine::rotation(angle);
         }
         Transform::Skew(x_angle, y_angle) => {
-          instance = instance
-            * Affine::skew(
-              Size {
-                width: x_angle,
-                height: y_angle,
-              },
-              center,
-            );
+          instance *= Affine::skew(x_angle, y_angle);
         }
         Transform::Matrix(affine) => {
-          instance = instance * affine;
+          instance *= affine;
         }
       }
     }
@@ -196,6 +179,9 @@ impl<'i> FromCss<'i> for Transform {
 }
 
 /// Represents an affine transform matrix
+/// | a c x |
+/// | b d y |
+/// | 0 0 1 |
 #[derive(PartialEq, Deserialize, Serialize, Debug, Clone, Copy, TS)]
 pub struct Affine {
   /// Horizontal scaling / cosine of rotation
@@ -231,20 +217,24 @@ impl Default for Affine {
   }
 }
 
+impl MulAssign<Affine> for Affine {
+  fn mul_assign(&mut self, rhs: Affine) {
+    *self = *self * rhs;
+  }
+}
+
 impl Mul for Affine {
   type Output = Self;
 
   #[inline]
   fn mul(self, rhs: Self) -> Self {
-    let lhs = self;
-
     Self {
-      a: lhs.a * rhs.a + lhs.b * rhs.c,
-      b: lhs.a * rhs.b + lhs.b * rhs.d,
-      c: lhs.c * rhs.a + lhs.d * rhs.c,
-      d: lhs.c * rhs.b + lhs.d * rhs.d,
-      x: lhs.x * rhs.a + lhs.y * rhs.c + rhs.x,
-      y: lhs.x * rhs.b + lhs.y * rhs.d + rhs.y,
+      a: self.a * rhs.a + self.b * rhs.c,
+      b: self.a * rhs.b + self.b * rhs.d,
+      c: self.c * rhs.a + self.d * rhs.c,
+      d: self.c * rhs.b + self.d * rhs.d,
+      x: self.x * rhs.a + self.y * rhs.c + rhs.x,
+      y: self.x * rhs.b + self.y * rhs.d + rhs.y,
     }
   }
 }
@@ -328,54 +318,53 @@ impl Affine {
   }
 
   /// Creates a new rotation transform
-  pub fn rotation(angle: Angle, center: Point<f32>) -> Self {
+  pub fn rotation(angle: Angle) -> Self {
     let angle = angle.to_radians();
-    let cos = angle.cos();
-    let sin = angle.sin();
+    let (sin, cos) = angle.sin_cos();
 
     Self {
       a: cos,
       b: sin,
       c: -sin,
       d: cos,
-      x: center.x - cos * center.x + sin * center.y,
-      y: center.y - cos * center.y - sin * center.x,
+      x: 0.0,
+      y: 0.0,
     }
   }
 
   /// Creates a new translation transform
-  pub const fn translation(size: Size<f32>) -> Self {
+  pub const fn translation(x: f32, y: f32) -> Self {
     Self {
-      x: size.width,
-      y: size.height,
+      x,
+      y,
       ..Self::identity()
     }
   }
 
   /// Creates a new scale transform
-  pub const fn scale(scale: Size<f32>, center: Point<f32>) -> Self {
+  pub const fn scale(x: f32, y: f32) -> Self {
     Self {
-      a: scale.width,
+      a: x,
       b: 0.0,
       c: 0.0,
-      d: scale.height,
-      x: center.x - scale.width * center.x,
-      y: center.y - scale.height * center.y,
+      d: y,
+      x: 0.0,
+      y: 0.0,
     }
   }
 
   /// Creates a new skew transform
-  pub fn skew(angle: Size<Angle>, center: Point<f32>) -> Self {
-    let tanx = angle.width.to_radians().tan();
-    let tany = angle.height.to_radians().tan();
+  pub fn skew(x: Angle, y: Angle) -> Self {
+    let tanx = x.to_radians().tan();
+    let tany = y.to_radians().tan();
 
     Self {
       a: 1.0,
       b: tany,
       c: tanx,
       d: 1.0,
-      x: -center.y * tany,
-      y: -center.x * tanx,
+      x: 0.0,
+      y: 0.0,
     }
   }
 
