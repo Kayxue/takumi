@@ -4,10 +4,8 @@ import init, {
   collectNodeFetchTasks,
   type Font,
   type InitInput,
-  initSync,
   Renderer,
   type RenderOptions,
-  type SyncInitInput,
 } from "@takumi-rs/wasm";
 import type { ReactNode } from "react";
 
@@ -28,13 +26,45 @@ declare module "react" {
   }
 }
 
+type ModuleOptions = {
+  /**
+   * @description The WebAssembly module to use for the renderer.
+   *
+   * @example
+   * For Cloudflare Workers, you can use the bundled WASM file.
+   * ```ts
+   * {
+   *   module: import("@takumi-rs/wasm/takumi_wasm_bg.wasm"),
+   * }
+   * ```
+   *
+   * For Next.js Turbopack, you can use the nextjs helper.
+   * ```ts
+   * {
+   *   module: import("@takumi-rs/wasm/next"),
+   * }
+   * ```
+   *
+   * For Vite, use `?url` suffix to get the URL of the WASM file.
+   *
+   * ```ts
+   * {
+   *   module: import("@takumi-rs/wasm/takumi_wasm_bg.wasm?url"),
+   * }
+   * ```
+   */
+  module: InitInput | Promise<InitInput> | { default: InitInput };
+};
+
 type ImageResponseOptionsWithRenderer = ResponseInit &
-  RenderOptions & {
+  RenderOptions &
+  ModuleOptions & {
     renderer: Renderer;
   };
 
 type ImageResponseOptionsWithoutRenderer = ResponseInit &
-  RenderOptions & {
+  RenderOptions &
+  ModuleOptions & {
     fonts?: Font[];
     persistentImages?: PersistentImage[];
   };
@@ -77,17 +107,22 @@ function putPersistentImage(image: PersistentImage, renderer: Renderer) {
   renderer.putPersistentImage(image.src, new Uint8Array(image.data));
 }
 
-const defaultOptions: ImageResponseOptions = {
-  format: "webp",
-};
+function createStream(component: ReactNode, options: ImageResponseOptions) {
+  options.format ??= "webp";
 
-function createStream(
-  component: ReactNode,
-  options: ImageResponseOptions = { ...defaultOptions },
-) {
   return new ReadableStream({
     async start(controller) {
       try {
+        let moduleResolved = await options.module;
+
+        if (typeof moduleResolved === "object" && "default" in moduleResolved) {
+          moduleResolved = moduleResolved.default;
+        }
+
+        await init({
+          module_or_path: moduleResolved,
+        });
+
         const renderer = getRenderer(options);
 
         const node = await fromJsx(component);
@@ -127,16 +162,8 @@ const contentTypeMapping = {
   webp: "image/webp",
 };
 
-let isWasmInitialized = false;
-
 export class ImageResponse extends Response {
-  constructor(component: ReactNode, options?: ImageResponseOptions) {
-    if (!isWasmInitialized) {
-      throw new Error(
-        "WASM is not initialized, please call `initWasm` or `initWasmSync` first.",
-      );
-    }
-
+  constructor(component: ReactNode, options: ImageResponseOptions) {
     const stream = createStream(component, options);
     const headers = new Headers(options?.headers);
 
@@ -153,26 +180,6 @@ export class ImageResponse extends Response {
       headers,
     });
   }
-}
-
-export async function initWasm(source: Promise<InitInput> | InitInput) {
-  if (isWasmInitialized) return;
-
-  isWasmInitialized = true;
-
-  await init({
-    module_or_path: source,
-  });
-}
-
-export function initWasmSync(source: SyncInitInput) {
-  if (isWasmInitialized) return;
-
-  initSync({
-    module: source,
-  });
-
-  isWasmInitialized = true;
 }
 
 export default ImageResponse;

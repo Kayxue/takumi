@@ -1,13 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { file } from "bun";
-import { ImageResponse, initWasm } from "../src/backends/wasm";
+import { ImageResponse } from "../src/backends/wasm";
 
-await initWasm(
-  new URL(
-    import.meta.resolve("@takumi-rs/wasm/takumi_wasm_bg.wasm"),
-    import.meta.url,
-  ),
+const module = new URL(
+  import.meta.resolve("@takumi-rs/wasm/takumi_wasm_bg.wasm"),
+  import.meta.url,
 );
 
 const geist = await file(
@@ -16,7 +14,9 @@ const geist = await file(
 
 describe("ImageResponse", () => {
   test("should not crash", async () => {
-    const response = new ImageResponse(<div tw="bg-black w-4 h-4" />);
+    const response = new ImageResponse(<div tw="bg-black w-4 h-4" />, {
+      module,
+    });
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("image/webp");
@@ -31,6 +31,7 @@ describe("ImageResponse", () => {
         width: 100,
         height: 100,
         format: "png",
+        module,
         fonts: [
           {
             data: geist,

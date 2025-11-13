@@ -92,20 +92,18 @@ If you want to use this package in browser environment/cloudflare, you can impor
 
 Make sure you have the `@takumi-rs/wasm` package installed as well.
 
+Check the additional [bundler setup section](https://takumi.kane.tw/docs#additional-bundler-setup) for more setup details.
+
 ```tsx
 import { describe, expect, test } from "bun:test";
-import { ImageResponse, initWasm } from "@takumi-rs/image-response/wasm";
-
-// Or with bundler specific WASM resolution process,
-// like cloudflare workers can be configured with wrangler.toml.
-await initWasm(fetch(import.meta.resolve("@takumi-rs/wasm/takumi_wasm_bg.wasm")));
-
-// For Next.js Runtime, you can use the bundled WASM file.
-await initWasm(import("@takumi-rs/wasm/next"));
+import { ImageResponse } from "@takumi-rs/image-response/wasm";
+import module from "@takumi-rs/wasm/next";
 
 export default {
   fetch() {
-    return new ImageResponse(<div>Hello</div>);
+    return new ImageResponse(<div>Hello</div>, {
+      module,
+    });
   }
 }
 ```

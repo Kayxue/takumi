@@ -1,9 +1,7 @@
-import { ImageResponse, initWasmSync } from "@takumi-rs/image-response/wasm";
+import { ImageResponse } from "@takumi-rs/image-response/wasm";
 import DocsTemplateV1 from "@takumi-rs/template/docs-template-v1";
 import module from "@takumi-rs/wasm/next";
 import { Axe } from "lucide-react";
-
-initWasmSync(module);
 
 export const runtime = "edge";
 
@@ -34,6 +32,7 @@ export function GET(request: Request) {
       height: 630,
       format: "webp",
       fonts,
+      module,
     },
   );
 }

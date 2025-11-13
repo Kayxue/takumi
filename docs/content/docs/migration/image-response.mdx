@@ -71,12 +71,16 @@ If you are using in Edge runtime or a browser environment like Cloudflare Worker
 
 // @noErrors
 import { ImageResponse } from "@takumi-rs/image-response"; // [!code --]
-import { ImageResponse, initWasm } from "@takumi-rs/image-response/wasm"; // [!code ++]
+import { ImageResponse } from "@takumi-rs/image-response/wasm"; // [!code ++]
 import module from "@takumi-rs/wasm/next"; // [!code ++]
 
-initWasmSync(module); // [!code ++]
-
-// Same as above ...
+new ImageResponse(<OgImage title="Next.js" />, {
+  module, // [!code ++]w
+  width: 1200,
+  height: 630,
+  // @noErrors
+  fonts,
+});
 ```
 
 Now you have an `GET` handler with Takumi setup!
