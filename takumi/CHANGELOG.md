@@ -1,5 +1,11 @@
 # takumi
 
+## 0.51.1
+
+### Patch Changes
+
+- eb26a60: fix `overflow`, `clip-path`, `background-position` deserialization
+
 ## 0.51.0
 
 ### Minor Changes
