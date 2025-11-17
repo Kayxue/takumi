@@ -1,7 +1,7 @@
 use takumi::layout::{
   node::{ContainerNode, ImageNode, TextNode},
   style::{
-    LengthUnit::{Percentage, Px},
+    LengthUnit::{Percentage, Px, Rem},
     *,
   },
 };
@@ -10,6 +10,41 @@ mod test_utils;
 use test_utils::run_style_width_test;
 
 const ROTATED_ANGLES: &[f32] = &[0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0];
+
+#[test]
+fn test_rotate() {
+  let container = ContainerNode {
+    tw: None,
+    style: Some(
+      StyleBuilder::default()
+        .width(Percentage(100.0))
+        .height(Percentage(100.0))
+        .background_color(ColorInput::Value(Color::white()))
+        .justify_content(JustifyContent::Center)
+        .align_items(AlignItems::Center)
+        .build()
+        .unwrap(),
+    ),
+    children: Some(vec![
+      ContainerNode {
+        style: Some(
+          StyleBuilder::default()
+            .width(Rem(16.0))
+            .height(Rem(16.0))
+            .background_color(ColorInput::Value(Color::black()))
+            .rotate(CssOption::some(Angle::new(45.0)))
+            .build()
+            .unwrap(),
+        ),
+        children: None,
+        tw: None,
+      }
+      .into(),
+    ]),
+  };
+
+  run_style_width_test(container.into(), "tests/fixtures/style_rotate.webp");
+}
 
 #[test]
 fn test_style_transform_origin_center() {

@@ -69,8 +69,11 @@ impl SizedShadow {
     &self,
     canvas: &mut Canvas,
     spread_mask: Cow<[u8]>,
-    spread_placement: Placement,
+    mut spread_placement: Placement,
   ) {
+    spread_placement.left += self.offset_x as i32;
+    spread_placement.top += self.offset_y as i32;
+
     // Fast path: if the blur radius is 0, we can just draw the spread mask
     if self.blur_radius <= 0.0 {
       return canvas.draw_mask(&spread_mask, spread_placement, self.color, None);
@@ -100,11 +103,10 @@ impl SizedShadow {
     canvas.overlay_image(
       &image,
       BorderProperties::zero(),
-      zeno::Transform::translation(
+      Affine::translation(
         spread_placement.left as f32 - self.blur_radius,
         spread_placement.top as f32 - self.blur_radius,
-      )
-      .into(),
+      ),
       ImageScalingAlgorithm::Auto,
       None,
     );

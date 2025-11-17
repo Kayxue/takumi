@@ -1,7 +1,7 @@
-use std::ops::{Deref, DerefMut};
+use std::ops::{Mul, MulAssign};
 
 use cssparser::{Parser, Token, match_ignore_ascii_case};
-use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeSeq};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use smallvec::SmallVec;
 use taffy::{Point, Size};
 use ts_rs::TS;
@@ -29,22 +29,61 @@ pub enum Transform {
   Matrix(Affine),
 }
 
-/// | a c x |
-/// | b d y |
+/// | a b x |
+/// | c d y |
 /// | 0 0 1 |
-#[derive(Debug, Clone, Copy, TS, Default)]
+#[derive(Debug, Clone, Copy, TS, Default, PartialEq)]
 #[ts(type = "string")]
-pub struct Affine(zeno::Transform);
+pub struct Affine {
+  /// Horizontal scaling / cosine of rotation
+  pub a: f32,
+  /// Vertical shear / sine of rotation
+  pub b: f32,
+  /// Horizontal shear / negative sine of rotation
+  pub c: f32,
+  /// Vertical scaling / cosine of rotation
+  pub d: f32,
+  /// Horizontal translation (always orthogonal regardless of rotation)
+  pub x: f32,
+  /// Vertical translation (always orthogonal regardless of rotation)
+  pub y: f32,
+}
+
+impl Mul<Affine> for Affine {
+  type Output = Affine;
+
+  fn mul(self, rhs: Affine) -> Self::Output {
+    Affine {
+      a: self.a * rhs.a + self.b * rhs.c,
+      b: self.a * rhs.b + self.b * rhs.d,
+      c: self.c * rhs.a + self.d * rhs.c,
+      d: self.c * rhs.b + self.d * rhs.d,
+      x: self.x * rhs.a + self.y * rhs.c + rhs.x,
+      y: self.x * rhs.b + self.y * rhs.d + rhs.y,
+    }
+  }
+}
+
+impl MulAssign<Affine> for Affine {
+  fn mul_assign(&mut self, rhs: Affine) {
+    *self = *self * rhs;
+  }
+}
 
 impl Affine {
   /// Returns the identity transform
-  pub const fn identity() -> Self {
-    Self(zeno::Transform::IDENTITY)
-  }
+  pub const IDENTITY: Self = Self {
+    a: 1.0,
+    b: 0.0,
+    c: 0.0,
+    d: 1.0,
+    x: 0.0,
+    y: 0.0,
+  };
 
   /// Returns true if the transform is the identity transform
   pub fn is_identity(self) -> bool {
-    self == Self::identity()
+    self == Self::IDENTITY
   }
 
   /// Decomposes the translation part of the transform
@@ -55,45 +94,98 @@ impl Affine {
     }
   }
 
-  /// Decomposes the scale part of the transform
-  pub fn decompose_scale(self) -> Size<f32> {
-    Size {
-      width: (self.xx * self.xx + self.xy * self.xy).sqrt(),
-      height: (self.yx * self.yx + self.yy * self.yy).sqrt(),
+  /// Returns true if the transform is only a translation
+  pub(crate) fn only_translation(self) -> bool {
+    self.a == Self::IDENTITY.a
+      && self.b == Self::IDENTITY.b
+      && self.c == Self::IDENTITY.c
+      && self.d == Self::IDENTITY.d
+  }
+
+  /// Creates a new rotation transform
+  pub fn rotation(angle: Angle) -> Self {
+    let (sin, cos) = angle.to_radians().sin_cos();
+
+    Self {
+      a: cos,
+      b: sin,
+      c: -sin,
+      d: cos,
+      x: 0.0,
+      y: 0.0,
     }
   }
 
-  /// Returns true if the transform is only a translation
-  pub(crate) fn only_translation(self) -> bool {
-    self.xx == Self::identity().xx
-      && self.xy == Self::identity().xy
-      && self.yx == Self::identity().yx
-      && self.yy == Self::identity().yy
+  /// Creates a new translation transform
+  pub const fn translation(x: f32, y: f32) -> Self {
+    Self {
+      x,
+      y,
+      ..Self::IDENTITY
+    }
+  }
+
+  /// Creates a new scale transform
+  pub const fn scale(x: f32, y: f32) -> Self {
+    Self {
+      a: x,
+      b: 0.0,
+      c: 0.0,
+      d: y,
+      x: 0.0,
+      y: 0.0,
+    }
+  }
+
+  /// Transforms a point by the transform
+  pub fn transform_point(self, point: Point<f32>) -> Point<f32> {
+    Point {
+      x: self.a * point.x + self.b * point.y + self.x,
+      y: self.c * point.x + self.d * point.y + self.y,
+    }
+  }
+
+  /// Creates a new skew transform
+  pub fn skew(x: Angle, y: Angle) -> Self {
+    let tanx = x.to_radians().tan();
+    let tany = y.to_radians().tan();
+
+    Self {
+      a: 1.0,
+      b: tany,
+      c: tanx,
+      d: 1.0,
+      x: 0.0,
+      y: 0.0,
+    }
+  }
+
+  /// Calculates the determinant of the transform
+  pub fn determinant(self) -> f32 {
+    self.a * self.d - self.b * self.c
+  }
+
+  /// Inverts the transform, returns `None` if the transform is not invertible
+  pub fn invert(self) -> Option<Self> {
+    let det = self.determinant();
+    if det.abs() < f32::EPSILON {
+      return None;
+    }
+
+    Some(Self {
+      a: self.d / det,
+      b: self.b / -det,
+      c: self.c / -det,
+      d: self.a / det,
+      x: (self.d * self.x - self.c * self.y) / -det,
+      y: (self.b * self.x - self.a * self.y) / det,
+    })
   }
 }
 
-impl Deref for Affine {
-  type Target = zeno::Transform;
-
-  fn deref(&self) -> &Self::Target {
-    &self.0
-  }
-}
-
-impl DerefMut for Affine {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.0
-  }
-}
-
-impl PartialEq for Affine {
-  fn eq(&self, other: &Self) -> bool {
-    self.xx == other.xx
-      && self.xy == other.xy
-      && self.yx == other.yx
-      && self.yy == other.yy
-      && self.x == other.x
-      && self.y == other.y
+impl From<Affine> for zeno::Transform {
+  fn from(affine: Affine) -> Self {
+    zeno::Transform::new(affine.a, affine.b, affine.c, affine.d, affine.x, affine.y)
   }
 }
 
@@ -112,14 +204,21 @@ impl Serialize for Affine {
   where
     S: Serializer,
   {
-    let mut seq = serializer.serialize_seq(Some(6))?;
-    seq.serialize_element(&self.0.xx)?;
-    seq.serialize_element(&self.0.xy)?;
-    seq.serialize_element(&self.0.yx)?;
-    seq.serialize_element(&self.0.yy)?;
-    seq.serialize_element(&self.0.x)?;
-    seq.serialize_element(&self.0.y)?;
-    seq.end()
+    let mut string = String::new();
+
+    string.push_str(&self.a.to_string());
+    string.push(',');
+    string.push_str(&self.b.to_string());
+    string.push(',');
+    string.push_str(&self.c.to_string());
+    string.push(',');
+    string.push_str(&self.d.to_string());
+    string.push(',');
+    string.push_str(&self.x.to_string());
+    string.push(',');
+    string.push_str(&self.y.to_string());
+
+    serializer.serialize_str(&string)
   }
 }
 
@@ -132,13 +231,7 @@ impl<'i> FromCss<'i> for Affine {
     let x = input.expect_number()?;
     let y = input.expect_number()?;
 
-    Ok(Affine(zeno::Transform::new(a, b, c, d, x, y)))
-  }
-}
-
-impl From<zeno::Transform> for Affine {
-  fn from(transform: zeno::Transform) -> Self {
-    Affine(transform)
+    Ok(Affine { a, b, c, d, x, y })
   }
 }
 
@@ -151,32 +244,32 @@ pub struct Transforms(pub SmallVec<[Transform; 4]>);
 impl Transforms {
   /// Converts the transforms to a [`Affine`] instance
   pub(crate) fn to_affine(&self, context: &RenderContext, border_box: Size<f32>) -> Affine {
-    let mut instance = zeno::Transform::IDENTITY;
+    let mut instance = Affine::IDENTITY;
 
     for transform in self.0.iter() {
       match *transform {
         Transform::Translate(x_length, y_length) => {
-          instance = instance.then_translate(
+          instance *= Affine::translation(
             x_length.resolve_to_px(context, border_box.width),
             y_length.resolve_to_px(context, border_box.height),
           );
         }
         Transform::Scale(x_scale, y_scale) => {
-          instance = instance.then_scale(x_scale, y_scale);
+          instance *= Affine::scale(x_scale, y_scale);
         }
         Transform::Rotate(angle) => {
-          instance = instance.then_rotate(angle.into());
+          instance *= Affine::rotation(angle);
         }
         Transform::Skew(x_angle, y_angle) => {
-          instance = instance.then(&zeno::Transform::skew(x_angle.into(), y_angle.into()));
+          instance *= Affine::skew(x_angle, y_angle);
         }
         Transform::Matrix(affine) => {
-          instance = instance.then(&affine);
+          instance *= affine;
         }
       }
     }
 
-    instance.into()
+    instance
   }
 }
 

@@ -6,7 +6,7 @@
 use std::borrow::Cow;
 
 use image::{
-  Pixel, Rgba, RgbaImage,
+  GenericImageView, Pixel, Rgba, RgbaImage, SubImage,
   imageops::{interpolate_bilinear, interpolate_nearest},
 };
 use taffy::{Point, Size};
@@ -16,6 +16,33 @@ use crate::{
   layout::style::{Affine, Color, Filters, ImageScalingAlgorithm},
   rendering::BorderProperties,
 };
+
+#[derive(Clone, Copy)]
+pub(crate) enum BorrowedImageOrView<'a> {
+  Image(&'a RgbaImage),
+  SubImage(SubImage<&'a RgbaImage>),
+}
+
+impl<'a> From<&'a RgbaImage> for BorrowedImageOrView<'a> {
+  fn from(image: &'a RgbaImage) -> Self {
+    BorrowedImageOrView::Image(image)
+  }
+}
+
+impl<'a> From<SubImage<&'a RgbaImage>> for BorrowedImageOrView<'a> {
+  fn from(sub_image: SubImage<&'a RgbaImage>) -> Self {
+    BorrowedImageOrView::SubImage(sub_image)
+  }
+}
+
+impl<'a> BorrowedImageOrView<'a> {
+  pub(crate) fn get_pixel(&self, x: u32, y: u32) -> Rgba<u8> {
+    match self {
+      BorrowedImageOrView::Image(image) => *image.get_pixel(x, y),
+      BorrowedImageOrView::SubImage(sub_image) => sub_image.get_pixel(x, y),
+    }
+  }
+}
 
 /// A canvas handle for sending drawing commands asynchronously.
 ///
@@ -37,10 +64,6 @@ impl Canvas {
 
   pub(crate) fn into_inner(self) -> RgbaImage {
     self.image
-  }
-
-  pub(crate) fn add_offset(&mut self, offset: Point<f32>) {
-    self.offset = self.offset + offset;
   }
 
   /// Overlays an image onto the canvas with optional border radius.
@@ -73,7 +96,7 @@ impl Canvas {
     mask: &[u8],
     mut placement: Placement,
     color: Color,
-    image: Option<RgbaImage>,
+    image: Option<BorrowedImageOrView>,
   ) {
     if mask.is_empty() {
       return;
@@ -82,7 +105,7 @@ impl Canvas {
     placement.left += self.offset.x as i32;
     placement.top += self.offset.y as i32;
 
-    draw_mask(&mut self.image, mask, placement, color, image.as_ref());
+    draw_mask(&mut self.image, mask, placement, color, image);
   }
 
   /// Fills a rectangular area with the specified color and optional border radius.
@@ -129,7 +152,7 @@ impl Canvas {
 
     border.append_mask_commands(&mut paths);
 
-    let (mask, placement) = Mask::new(&paths).transform(Some(*transform)).render();
+    let (mask, placement) = Mask::new(&paths).transform(Some(transform.into())).render();
 
     self.draw_mask(&mask, placement, color, None);
   }
@@ -174,7 +197,7 @@ pub(crate) fn draw_mask<C: Into<Rgba<u8>>>(
   mask: &[u8],
   placement: Placement,
   color: C,
-  image: Option<&RgbaImage>,
+  image: Option<BorrowedImageOrView>,
 ) {
   let offset = Point {
     x: placement.left as f32,
@@ -194,7 +217,7 @@ pub(crate) fn draw_mask<C: Into<Rgba<u8>>>(
       return Color::transparent().into();
     }
 
-    let pixel = image.map(|image| *image.get_pixel(x, y)).unwrap_or(color);
+    let pixel = image.map(|image| image.get_pixel(x, y)).unwrap_or(color);
 
     apply_mask_alpha_to_pixel(pixel, alpha)
   });
@@ -244,7 +267,7 @@ pub(crate) fn overlay_image(
 
   border.append_mask_commands(&mut paths);
 
-  let (mask, placement) = Mask::new(&paths).transform(Some(*transform)).render();
+  let (mask, placement) = Mask::new(&paths).transform(Some(transform.into())).render();
 
   let get_original_pixel = |x, y| {
     let alpha = mask[mask_index_from_coord(x, y, image.width())];
@@ -253,13 +276,10 @@ pub(crate) fn overlay_image(
       return Color::transparent().into();
     }
 
-    let point = inverse.transform_point(
-      (
-        x as f32 + placement.left as f32,
-        y as f32 + placement.top as f32,
-      )
-        .into(),
-    );
+    let point = inverse.transform_point(Point {
+      x: x as f32 + placement.left as f32,
+      y: y as f32 + placement.top as f32,
+    });
 
     let sampled_pixel = match algorithm {
       ImageScalingAlgorithm::Pixelated => interpolate_nearest(&*image, point.x, point.y),

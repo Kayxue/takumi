@@ -1,9 +1,9 @@
-use std::{borrow::Cow, ops::Range};
+use std::{borrow::Cow, convert::Into, ops::Range};
 
 use image::{RgbaImage, imageops::crop_imm};
 use parley::{Glyph, GlyphRun};
 use taffy::{Layout, Size};
-use zeno::{Command, Join, Mask, PathData, Placement, Stroke};
+use zeno::{Command, Join, Mask, PathData, Stroke};
 
 use crate::{
   GlobalContext,
@@ -27,11 +27,10 @@ pub(crate) fn draw_decoration(
   transform: Affine,
 ) {
   let transform = transform
-    .pre_translate(
+    * Affine::translation(
       layout.border.left + layout.padding.left + glyph_run.offset(),
       layout.border.top + layout.padding.top + offset,
-    )
-    .into();
+    );
 
   canvas.fill_color(
     Size {
@@ -55,12 +54,10 @@ pub(crate) fn draw_glyph(
   mut transform: Affine,
   text_style: &parley::Style<InlineBrush>,
 ) {
-  transform = transform
-    .pre_translate(
-      layout.border.left + layout.padding.left + glyph.x,
-      layout.border.top + layout.padding.top + glyph.y,
-    )
-    .into();
+  transform = Affine::translation(
+    layout.border.left + layout.padding.left + glyph.x,
+    layout.border.top + layout.padding.top + glyph.y,
+  ) * transform;
 
   if let ResolvedGlyph::Image(bitmap) = glyph_content {
     let border = BorderProperties {
@@ -71,9 +68,7 @@ pub(crate) fn draw_glyph(
       ..Default::default()
     };
 
-    transform = transform
-      .then_translate(bitmap.placement.left as f32, -bitmap.placement.top as f32)
-      .into();
+    transform *= Affine::translation(bitmap.placement.left as f32, -bitmap.placement.top as f32);
 
     if let Some(image_fill) = image_fill {
       let mask = bitmap
@@ -149,22 +144,11 @@ pub(crate) fn draw_glyph(
       })
       .collect::<Vec<_>>();
 
-    let (mask, placement) = Mask::new(&paths).transform(Some(*transform)).render();
+    let (mask, placement) = Mask::new(&paths).transform(Some(transform.into())).render();
 
     if let Some(ref shadows) = style.text_shadow {
       for shadow in shadows.iter() {
-        // theres no spread radius for text shadows
-        let offset_transformed =
-          transform.transform_vector((shadow.offset_x, shadow.offset_y).into());
-
-        let transformed_placement = Placement {
-          left: placement.left + offset_transformed.x as i32,
-          top: placement.top + offset_transformed.y as i32,
-          width: placement.width,
-          height: placement.height,
-        };
-
-        shadow.draw_outset_mask(canvas, Cow::Borrowed(&mask), transformed_placement);
+        shadow.draw_outset_mask(canvas, Cow::Borrowed(&mask), placement);
       }
     }
 
@@ -176,10 +160,14 @@ pub(crate) fn draw_glyph(
         placement.width,
         placement.height,
       )
-      .to_image()
     });
 
-    canvas.draw_mask(&mask, placement, text_style.brush.color, cropped_fill_image);
+    canvas.draw_mask(
+      &mask,
+      placement,
+      text_style.brush.color,
+      cropped_fill_image.map(Into::into),
+    );
 
     if style.stroke_width > 0.0 {
       let mut stroke = Stroke::new(style.stroke_width);
@@ -187,7 +175,7 @@ pub(crate) fn draw_glyph(
       stroke.join = Join::Bevel;
 
       let (stroke_mask, stroke_placement) = Mask::new(&paths)
-        .transform(Some(*transform))
+        .transform(Some(transform.into()))
         .style(stroke)
         .render();
 

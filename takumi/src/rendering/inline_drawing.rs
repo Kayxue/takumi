@@ -103,13 +103,6 @@ pub(crate) fn draw_inline_box<N: Node<N>>(
     return;
   }
 
-  let offset = Point {
-    x: inline_box.x,
-    y: inline_box.y,
-  };
-
-  canvas.add_offset(offset);
-
   node.draw_on_canvas(
     context,
     canvas,
@@ -121,8 +114,6 @@ pub(crate) fn draw_inline_box<N: Node<N>>(
       ..Default::default()
     },
   );
-
-  canvas.add_offset(offset.map(|axis| -axis));
 }
 
 pub(crate) fn draw_inline_layout(
@@ -189,7 +180,7 @@ fn create_fill_image(
           &mut composed,
           &tile_image,
           Default::default(),
-          Affine::identity(),
+          Affine::IDENTITY,
           context.style.image_rendering,
           context.style.filter.as_ref(),
           Point {

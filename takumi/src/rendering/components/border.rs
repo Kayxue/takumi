@@ -197,7 +197,7 @@ pub(crate) fn draw_border(canvas: &mut Canvas, border: BorderProperties, transfo
 
   let (mask, placement) = Mask::new(&paths)
     .style(Fill::EvenOdd)
-    .transform(Some(*transform))
+    .transform(Some(transform.into()))
     .render();
 
   canvas.draw_mask(&mask, placement, border.color, None);

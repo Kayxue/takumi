@@ -67,7 +67,7 @@ impl<'g> RenderContext<'g> {
       global,
       viewport,
       font_size: viewport.font_size,
-      transform: Affine::identity(),
+      transform: Affine::IDENTITY,
       current_color: Color::black(),
       opacity: 1.0,
       style: InheritedStyle::default(),

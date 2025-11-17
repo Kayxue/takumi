@@ -251,7 +251,7 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
         .append_mask_commands(&mut paths);
 
       let (mask, placement) = Mask::new(&paths)
-        .transform(Some(*context.transform))
+        .transform(Some(context.transform.into()))
         .render();
 
       shadow.draw_outset_mask(canvas, mask.into(), placement);

@@ -9,7 +9,7 @@ use crate::{
   layout::{
     Viewport,
     node::Node,
-    style::{Affine, Color, Display, InheritedStyle, LengthUnit, Overflow},
+    style::{Affine, Color, Display, InheritedStyle, Overflow},
     tree::NodeTree,
   },
   rendering::{BorderProperties, Canvas},
@@ -92,7 +92,7 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
     &mut taffy,
     root_node_id,
     &mut canvas,
-    Affine::identity(),
+    Affine::IDENTITY,
     root_size,
   );
 
@@ -100,38 +100,40 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
 }
 
 fn create_transform(
+  mut transform: Affine,
   style: &InheritedStyle,
   border_box: Size<f32>,
   context: &RenderContext,
 ) -> Affine {
-  let transform_origin = style.transform_origin.0.unwrap_or_default();
+  let transform_origin = style.transform_origin.unwrap_or_default();
 
-  let center_x = LengthUnit::from(transform_origin.0.x).resolve_to_px(context, border_box.width);
-  let center_y = LengthUnit::from(transform_origin.0.y).resolve_to_px(context, border_box.height);
+  let center = transform_origin.to_point(context, border_box) + transform.decompose_translation();
 
-  let mut transform = zeno::Transform::translation(-center_x, -center_y);
+  transform *= Affine::translation(-center.x, -center.y);
 
   // https://github.com/servo/servo/blob/9dfd6990ba381cbb7b7f9faa63d3425656ceac0a/components/layout/display_list/stacking_context.rs#L1717-L1720
   if let Some(node_transform) = &*style.transform {
-    transform = transform.then(&node_transform.to_affine(context, border_box));
+    transform *= node_transform.to_affine(context, border_box);
   }
 
   if let Some(rotate) = *style.rotate {
-    transform = transform.then_rotate(rotate.into());
+    transform *= Affine::rotation(rotate);
   }
 
   if let Some(scale) = *style.scale {
-    transform = transform.then_scale(scale.x.0, scale.y.0);
+    transform *= Affine::scale(scale.x.0, scale.y.0);
   }
 
   if let Some(translate) = *style.translate {
-    transform = transform.then_translate(
+    transform *= Affine::translation(
       translate.x.resolve_to_px(context, border_box.width),
       translate.y.resolve_to_px(context, border_box.height),
     );
   }
 
-  transform.then_translate(center_x, center_y).into()
+  transform *= Affine::translation(center.x, center.y);
+
+  transform
 }
 
 fn render_node<'g, Nodes: Node<Nodes>>(
@@ -148,17 +150,11 @@ fn render_node<'g, Nodes: Node<Nodes>>(
     return;
   }
 
-  transform = transform
-    .then(&create_transform(
-      &node.context.style,
-      layout.size,
-      &node.context,
-    ))
-    .into();
+  transform *= Affine::translation(layout.location.x, layout.location.y);
+
+  transform = create_transform(transform, &node.context.style, layout.size, &node.context);
 
   node.context.transform = transform;
-
-  canvas.add_offset(layout.location);
 
   if let Some(clip) = &node.context.style.clip_path.0 {
     let translation = transform.decompose_translation();
@@ -173,10 +169,8 @@ fn render_node<'g, Nodes: Node<Nodes>>(
       height: placement.height,
     });
 
-    inner_canvas.add_offset(Point {
-      x: -placement.left as f32,
-      y: -placement.top as f32,
-    });
+    node.context.transform =
+      Affine::translation(-placement.left as f32, -placement.top as f32) * node.context.transform;
 
     node.draw_on_canvas(&mut inner_canvas, layout);
 
@@ -191,14 +185,14 @@ fn render_node<'g, Nodes: Node<Nodes>>(
     placement.left += translation.x as i32;
     placement.top += translation.y as i32;
 
-    canvas.draw_mask(
+    let inner_image = inner_canvas.into_inner();
+
+    return canvas.draw_mask(
       &mask,
       placement,
       Color::transparent(),
-      Some(inner_canvas.into_inner()),
+      Some((&inner_image).into()),
     );
-
-    return canvas.add_offset(layout.location.map(|axis| -axis));
   }
 
   node.draw_on_canvas(canvas, layout);
@@ -214,14 +208,19 @@ fn render_node<'g, Nodes: Node<Nodes>>(
     let image_rendering = node.context.style.image_rendering;
     let filters = node.context.style.filter.0.clone();
 
+    let translation = transform.decompose_translation();
+
+    transform.x = 0.0;
+    transform.y = 0.0;
+
     let offset = Point {
       x: if overflow.0.x == Overflow::Visible {
-        layout.location.x
+        translation.x
       } else {
         0.0
       },
       y: if overflow.0.y == Overflow::Visible {
-        layout.location.y
+        translation.y
       } else {
         0.0
       },
@@ -232,7 +231,6 @@ fn render_node<'g, Nodes: Node<Nodes>>(
         &mut inner_canvas,
         Layout {
           size: layout.content_box_size(),
-          location: offset,
           ..Default::default()
         },
       );
@@ -242,15 +240,13 @@ fn render_node<'g, Nodes: Node<Nodes>>(
       }
     }
 
-    canvas.overlay_image(
+    return canvas.overlay_image(
       &inner_canvas.into_inner(),
       BorderProperties::zero(),
       transform,
       image_rendering,
       filters.as_ref(),
     );
-
-    return canvas.add_offset(layout.location.map(|axis| -axis));
   }
 
   if node.should_create_inline_layout() {
@@ -260,6 +256,4 @@ fn render_node<'g, Nodes: Node<Nodes>>(
       render_node(taffy, child_id, canvas, transform, root_size);
     }
   }
-
-  canvas.add_offset(layout.location.map(|axis| -axis));
 }

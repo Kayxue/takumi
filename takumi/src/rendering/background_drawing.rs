@@ -6,9 +6,10 @@ use taffy::Layout;
 
 use crate::{
   layout::style::{
-    BackgroundImage, BackgroundImages, BackgroundPosition, BackgroundPositions, BackgroundRepeat,
-    BackgroundRepeatStyle, BackgroundRepeats, BackgroundSize, BackgroundSizes, Gradient,
-    ImageScalingAlgorithm, LengthUnit, PositionComponent, PositionKeywordX, PositionKeywordY,
+    Affine, BackgroundImage, BackgroundImages, BackgroundPosition, BackgroundPositions,
+    BackgroundRepeat, BackgroundRepeatStyle, BackgroundRepeats, BackgroundSize, BackgroundSizes,
+    Gradient, ImageScalingAlgorithm, LengthUnit, PositionComponent, PositionKeywordX,
+    PositionKeywordY,
   },
   rendering::{BorderProperties, Canvas, RenderContext, fast_resize},
 };
@@ -310,10 +311,7 @@ pub(crate) fn draw_background_layers(
         canvas.overlay_image(
           &tile_image,
           radius,
-          context
-            .transform
-            .then_translate(*x as f32, *y as f32)
-            .into(),
+          Affine::translation(*x as f32, *y as f32) * context.transform,
           ImageScalingAlgorithm::Auto,
           context.style.filter.as_ref(),
         );

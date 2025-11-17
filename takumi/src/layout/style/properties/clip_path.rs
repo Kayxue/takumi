@@ -278,7 +278,7 @@ impl BasicShape {
       .style(Fill::from(
         self.fill_rule().unwrap_or(context.style.clip_rule),
       ))
-      .transform(Some(*context.transform))
+      .transform(Some(context.transform.into()))
       .render()
   }
 }

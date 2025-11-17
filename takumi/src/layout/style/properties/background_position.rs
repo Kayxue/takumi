@@ -1,9 +1,11 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
 use serde::{Deserialize, Serialize};
+use taffy::{Point, Size};
 use ts_rs::TS;
 
-use crate::layout::style::{
-  FromCss, LengthUnit, ParseResult, SpacePair, tw::TailwindPropertyParser,
+use crate::{
+  layout::style::{FromCss, LengthUnit, ParseResult, SpacePair, tw::TailwindPropertyParser},
+  rendering::RenderContext,
 };
 
 /// Horizontal keywords for `background-position`.
@@ -64,6 +66,15 @@ impl From<PositionComponent> for LengthUnit {
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq)]
 #[serde(transparent)]
 pub struct BackgroundPosition(pub SpacePair<PositionComponent>);
+
+impl BackgroundPosition {
+  pub(crate) fn to_point(self, context: &RenderContext, border_box: Size<f32>) -> Point<f32> {
+    Point {
+      x: LengthUnit::from(self.0.x).resolve_to_px(context, border_box.width),
+      y: LengthUnit::from(self.0.y).resolve_to_px(context, border_box.height),
+    }
+  }
+}
 
 impl TailwindPropertyParser for BackgroundPosition {
   fn parse_tw(token: &str) -> Option<Self> {
