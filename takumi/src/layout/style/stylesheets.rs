@@ -4,7 +4,7 @@ use derive_builder::Builder;
 use parley::{FontSettings, FontStack, FontWidth, TextStyle};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use taffy::{Point, Size, prelude::FromLength};
+use taffy::{Size, prelude::FromLength};
 use ts_rs::TS;
 
 use crate::{
@@ -288,8 +288,8 @@ impl<'s> SizedFontStyle<'s> {
 impl InheritedStyle {
   pub(crate) fn resolve_overflows(&self) -> Overflows {
     Overflows(SpacePair::from_pair(
-      self.overflow_x.unwrap_or(self.overflow.0.x),
-      self.overflow_y.unwrap_or(self.overflow.0.y),
+      self.overflow_x.unwrap_or(self.overflow.x),
+      self.overflow_y.unwrap_or(self.overflow.y),
     ))
   }
 
@@ -537,8 +537,6 @@ impl InheritedStyle {
     let (grid_template_rows, grid_template_row_names) =
       Self::convert_template_components(&self.grid_template_rows, context);
 
-    let overflow = self.resolve_overflows();
-
     taffy::style::Style {
       box_sizing: self.box_sizing.into(),
       size: Size {
@@ -617,10 +615,7 @@ impl InheritedStyle {
       aspect_ratio: self.aspect_ratio.into(),
       align_self: self.align_self.into(),
       justify_self: self.justify_self.into(),
-      overflow: Point {
-        x: overflow.0.x.into(),
-        y: overflow.0.y.into(),
-      },
+      overflow: self.resolve_overflows().into(),
       dummy: PhantomData,
       item_is_table: false,
       item_is_replaced: false,

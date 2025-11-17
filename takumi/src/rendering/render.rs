@@ -2,17 +2,17 @@ use std::{collections::HashMap, sync::Arc};
 
 use derive_builder::Builder;
 use image::RgbaImage;
-use taffy::{AvailableSpace, Layout, NodeId, Point, TaffyTree, geometry::Size};
+use taffy::{AvailableSpace, NodeId, TaffyTree, geometry::Size};
 
 use crate::{
   GlobalContext,
   layout::{
     Viewport,
     node::Node,
-    style::{Affine, Color, Display, InheritedStyle, Overflow},
+    style::{Affine, Color, Display, InheritedStyle},
     tree::NodeTree,
   },
-  rendering::{BorderProperties, Canvas},
+  rendering::Canvas,
   resources::image::ImageSource,
 };
 
@@ -88,13 +88,7 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
 
   let mut canvas = Canvas::new(root_size);
 
-  render_node(
-    &mut taffy,
-    root_node_id,
-    &mut canvas,
-    Affine::IDENTITY,
-    root_size,
-  );
+  render_node(&mut taffy, root_node_id, &mut canvas, Affine::IDENTITY);
 
   Ok(canvas.into_inner())
 }
@@ -141,7 +135,6 @@ fn render_node<'g, Nodes: Node<Nodes>>(
   node_id: NodeId,
   canvas: &mut Canvas,
   mut transform: Affine,
-  root_size: Size<u32>,
 ) {
   let layout = *taffy.layout(node_id).unwrap();
   let node = taffy.get_node_context_mut(node_id).unwrap();
@@ -150,9 +143,15 @@ fn render_node<'g, Nodes: Node<Nodes>>(
     return;
   }
 
-  transform *= Affine::translation(layout.location.x, layout.location.y);
+  transform = Affine::translation(layout.location.x, layout.location.y) * transform;
 
   transform = create_transform(transform, &node.context.style, layout.size, &node.context);
+
+  // If a transform function causes the current transformation matrix of an object to be non-invertible, the object and its content do not get displayed.
+  // https://drafts.csswg.org/css-transforms/#transform-function-lists
+  if !transform.is_invertible() {
+    return;
+  }
 
   node.context.transform = transform;
 
@@ -178,7 +177,7 @@ fn render_node<'g, Nodes: Node<Nodes>>(
       node.draw_inline(&mut inner_canvas, layout);
     } else {
       for child_id in taffy.children(node_id).unwrap() {
-        render_node(taffy, child_id, &mut inner_canvas, transform, root_size);
+        render_node(taffy, child_id, &mut inner_canvas, transform);
       }
     }
 
@@ -200,60 +199,22 @@ fn render_node<'g, Nodes: Node<Nodes>>(
   let overflow = node.context.style.resolve_overflows();
 
   if overflow.should_clip_content() {
-    // if theres no space for canvas to draw, just return.
-    let Some(mut inner_canvas) = overflow.create_clip_canvas(root_size, layout) else {
+    let Some(overflow_constrain) = overflow.create_constrain(layout, transform) else {
       return;
     };
 
-    let image_rendering = node.context.style.image_rendering;
-    let filters = node.context.style.filter.0.clone();
-
-    let translation = transform.decompose_translation();
-
-    transform.x = 0.0;
-    transform.y = 0.0;
-
-    let offset = Point {
-      x: if overflow.0.x == Overflow::Visible {
-        translation.x
-      } else {
-        0.0
-      },
-      y: if overflow.0.y == Overflow::Visible {
-        translation.y
-      } else {
-        0.0
-      },
-    };
-
-    if node.should_create_inline_layout() {
-      node.draw_inline(
-        &mut inner_canvas,
-        Layout {
-          size: layout.content_box_size(),
-          ..Default::default()
-        },
-      );
-    } else {
-      for child_id in taffy.children(node_id).unwrap() {
-        render_node(taffy, child_id, &mut inner_canvas, transform, root_size);
-      }
-    }
-
-    return canvas.overlay_image(
-      &inner_canvas.into_inner(),
-      BorderProperties::zero(),
-      transform,
-      image_rendering,
-      filters.as_ref(),
-    );
+    canvas.push_overflow_constrain(overflow_constrain);
   }
 
   if node.should_create_inline_layout() {
     node.draw_inline(canvas, layout);
   } else {
     for child_id in taffy.children(node_id).unwrap() {
-      render_node(taffy, child_id, canvas, transform, root_size);
+      render_node(taffy, child_id, canvas, transform);
     }
+  }
+
+  if overflow.should_clip_content() {
+    canvas.pop_overflow_constrain();
   }
 }

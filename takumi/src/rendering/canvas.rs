@@ -9,6 +9,7 @@ use image::{
   GenericImageView, Pixel, Rgba, RgbaImage, SubImage,
   imageops::{interpolate_bilinear, interpolate_nearest},
 };
+use smallvec::SmallVec;
 use taffy::{Point, Size};
 use zeno::{Mask, Placement};
 
@@ -44,13 +45,28 @@ impl<'a> BorrowedImageOrView<'a> {
   }
 }
 
-/// A canvas handle for sending drawing commands asynchronously.
-///
-/// This struct wraps a channel sender that can be cloned and used to send
-/// drawing commands to a canvas rendering loop without blocking the main thread.
+#[derive(Clone, Copy)]
+pub(crate) struct OverflowConstrain {
+  pub(crate) from: Point<f32>,
+  pub(crate) to: Point<f32>,
+  pub(crate) inverse_transform: Affine,
+}
+
+impl OverflowConstrain {
+  pub(crate) fn is_inside(&self, x: f32, y: f32) -> bool {
+    let original_point = self.inverse_transform.transform_point(Point { x, y });
+
+    original_point.x >= self.from.x
+      && original_point.x < self.to.x
+      && original_point.y >= self.from.y
+      && original_point.y < self.to.y
+  }
+}
+
+/// A canvas that can be used to draw images onto.
 pub struct Canvas {
   image: RgbaImage,
-  offset: Point<f32>,
+  overflow_constrains: SmallVec<[OverflowConstrain; 1]>,
 }
 
 impl Canvas {
@@ -58,8 +74,16 @@ impl Canvas {
   pub(crate) fn new(size: Size<u32>) -> Self {
     Self {
       image: RgbaImage::new(size.width, size.height),
-      offset: Point::zero(),
+      overflow_constrains: SmallVec::new(),
     }
+  }
+
+  pub(crate) fn push_overflow_constrain(&mut self, overflow_constrain: OverflowConstrain) {
+    self.overflow_constrains.push(overflow_constrain);
+  }
+
+  pub(crate) fn pop_overflow_constrain(&mut self) {
+    self.overflow_constrains.pop();
   }
 
   pub(crate) fn into_inner(self) -> RgbaImage {
@@ -86,7 +110,7 @@ impl Canvas {
       transform,
       algorithm,
       filters,
-      self.offset,
+      self.overflow_constrains.last().copied(),
     );
   }
 
@@ -94,7 +118,7 @@ impl Canvas {
   pub(crate) fn draw_mask(
     &mut self,
     mask: &[u8],
-    mut placement: Placement,
+    placement: Placement,
     color: Color,
     image: Option<BorrowedImageOrView>,
   ) {
@@ -102,10 +126,14 @@ impl Canvas {
       return;
     }
 
-    placement.left += self.offset.x as i32;
-    placement.top += self.offset.y as i32;
-
-    draw_mask(&mut self.image, mask, placement, color, image);
+    draw_mask(
+      &mut self.image,
+      mask,
+      placement,
+      color,
+      image,
+      self.overflow_constrains.last().copied(),
+    );
   }
 
   /// Fills a rectangular area with the specified color and optional border radius.
@@ -124,8 +152,6 @@ impl Canvas {
     if transform.is_identity()
       && border.is_zero()
       && color.0[3] == 255
-      && self.offset.x == 0.0
-      && self.offset.y == 0.0
       && size.width == self.image.width()
       && size.height == self.image.height()
     {
@@ -142,10 +168,16 @@ impl Canvas {
 
     // Fast path: if no sub-pixel interpolation is needed, we can just draw the color directly
     if can_direct_draw {
-      let transformed_offset = transform.decompose_translation() + self.offset;
+      let translation = transform.decompose_translation();
 
       let color: Rgba<u8> = color.into();
-      return overlay_area(&mut self.image, transformed_offset, size, |_, _| color);
+      return overlay_area(
+        &mut self.image,
+        translation,
+        size,
+        self.overflow_constrains.last().copied(),
+        |_, _| color,
+      );
     }
 
     let mut paths = Vec::new();
@@ -163,8 +195,14 @@ impl Canvas {
 /// If the color is fully transparent (alpha = 0), no operation is performed.
 /// Otherwise, the pixel is blended with the existing canvas pixel using alpha blending.
 #[inline(always)]
-fn draw_pixel(canvas: &mut RgbaImage, x: u32, y: u32, color: Rgba<u8>) {
-  if color.0[3] == 0 {
+fn draw_pixel(
+  canvas: &mut RgbaImage,
+  x: u32,
+  y: u32,
+  color: Rgba<u8>,
+  overflow_constrain: Option<OverflowConstrain>,
+) {
+  if color.0[3] == 0 || overflow_constrain.is_some_and(|c| !c.is_inside(x as f32, y as f32)) {
     return;
   }
 
@@ -198,7 +236,12 @@ pub(crate) fn draw_mask<C: Into<Rgba<u8>>>(
   placement: Placement,
   color: C,
   image: Option<BorrowedImageOrView>,
+  overflow_constrain: Option<OverflowConstrain>,
 ) {
+  if mask.is_empty() {
+    return;
+  }
+
   let offset = Point {
     x: placement.left as f32,
     y: placement.top as f32,
@@ -210,7 +253,7 @@ pub(crate) fn draw_mask<C: Into<Rgba<u8>>>(
 
   let color = color.into();
 
-  overlay_area(canvas, offset, top_size, |x, y| {
+  overlay_area(canvas, offset, top_size, overflow_constrain, |x, y| {
     let alpha = mask[mask_index_from_coord(x, y, placement.width)];
 
     if alpha == 0 {
@@ -230,7 +273,7 @@ pub(crate) fn overlay_image(
   transform: Affine,
   algorithm: ImageScalingAlgorithm,
   filters: Option<&Filters>,
-  offset: Point<f32>,
+  overflow_constrain: Option<OverflowConstrain>,
 ) {
   let mut image = Cow::Borrowed(image);
 
@@ -246,15 +289,16 @@ pub(crate) fn overlay_image(
 
   // Fast path: if no sub-pixel interpolation is needed, we can just draw the image directly
   if transform.only_translation() && border.is_zero() {
-    let transformed_offset = transform.decompose_translation() + offset;
+    let translation = transform.decompose_translation();
 
     return overlay_area(
       canvas,
-      transformed_offset,
+      translation,
       Size {
         width: image.width(),
         height: image.height(),
       },
+      overflow_constrain,
       |x, y| *image.get_pixel(x, y),
     );
   }
@@ -299,15 +343,15 @@ pub(crate) fn overlay_image(
 
   overlay_area(
     canvas,
-    offset
-      + Point {
-        x: placement.left as f32,
-        y: placement.top as f32,
-      },
+    Point {
+      x: placement.left as f32,
+      y: placement.top as f32,
+    },
     Size {
       width: image.width(),
       height: image.height(),
     },
+    overflow_constrain,
     get_original_pixel,
   );
 }
@@ -321,8 +365,13 @@ pub(crate) fn overlay_area(
   bottom: &mut RgbaImage,
   offset: Point<f32>,
   top_size: Size<u32>,
+  overflow_constrain: Option<OverflowConstrain>,
   f: impl Fn(u32, u32) -> Rgba<u8>,
 ) {
+  if top_size.width == 0 || top_size.height == 0 {
+    return;
+  }
+
   let offset_x = offset.x as i32;
   let offset_y = offset.y as i32;
   let bottom_width = bottom.width() as i32;
@@ -351,7 +400,13 @@ pub(crate) fn overlay_area(
       let src_x = (dest_x - offset_x) as u32;
       let pixel = f(src_x, src_y);
 
-      draw_pixel(bottom, dest_x as u32, dest_y as u32, pixel);
+      draw_pixel(
+        bottom,
+        dest_x as u32,
+        dest_y as u32,
+        pixel,
+        overflow_constrain,
+      );
     }
   }
 }

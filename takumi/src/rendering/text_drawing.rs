@@ -68,7 +68,8 @@ pub(crate) fn draw_glyph(
       ..Default::default()
     };
 
-    transform *= Affine::translation(bitmap.placement.left as f32, -bitmap.placement.top as f32);
+    transform =
+      Affine::translation(bitmap.placement.left as f32, -bitmap.placement.top as f32) * transform;
 
     if let Some(image_fill) = image_fill {
       let mask = bitmap

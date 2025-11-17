@@ -1,11 +1,13 @@
+use std::ops::Deref;
+
 use cssparser::{Parser, match_ignore_ascii_case};
 use serde::{Deserialize, Serialize};
-use taffy::{Layout, Size};
+use taffy::{Layout, Point};
 use ts_rs::TS;
 
 use crate::{
-  layout::style::{FromCss, ParseResult, SpacePair, tw::TailwindPropertyParser},
-  rendering::Canvas,
+  layout::style::{Affine, FromCss, ParseResult, SpacePair, tw::TailwindPropertyParser},
+  rendering::OverflowConstrain,
 };
 
 /// How children overflowing their container should affect layout
@@ -63,9 +65,26 @@ impl<'i> FromCss<'i> for Overflow {
 #[serde(transparent)]
 pub struct Overflows(pub SpacePair<Overflow>);
 
+impl From<Overflows> for Point<taffy::Overflow> {
+  fn from(val: Overflows) -> Self {
+    Point {
+      x: val.x.into(),
+      y: val.y.into(),
+    }
+  }
+}
+
 impl Default for Overflows {
   fn default() -> Self {
     Self(SpacePair::from_single(Overflow::Visible))
+  }
+}
+
+impl Deref for Overflows {
+  type Target = SpacePair<Overflow>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
   }
 }
 
@@ -75,25 +94,51 @@ impl Overflows {
     *self != Overflows(SpacePair::from_single(Overflow::Visible))
   }
 
-  pub(crate) fn create_clip_canvas(&self, root_size: Size<u32>, layout: Layout) -> Option<Canvas> {
-    let inner_size = Size {
-      width: if self.0.x == Overflow::Visible {
-        root_size.width
-      } else {
-        (layout.size.width - layout.padding.right - layout.border.right) as u32
-      },
-      height: if self.0.y == Overflow::Visible {
-        root_size.height
-      } else {
-        (layout.size.height - layout.padding.bottom - layout.border.bottom) as u32
-      },
-    };
+  pub(crate) fn create_constrain(
+    &self,
+    layout: Layout,
+    transform: Affine,
+  ) -> Option<OverflowConstrain> {
+    let clip_x = self.x != Overflow::Visible;
+    let clip_y = self.y != Overflow::Visible;
 
-    if inner_size.width == 0 || inner_size.height == 0 {
+    if !self.should_clip_content()
+      || (clip_x && layout.content_box_width() < f32::EPSILON)
+      || (clip_y && layout.content_box_height() < f32::EPSILON)
+    {
       return None;
     }
 
-    Some(Canvas::new(inner_size))
+    let from = Point {
+      x: if clip_x {
+        layout.padding.left + layout.border.left
+      } else {
+        f32::MIN
+      },
+      y: if clip_y {
+        layout.padding.top + layout.border.top
+      } else {
+        f32::MIN
+      },
+    };
+    let to = Point {
+      x: if clip_x {
+        from.x + layout.content_box_width()
+      } else {
+        f32::MAX
+      },
+      y: if clip_y {
+        from.y + layout.content_box_height()
+      } else {
+        f32::MAX
+      },
+    };
+
+    Some(OverflowConstrain {
+      from,
+      to,
+      inverse_transform: transform.invert()?,
+    })
   }
 }
 
@@ -108,13 +153,13 @@ mod tests {
     // Test deserialization from string (single value)
     let overflow_json = r#""hidden""#;
     let overflow: Overflows = serde_json::from_str(overflow_json).unwrap();
-    assert_eq!(overflow.0.x, Overflow::Hidden);
-    assert_eq!(overflow.0.y, Overflow::Hidden);
+    assert_eq!(overflow.x, Overflow::Hidden);
+    assert_eq!(overflow.y, Overflow::Hidden);
 
     // Test deserialization from object (pair of values)
     let overflow_json = r#"{"x": "visible", "y": "hidden"}"#;
     let overflow: Overflows = serde_json::from_str(overflow_json).unwrap();
-    assert_eq!(overflow.0.x, Overflow::Visible);
-    assert_eq!(overflow.0.y, Overflow::Hidden);
+    assert_eq!(overflow.x, Overflow::Visible);
+    assert_eq!(overflow.y, Overflow::Hidden);
   }
 }

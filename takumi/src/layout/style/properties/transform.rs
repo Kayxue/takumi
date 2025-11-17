@@ -138,6 +138,7 @@ impl Affine {
   }
 
   /// Transforms a point by the transform
+  #[inline(always)]
   pub fn transform_point(self, point: Point<f32>) -> Point<f32> {
     Point {
       x: self.a * point.x + self.b * point.y + self.x,
@@ -161,8 +162,15 @@ impl Affine {
   }
 
   /// Calculates the determinant of the transform
+  #[inline(always)]
   pub fn determinant(self) -> f32 {
     self.a * self.d - self.b * self.c
+  }
+
+  /// Returns true if the transform is invertible
+  #[inline(always)]
+  pub fn is_invertible(self) -> bool {
+    self.determinant().abs() > f32::EPSILON
   }
 
   /// Inverts the transform, returns `None` if the transform is not invertible

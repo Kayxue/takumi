@@ -1,6 +1,6 @@
 use image::RgbaImage;
 use parley::{GlyphRun, PositionedInlineBox, PositionedLayoutItem};
-use taffy::{Layout, Point, Size};
+use taffy::{Layout, Size};
 
 use crate::{
   layout::{
@@ -180,14 +180,11 @@ fn create_fill_image(
           &mut composed,
           &tile_image,
           Default::default(),
-          Affine::IDENTITY,
+          Affine::translation(*x as f32, *y as f32),
           context.style.image_rendering,
           context.style.filter.as_ref(),
-          Point {
-            x: *x as f32,
-            y: *y as f32,
-          },
-        )
+          None,
+        );
       }
     }
   }

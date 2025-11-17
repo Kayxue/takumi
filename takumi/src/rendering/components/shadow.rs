@@ -96,6 +96,7 @@ impl SizedShadow {
       },
       self.color,
       None,
+      None,
     );
 
     apply_fast_blur(&mut image, self.blur_radius);
@@ -157,7 +158,14 @@ fn draw_inset_shadow(
 
   let (mask, placement) = Mask::new(&paths).style(Fill::EvenOdd).render();
 
-  draw_mask(&mut shadow_image, &mask, placement, shadow.color, None);
+  draw_mask(
+    &mut shadow_image,
+    &mask,
+    placement,
+    shadow.color,
+    None,
+    None,
+  );
 
   apply_fast_blur(&mut shadow_image, shadow.blur_radius);
 

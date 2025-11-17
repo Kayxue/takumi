@@ -307,7 +307,6 @@ pub(crate) fn draw_background_layers(
   for (tile_image, xs, ys) in tiles {
     for y in &ys {
       for x in &xs {
-        // radius is Copy, pass by value
         canvas.overlay_image(
           &tile_image,
           radius,
