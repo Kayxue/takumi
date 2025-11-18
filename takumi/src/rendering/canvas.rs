@@ -10,12 +10,12 @@ use image::{
   imageops::{interpolate_bilinear, interpolate_nearest},
 };
 use smallvec::SmallVec;
-use taffy::{Point, Size};
+use taffy::{Layout, Point, Size};
 use zeno::{Mask, Placement};
 
 use crate::{
-  layout::style::{Affine, Color, Filters, ImageScalingAlgorithm},
-  rendering::BorderProperties,
+  layout::style::{Affine, Color, Filters, ImageScalingAlgorithm, InheritedStyle, Overflow},
+  rendering::{BorderProperties, RenderContext},
 };
 
 #[derive(Clone, Copy)]
@@ -45,21 +45,139 @@ impl<'a> BorrowedImageOrView<'a> {
   }
 }
 
-pub(crate) struct CanvasConstrain {
-  pub(crate) from: Point<f32>,
-  pub(crate) to: Point<f32>,
-  pub(crate) inverse_transform: Affine,
-  pub(crate) mask: Option<(Vec<u8>, Placement)>,
+pub(crate) enum CanvasConstrainResult {
+  Some(CanvasConstrain),
+  None,
+  SkipRendering,
+}
+
+pub(crate) enum CanvasConstrain {
+  Overflow {
+    from: Point<u32>,
+    to: Point<u32>,
+    inverse_transform: Affine,
+  },
+  ClipPath {
+    mask: Vec<u8>,
+    placement: Placement,
+  },
 }
 
 impl CanvasConstrain {
-  pub(crate) fn contains_point(&self, x: f32, y: f32) -> bool {
-    let original_point = self.inverse_transform.transform_point(Point { x, y });
+  pub(crate) fn from_node(
+    context: &RenderContext,
+    style: &InheritedStyle,
+    layout: Layout,
+    transform: Affine,
+  ) -> CanvasConstrainResult {
+    // Clip path would just clip everything, and behaves like overflow: hidden.
+    if let Some(clip_path) = &*style.clip_path {
+      let (mask, placement) = clip_path.render_mask(context, layout.size);
 
-    original_point.x >= self.from.x
-      && original_point.x < self.to.x
-      && original_point.y >= self.from.y
-      && original_point.y < self.to.y
+      let end_x = placement.left + placement.width as i32;
+      let end_y = placement.top + placement.height as i32;
+
+      if end_x < 0 || end_y < 0 {
+        return CanvasConstrainResult::SkipRendering;
+      }
+
+      return CanvasConstrainResult::Some(CanvasConstrain::ClipPath { mask, placement });
+    }
+
+    let Some(inverse_transform) = transform.invert() else {
+      return CanvasConstrainResult::SkipRendering;
+    };
+
+    let overflow = style.resolve_overflows();
+
+    let clip_x = overflow.x != Overflow::Visible;
+    let clip_y = overflow.y != Overflow::Visible;
+
+    if !overflow.should_clip_content() {
+      return CanvasConstrainResult::None;
+    }
+
+    if (clip_x && layout.content_box_width() < f32::EPSILON)
+      || (clip_y && layout.content_box_height() < f32::EPSILON)
+    {
+      return CanvasConstrainResult::SkipRendering;
+    }
+
+    let from = Point {
+      x: if clip_x {
+        (layout.padding.left + layout.border.left) as u32
+      } else {
+        0
+      },
+      y: if clip_y {
+        (layout.padding.top + layout.border.top) as u32
+      } else {
+        0
+      },
+    };
+    let to = Point {
+      x: if clip_x {
+        from.x + layout.content_box_width() as u32
+      } else {
+        u32::MAX
+      },
+      y: if clip_y {
+        from.y + layout.content_box_height() as u32
+      } else {
+        u32::MAX
+      },
+    };
+
+    CanvasConstrainResult::Some(CanvasConstrain::Overflow {
+      from,
+      to,
+      inverse_transform,
+    })
+  }
+
+  pub(crate) fn get_alpha(&self, x: u32, y: u32) -> u8 {
+    match *self {
+      CanvasConstrain::Overflow {
+        from,
+        to,
+        inverse_transform,
+      } => {
+        let original_point = inverse_transform
+          .transform_point(Point {
+            x: x as f32,
+            y: y as f32,
+          })
+          .map(|point| point as u32);
+
+        let is_contained = original_point.x >= from.x
+          && original_point.x < to.x
+          && original_point.y >= from.y
+          && original_point.y < to.y;
+
+        if !is_contained {
+          return 0;
+        }
+
+        u8::MAX
+      }
+      CanvasConstrain::ClipPath {
+        ref mask,
+        placement,
+      } => {
+        let mask_x = x as i32 - placement.left;
+        let mask_y = y as i32 - placement.top;
+
+        if mask_x < 0
+          || mask_y < 0
+          || mask_x >= placement.width as i32
+          || mask_y >= placement.height as i32
+        {
+          return 0;
+        }
+
+        mask[mask_index_from_coord(mask_x as u32, mask_y as u32, placement.width)]
+      }
+    }
   }
 }
 
@@ -148,9 +266,12 @@ impl Canvas {
       return;
     }
 
+    let constrain = self.constrains.last();
+
     // Fast path: if drawing on the entire canvas, we can just replace the entire canvas with the color
     if transform.is_identity()
       && border.is_zero()
+      && constrain.is_none()
       && color.0[3] == 255
       && size.width == self.image.width()
       && size.height == self.image.height()
@@ -171,13 +292,7 @@ impl Canvas {
       let translation = transform.decompose_translation();
 
       let color: Rgba<u8> = color.into();
-      return overlay_area(
-        &mut self.image,
-        translation,
-        size,
-        self.constrains.last(),
-        |_, _| color,
-      );
+      return overlay_area(&mut self.image, translation, size, constrain, |_, _| color);
     }
 
     let mut paths = Vec::new();
@@ -186,7 +301,7 @@ impl Canvas {
 
     let (mask, placement) = Mask::new(&paths).transform(Some(transform.into())).render();
 
-    self.draw_mask(&mask, placement, color, None);
+    draw_mask(&mut self.image, &mask, placement, color, None, constrain);
   }
 }
 
@@ -199,11 +314,19 @@ fn draw_pixel(
   canvas: &mut RgbaImage,
   x: u32,
   y: u32,
-  color: Rgba<u8>,
+  mut color: Rgba<u8>,
   constrain: Option<&CanvasConstrain>,
 ) {
-  if color.0[3] == 0 || constrain.is_some_and(|c| !c.contains_point(x as f32, y as f32)) {
+  if color.0[3] == 0 {
     return;
+  }
+
+  if let Some(constrain_alpha) = constrain.map(|c| c.get_alpha(x, y)) {
+    if constrain_alpha == 0 {
+      return;
+    }
+
+    color = apply_mask_alpha_to_pixel(color, constrain_alpha);
   }
 
   // image-rs blend will skip the operation if the source color is fully transparent
@@ -220,6 +343,7 @@ fn draw_pixel(
   }
 }
 
+#[inline(always)]
 pub(crate) fn apply_mask_alpha_to_pixel(mut pixel: Rgba<u8>, alpha: u8) -> Rgba<u8> {
   if alpha == u8::MAX {
     pixel

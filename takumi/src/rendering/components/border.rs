@@ -34,6 +34,10 @@ pub(crate) struct BorderProperties {
 }
 
 impl BorderProperties {
+  /// The amount of path commands to append for this border.
+  /// This is used to pre-allocate the vector size for the mask commands.
+  const PATH_COMMANDS_AMOUNT: usize = 10;
+
   /// Create an empty BorderProperties with zeroed radii and default values.
   pub const fn zero() -> Self {
     Self {
@@ -112,6 +116,8 @@ impl BorderProperties {
 
   /// Append rounded-rect path commands for this border's corner radii.
   pub fn append_mask_commands(&self, path: &mut Vec<Command>) {
+    path.reserve_exact(BorderProperties::PATH_COMMANDS_AMOUNT);
+
     const KAPPA: f32 = 4.0 / 3.0 * (SQRT_2 - 1.0);
 
     let top_edge_width = (self.size.width - self.radius.0[0] - self.radius.0[1]).max(0.0);
@@ -187,7 +193,7 @@ pub(crate) fn draw_border(canvas: &mut Canvas, border: BorderProperties, transfo
     return;
   }
 
-  let mut paths = Vec::new();
+  let mut paths = Vec::with_capacity(BorderProperties::PATH_COMMANDS_AMOUNT * 2);
 
   border.append_mask_commands(&mut paths);
 

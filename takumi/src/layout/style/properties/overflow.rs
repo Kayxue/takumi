@@ -2,13 +2,10 @@ use std::ops::Deref;
 
 use cssparser::{Parser, match_ignore_ascii_case};
 use serde::{Deserialize, Serialize};
-use taffy::{Layout, Point};
+use taffy::Point;
 use ts_rs::TS;
 
-use crate::{
-  layout::style::{Affine, FromCss, ParseResult, SpacePair, tw::TailwindPropertyParser},
-  rendering::CanvasConstrain,
-};
+use crate::layout::style::{FromCss, ParseResult, SpacePair, tw::TailwindPropertyParser};
 
 /// How children overflowing their container should affect layout
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq, Default)]
@@ -92,54 +89,6 @@ impl Overflows {
   #[inline]
   pub(crate) fn should_clip_content(&self) -> bool {
     *self != Overflows(SpacePair::from_single(Overflow::Visible))
-  }
-
-  pub(crate) fn create_constrain(
-    &self,
-    layout: Layout,
-    transform: Affine,
-  ) -> Option<CanvasConstrain> {
-    let clip_x = self.x != Overflow::Visible;
-    let clip_y = self.y != Overflow::Visible;
-
-    if !self.should_clip_content()
-      || (clip_x && layout.content_box_width() < f32::EPSILON)
-      || (clip_y && layout.content_box_height() < f32::EPSILON)
-    {
-      return None;
-    }
-
-    let from = Point {
-      x: if clip_x {
-        layout.padding.left + layout.border.left
-      } else {
-        f32::MIN
-      },
-      y: if clip_y {
-        layout.padding.top + layout.border.top
-      } else {
-        f32::MIN
-      },
-    };
-    let to = Point {
-      x: if clip_x {
-        from.x + layout.content_box_width()
-      } else {
-        f32::MAX
-      },
-      y: if clip_y {
-        from.y + layout.content_box_height()
-      } else {
-        f32::MAX
-      },
-    };
-
-    Some(CanvasConstrain {
-      from,
-      to,
-      inverse_transform: transform.invert()?,
-      mask: None,
-    })
   }
 }
 

@@ -9,10 +9,10 @@ use crate::{
   layout::{
     Viewport,
     node::Node,
-    style::{Affine, Color, Display, InheritedStyle},
+    style::{Affine, Display, InheritedStyle},
     tree::NodeTree,
   },
-  rendering::Canvas,
+  rendering::{Canvas, CanvasConstrain, CanvasConstrainResult, draw_debug_border},
   resources::image::ImageSource,
 };
 
@@ -155,55 +155,36 @@ fn render_node<'g, Nodes: Node<Nodes>>(
 
   node.context.transform = transform;
 
-  if let Some(clip) = &node.context.style.clip_path.0 {
-    let translation = transform.decompose_translation();
+  let constrain = CanvasConstrain::from_node(&node.context, &node.context.style, layout, transform);
 
-    node.context.transform.x = 0.0;
-    node.context.transform.y = 0.0;
+  let has_constrain = matches!(constrain, CanvasConstrainResult::Some(_));
 
-    let (mask, mut placement) = clip.render_mask(&node.context, layout.size);
-
-    let mut inner_canvas = Canvas::new(Size {
-      width: placement.width,
-      height: placement.height,
-    });
-
-    node.context.transform =
-      Affine::translation(-placement.left as f32, -placement.top as f32) * node.context.transform;
-
-    node.draw_on_canvas(&mut inner_canvas, layout);
-
-    if node.should_create_inline_layout() {
-      node.draw_inline(&mut inner_canvas, layout);
-    } else {
-      for child_id in taffy.children(node_id).unwrap() {
-        render_node(taffy, child_id, &mut inner_canvas, transform);
-      }
+  match constrain {
+    CanvasConstrainResult::SkipRendering => {
+      return;
     }
-
-    placement.left += translation.x as i32;
-    placement.top += translation.y as i32;
-
-    let inner_image = inner_canvas.into_inner();
-
-    return canvas.draw_mask(
-      &mask,
-      placement,
-      Color::transparent(),
-      Some((&inner_image).into()),
-    );
+    CanvasConstrainResult::None => {
+      node.draw_shell(canvas, layout);
+    }
+    CanvasConstrainResult::Some(constrain) => match constrain {
+      // Notice the order is important here.
+      // Clip path clips everything include the border, so it should be pushed first.
+      CanvasConstrain::ClipPath { .. } => {
+        canvas.push_constrain(constrain);
+        node.draw_shell(canvas, layout);
+      }
+      // Overflow clips only the inner children, so the shell should be drawn first.
+      CanvasConstrain::Overflow { .. } => {
+        node.draw_shell(canvas, layout);
+        canvas.push_constrain(constrain);
+      }
+    },
   }
 
-  node.draw_on_canvas(canvas, layout);
+  node.draw_content(canvas, layout);
 
-  let overflow = node.context.style.resolve_overflows();
-
-  if overflow.should_clip_content() {
-    let Some(overflow_constrain) = overflow.create_constrain(layout, transform) else {
-      return;
-    };
-
-    canvas.push_constrain(overflow_constrain);
+  if node.context.draw_debug_border {
+    draw_debug_border(canvas, layout, transform);
   }
 
   if node.should_create_inline_layout() {
@@ -214,7 +195,7 @@ fn render_node<'g, Nodes: Node<Nodes>>(
     }
   }
 
-  if overflow.should_clip_content() {
+  if has_constrain {
     canvas.pop_constrain();
   }
 }

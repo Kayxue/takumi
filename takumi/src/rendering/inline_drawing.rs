@@ -98,13 +98,19 @@ pub(crate) fn draw_inline_box<N: Node<N>>(
   node: &N,
   context: &RenderContext,
   canvas: &mut Canvas,
+  transform: Affine,
 ) {
   if context.opacity == 0.0 {
     return;
   }
 
-  node.draw_on_canvas(
-    context,
+  let context = RenderContext {
+    transform: Affine::translation(inline_box.x, inline_box.y) * transform,
+    ..context.clone()
+  };
+
+  node.draw_content(
+    &context,
     canvas,
     Layout {
       size: Size {

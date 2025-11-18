@@ -63,12 +63,6 @@ macro_rules! impl_node_enum {
         }
       }
 
-      fn draw_on_canvas(&self, context: &$crate::rendering::RenderContext, canvas: &mut $crate::rendering::Canvas, layout: $crate::taffy::Layout) {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::draw_on_canvas(inner, context, canvas, layout), )*
-        }
-      }
-
       fn draw_background_color(&self, context: &$crate::rendering::RenderContext, canvas: &mut $crate::rendering::Canvas, layout: $crate::taffy::Layout) {
         match self {
           $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::draw_background_color(inner, context, canvas, layout), )*
@@ -217,16 +211,6 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
     _style: &taffy::Style,
   ) -> Size<f32> {
     Size::ZERO
-  }
-
-  /// Draws the node onto the canvas using the computed layout.
-  fn draw_on_canvas(&self, context: &RenderContext, canvas: &mut Canvas, layout: Layout) {
-    self.draw_outset_box_shadow(context, canvas, layout);
-    self.draw_background_color(context, canvas, layout);
-    self.draw_background_image(context, canvas, layout);
-    self.draw_inset_box_shadow(context, canvas, layout);
-    self.draw_border(context, canvas, layout);
-    self.draw_content(context, canvas, layout);
   }
 
   /// Draws the outset box shadow of the node.
