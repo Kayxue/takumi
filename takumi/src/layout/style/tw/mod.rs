@@ -480,7 +480,7 @@ impl TailwindProperty {
       let suffix = &token[dash_pos + 1..];
 
       for parser in *parsers {
-        if let Some(property) = parser(suffix) {
+        if let Some(property) = parser.parse(suffix) {
           return Some(property);
         }
       }

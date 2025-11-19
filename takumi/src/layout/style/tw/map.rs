@@ -6,228 +6,193 @@ use crate::layout::style::{
   *,
 };
 
-/// Function type for parsing tailwind properties with suffix.
-pub type PropertyParserFn = fn(&str) -> Option<TailwindProperty>;
-
-/// Macro to create parser functions
-macro_rules! make_parser {
-  ($name:ident, $type:ty, $variant:ident) => {
-    fn $name(suffix: &str) -> Option<TailwindProperty> {
-      if suffix.starts_with('[') && suffix.ends_with(']') {
-        let value = &suffix[1..suffix.len() - 1];
-        let value = if value.contains('_') {
-          Cow::Owned(value.replace('_', " "))
-        } else {
-          Cow::Borrowed(value)
-        };
-
-        return <$type>::from_str(&value)
-          .ok()
-          .map(TailwindProperty::$variant);
-      }
-
-      <$type>::parse_tw(suffix).map(TailwindProperty::$variant)
+fn extract_arbitrary_value(suffix: &str) -> Option<Cow<'_, str>> {
+  if suffix.starts_with('[') && suffix.ends_with(']') {
+    let value = &suffix[1..suffix.len() - 1];
+    if value.contains('_') {
+      Some(Cow::Owned(value.replace('_', " ")))
+    } else {
+      Some(Cow::Borrowed(value))
     }
-  };
+  } else {
+    None
+  }
 }
 
-// Define all parser functions using the macro
-make_parser!(parse_object_fit, ObjectFit, ObjectFit);
-make_parser!(parse_object_position, BackgroundPosition, ObjectPosition);
-make_parser!(parse_bg_position, BackgroundPosition, BackgroundPosition);
-make_parser!(parse_bg_size, BackgroundSize, BackgroundSize);
-make_parser!(parse_bg_image, BackgroundImage, BackgroundImage);
-make_parser!(parse_width, LengthUnit, Width);
-make_parser!(parse_height, LengthUnit, Height);
-make_parser!(parse_min_width, LengthUnit, MinWidth);
-make_parser!(parse_min_height, LengthUnit, MinHeight);
-make_parser!(parse_max_width, LengthUnit, MaxWidth);
-make_parser!(parse_max_height, LengthUnit, MaxHeight);
-make_parser!(parse_size, LengthUnit, Size);
-make_parser!(parse_font_weight, FontWeight, FontWeight);
-make_parser!(parse_gap_x, LengthUnit, GapX);
-make_parser!(parse_gap_y, LengthUnit, GapY);
-make_parser!(parse_gap, LengthUnit, Gap);
-make_parser!(parse_justify, JustifyContent, Justify);
-make_parser!(parse_content, JustifyContent, Content);
-make_parser!(parse_items, AlignItems, Items);
-make_parser!(parse_align_self, AlignItems, AlignSelf);
-make_parser!(parse_justify_self, AlignItems, JustifySelf);
-make_parser!(parse_overflow_x, Overflow, OverflowX);
-make_parser!(parse_overflow_y, Overflow, OverflowY);
-make_parser!(parse_overflow, Overflow, Overflow);
-make_parser!(parse_border_width, TwBorderWidth, BorderWidth);
-make_parser!(parse_border_top_width, TwBorderWidth, BorderTopWidth);
-make_parser!(parse_border_right_width, TwBorderWidth, BorderRightWidth);
-make_parser!(parse_border_bottom_width, TwBorderWidth, BorderBottomWidth);
-make_parser!(parse_border_left_width, TwBorderWidth, BorderLeftWidth);
-make_parser!(parse_border_x_width, TwBorderWidth, BorderXWidth);
-make_parser!(parse_border_y_width, TwBorderWidth, BorderYWidth);
-make_parser!(parse_border_radius, TwRounded, Rounded);
-make_parser!(parse_rounded_tl, TwRounded, RoundedTopLeft);
-make_parser!(parse_rounded_tr, TwRounded, RoundedTopRight);
-make_parser!(parse_rounded_br, TwRounded, RoundedBottomRight);
-make_parser!(parse_rounded_bl, TwRounded, RoundedBottomLeft);
-make_parser!(parse_rounded_t, TwRounded, RoundedTop);
-make_parser!(parse_rounded_r, TwRounded, RoundedRight);
-make_parser!(parse_rounded_b, TwRounded, RoundedBottom);
-make_parser!(parse_rounded_l, TwRounded, RoundedLeft);
-make_parser!(
-  parse_grid_template_columns,
-  TwGridTemplate,
-  GridTemplateColumns
-);
-make_parser!(parse_grid_template_rows, TwGridTemplate, GridTemplateRows);
-make_parser!(parse_grid_auto_columns, TwGridAutoSize, GridAutoColumns);
-make_parser!(parse_grid_auto_rows, TwGridAutoSize, GridAutoRows);
-make_parser!(parse_grid_column_start, TwGridPlacement, GridColumnStart);
-make_parser!(parse_grid_column_end, TwGridPlacement, GridColumnEnd);
-make_parser!(parse_grid_row_start, TwGridPlacement, GridRowStart);
-make_parser!(parse_grid_row_end, TwGridPlacement, GridRowEnd);
-make_parser!(parse_grid_column, TwGridSpan, GridColumn);
-make_parser!(parse_grid_row, TwGridSpan, GridRow);
-make_parser!(parse_letter_spacing, TwLetterSpacing, LetterSpacing);
-make_parser!(parse_flex_grow, FlexGrow, FlexGrow);
-make_parser!(parse_flex_shrink, FlexGrow, FlexShrink);
-make_parser!(parse_aspect, AspectRatio, Aspect);
-make_parser!(parse_align, TextAlign, TextAlign);
-make_parser!(parse_text_color, ColorInput, Color);
-make_parser!(parse_text_decoration_color, ColorInput, TextDecorationColor);
-make_parser!(parse_opacity, PercentageNumber, Opacity);
-make_parser!(parse_background_color, ColorInput, BackgroundColor);
-make_parser!(parse_border_color, ColorInput, BorderColor);
-make_parser!(parse_font_family, FontFamily, FontFamily);
-make_parser!(parse_line_clamp, LineClamp, LineClamp);
-make_parser!(parse_white_space, WhiteSpace, WhiteSpace);
-make_parser!(parse_overflow_wrap, OverflowWrap, OverflowWrap);
-make_parser!(parse_font_size, TwFontSize, FontSize);
-make_parser!(parse_line_height, LineHeight, LineHeight);
-make_parser!(parse_basis, LengthUnit, FlexBasis);
-make_parser!(parse_flex, Flex, Flex);
-make_parser!(parse_justify_items, AlignItems, JustifyItems);
-make_parser!(parse_rotate, Angle, Rotate);
-make_parser!(parse_scale, PercentageNumber, Scale);
-make_parser!(parse_scale_x, PercentageNumber, ScaleX);
-make_parser!(parse_scale_y, PercentageNumber, ScaleY);
-make_parser!(parse_transform_origin, BackgroundPosition, TransformOrigin);
-make_parser!(parse_translate, LengthUnit, Translate);
-make_parser!(parse_translate_x, LengthUnit, TranslateX);
-make_parser!(parse_translate_y, LengthUnit, TranslateY);
-make_parser!(parse_margin, LengthUnit, Margin);
-make_parser!(parse_margin_x, LengthUnit, MarginX);
-make_parser!(parse_margin_y, LengthUnit, MarginY);
-make_parser!(parse_margin_top, LengthUnit, MarginTop);
-make_parser!(parse_margin_right, LengthUnit, MarginRight);
-make_parser!(parse_margin_bottom, LengthUnit, MarginBottom);
-make_parser!(parse_margin_left, LengthUnit, MarginLeft);
-make_parser!(parse_padding, LengthUnit, Padding);
-make_parser!(parse_padding_x, LengthUnit, PaddingX);
-make_parser!(parse_padding_y, LengthUnit, PaddingY);
-make_parser!(parse_padding_top, LengthUnit, PaddingTop);
-make_parser!(parse_padding_right, LengthUnit, PaddingRight);
-make_parser!(parse_padding_bottom, LengthUnit, PaddingBottom);
-make_parser!(parse_padding_left, LengthUnit, PaddingLeft);
-make_parser!(parse_inset, LengthUnit, Inset);
-make_parser!(parse_inset_x, LengthUnit, InsetX);
-make_parser!(parse_inset_y, LengthUnit, InsetY);
-make_parser!(parse_top, LengthUnit, Top);
-make_parser!(parse_right, LengthUnit, Right);
-make_parser!(parse_bottom, LengthUnit, Bottom);
-make_parser!(parse_left, LengthUnit, Left);
+fn parse_property<T>(suffix: &str, f: fn(T) -> TailwindProperty) -> Option<TailwindProperty>
+where
+  T: TailwindPropertyParser,
+{
+  if let Some(value) = extract_arbitrary_value(suffix) {
+    return T::from_str(&value).ok().map(f);
+  }
 
-pub static PREFIX_PARSERS: phf::Map<&str, &[PropertyParserFn]> = phf_map! {
-  "object" => &[parse_object_fit, parse_object_position],
-  "bg" => &[parse_background_color, parse_bg_image, parse_bg_position, parse_bg_size],
-  "bg-size" => &[parse_bg_size],
-  "bg-position" => &[parse_bg_position],
-  "w" => &[parse_width],
-  "h" => &[parse_height],
-  "min-w" => &[parse_min_width],
-  "min-h" => &[parse_min_height],
-  "max-w" => &[parse_max_width],
-  "max-h" => &[parse_max_height],
-  "size" => &[parse_size],
-  "font" => &[parse_font_weight, parse_font_family],
-  "gap-x" => &[parse_gap_x],
-  "gap-y" => &[parse_gap_y],
-  "gap" => &[parse_gap],
-  "justify" => &[parse_justify],
-  "content" => &[parse_content],
-  "items" => &[parse_items],
-  "self" => &[parse_align_self],
-  "justify-self" => &[parse_justify_self],
-  "justify-items" => &[parse_justify_items],
-  "overflow-x" => &[parse_overflow_x],
-  "overflow-y" => &[parse_overflow_y],
-  "overflow" => &[parse_overflow],
-  "border" => &[parse_border_color, parse_border_width],
-  "border-t" => &[parse_border_top_width],
-  "border-r" => &[parse_border_right_width],
-  "border-b" => &[parse_border_bottom_width],
-  "border-l" => &[parse_border_left_width],
-  "border-x" => &[parse_border_x_width],
-  "border-y" => &[parse_border_y_width],
-  "grow" | "flex-grow" => &[parse_flex_grow],
-  "shrink" | "flex-shrink" => &[parse_flex_shrink],
-  "basis" | "flex-basis" => &[parse_basis],
-  "aspect" => &[parse_aspect],
-  "text" => &[parse_font_size, parse_text_color, parse_align],
-  "decoration" => &[parse_text_decoration_color],
-  "leading" => &[parse_line_height],
-  "opacity" => &[parse_opacity],
-  "line-clamp" => &[parse_line_clamp],
-  "whitespace" => &[parse_white_space],
-  "wrap" => &[parse_overflow_wrap],
-  "flex" => &[parse_flex],
-  "origin" => &[parse_transform_origin],
-  "translate" => &[parse_translate],
-  "rotate" => &[parse_rotate],
-  "scale" => &[parse_scale],
-  "scale-x" => &[parse_scale_x],
-  "scale-y" => &[parse_scale_y],
-  "translate-x" => &[parse_translate_x],
-  "translate-y" => &[parse_translate_y],
-  "m" => &[parse_margin],
-  "mx" | "ms" => &[parse_margin_x],
-  "my" | "me" => &[parse_margin_y],
-  "mt" => &[parse_margin_top],
-  "mr" => &[parse_margin_right],
-  "mb" => &[parse_margin_bottom],
-  "ml" => &[parse_margin_left],
-  "p" => &[parse_padding],
-  "px" | "ps" => &[parse_padding_x],
-  "py" | "pe" => &[parse_padding_y],
-  "pt" => &[parse_padding_top],
-  "pr" => &[parse_padding_right],
-  "pb" => &[parse_padding_bottom],
-  "pl" => &[parse_padding_left],
-  "inset" => &[parse_inset],
-  "inset-x" => &[parse_inset_x],
-  "inset-y" => &[parse_inset_y],
-  "top" => &[parse_top],
-  "right" => &[parse_right],
-  "bottom" => &[parse_bottom],
-  "left" => &[parse_left],
-  "rounded" => &[parse_border_radius],
-  "rounded-t" => &[parse_rounded_t],
-  "rounded-r" => &[parse_rounded_r],
-  "rounded-b" => &[parse_rounded_b],
-  "rounded-l" => &[parse_rounded_l],
-  "rounded-tl" => &[parse_rounded_tl],
-  "rounded-tr" => &[parse_rounded_tr],
-  "rounded-br" => &[parse_rounded_br],
-  "rounded-bl" => &[parse_rounded_bl],
-  "grid-cols" => &[parse_grid_template_columns],
-  "grid-rows" => &[parse_grid_template_rows],
-  "auto-cols" => &[parse_grid_auto_columns],
-  "auto-rows" => &[parse_grid_auto_rows],
-  "col-span" => &[parse_grid_column],
-  "row-span" => &[parse_grid_row],
-  "col-start" => &[parse_grid_column_start],
-  "col-end" => &[parse_grid_column_end],
-  "row-start" => &[parse_grid_row_start],
-  "row-end" => &[parse_grid_row_end],
-  "tracking" => &[parse_letter_spacing],
+  T::parse_tw(suffix).map(f)
+}
+
+/// Enum for data-driven property parsing
+#[derive(Clone, Copy)]
+pub enum PropertyParser {
+  ObjectFit(fn(ObjectFit) -> TailwindProperty),
+  BgPosition(fn(BackgroundPosition) -> TailwindProperty),
+  BgSize(fn(BackgroundSize) -> TailwindProperty),
+  BgImage(fn(BackgroundImage) -> TailwindProperty),
+  Length(fn(LengthUnit) -> TailwindProperty),
+  FontWeight(fn(FontWeight) -> TailwindProperty),
+  Justify(fn(JustifyContent) -> TailwindProperty),
+  Align(fn(AlignItems) -> TailwindProperty),
+  Overflow(fn(Overflow) -> TailwindProperty),
+  BorderWidth(fn(TwBorderWidth) -> TailwindProperty),
+  Rounded(fn(TwRounded) -> TailwindProperty),
+  GridTemplate(fn(TwGridTemplate) -> TailwindProperty),
+  GridAuto(fn(TwGridAutoSize) -> TailwindProperty),
+  GridPlacement(fn(TwGridPlacement) -> TailwindProperty),
+  GridSpan(fn(TwGridSpan) -> TailwindProperty),
+  LetterSpacing(fn(TwLetterSpacing) -> TailwindProperty),
+  FlexGrow(fn(FlexGrow) -> TailwindProperty),
+  Aspect(fn(AspectRatio) -> TailwindProperty),
+  TextAlign(fn(TextAlign) -> TailwindProperty),
+  Color(fn(ColorInput) -> TailwindProperty),
+  Percentage(fn(PercentageNumber) -> TailwindProperty),
+  FontFamily(fn(FontFamily) -> TailwindProperty),
+  LineClamp(fn(LineClamp) -> TailwindProperty),
+  WhiteSpace(fn(WhiteSpace) -> TailwindProperty),
+  OverflowWrap(fn(OverflowWrap) -> TailwindProperty),
+  FontSize(fn(TwFontSize) -> TailwindProperty),
+  LineHeight(fn(LineHeight) -> TailwindProperty),
+  Flex(fn(Flex) -> TailwindProperty),
+  Angle(fn(Angle) -> TailwindProperty),
+}
+
+impl PropertyParser {
+  pub fn parse(&self, suffix: &str) -> Option<TailwindProperty> {
+    match self {
+      Self::ObjectFit(f) => parse_property(suffix, *f),
+      Self::BgPosition(f) => parse_property(suffix, *f),
+      Self::BgSize(f) => parse_property(suffix, *f),
+      Self::BgImage(f) => parse_property(suffix, *f),
+      Self::Length(f) => parse_property(suffix, *f),
+      Self::FontWeight(f) => parse_property(suffix, *f),
+      Self::Justify(f) => parse_property(suffix, *f),
+      Self::Align(f) => parse_property(suffix, *f),
+      Self::Overflow(f) => parse_property(suffix, *f),
+      Self::BorderWidth(f) => parse_property(suffix, *f),
+      Self::Rounded(f) => parse_property(suffix, *f),
+      Self::GridTemplate(f) => parse_property(suffix, *f),
+      Self::GridAuto(f) => parse_property(suffix, *f),
+      Self::GridPlacement(f) => parse_property(suffix, *f),
+      Self::GridSpan(f) => parse_property(suffix, *f),
+      Self::LetterSpacing(f) => parse_property(suffix, *f),
+      Self::FlexGrow(f) => parse_property(suffix, *f),
+      Self::Aspect(f) => parse_property(suffix, *f),
+      Self::TextAlign(f) => parse_property(suffix, *f),
+      Self::Color(f) => parse_property(suffix, *f),
+      Self::Percentage(f) => parse_property(suffix, *f),
+      Self::FontFamily(f) => parse_property(suffix, *f),
+      Self::LineClamp(f) => parse_property(suffix, *f),
+      Self::WhiteSpace(f) => parse_property(suffix, *f),
+      Self::OverflowWrap(f) => parse_property(suffix, *f),
+      Self::FontSize(f) => parse_property(suffix, *f),
+      Self::LineHeight(f) => parse_property(suffix, *f),
+      Self::Flex(f) => parse_property(suffix, *f),
+      Self::Angle(f) => parse_property(suffix, *f),
+    }
+  }
+}
+
+pub static PREFIX_PARSERS: phf::Map<&str, &[PropertyParser]> = phf_map! {
+  "object" => &[PropertyParser::ObjectFit(TailwindProperty::ObjectFit), PropertyParser::BgPosition(TailwindProperty::ObjectPosition)],
+  "bg" => &[PropertyParser::Color(TailwindProperty::BackgroundColor), PropertyParser::BgImage(TailwindProperty::BackgroundImage), PropertyParser::BgPosition(TailwindProperty::BackgroundPosition), PropertyParser::BgSize(TailwindProperty::BackgroundSize)],
+  "bg-size" => &[PropertyParser::BgSize(TailwindProperty::BackgroundSize)],
+  "bg-position" => &[PropertyParser::BgPosition(TailwindProperty::BackgroundPosition)],
+  "w" => &[PropertyParser::Length(TailwindProperty::Width)],
+  "h" => &[PropertyParser::Length(TailwindProperty::Height)],
+  "min-w" => &[PropertyParser::Length(TailwindProperty::MinWidth)],
+  "min-h" => &[PropertyParser::Length(TailwindProperty::MinHeight)],
+  "max-w" => &[PropertyParser::Length(TailwindProperty::MaxWidth)],
+  "max-h" => &[PropertyParser::Length(TailwindProperty::MaxHeight)],
+  "size" => &[PropertyParser::Length(TailwindProperty::Size)],
+  "font" => &[PropertyParser::FontWeight(TailwindProperty::FontWeight), PropertyParser::FontFamily(TailwindProperty::FontFamily)],
+  "gap-x" => &[PropertyParser::Length(TailwindProperty::GapX)],
+  "gap-y" => &[PropertyParser::Length(TailwindProperty::GapY)],
+  "gap" => &[PropertyParser::Length(TailwindProperty::Gap)],
+  "justify" => &[PropertyParser::Justify(TailwindProperty::Justify)],
+  "content" => &[PropertyParser::Justify(TailwindProperty::Content)],
+  "items" => &[PropertyParser::Align(TailwindProperty::Items)],
+  "self" => &[PropertyParser::Align(TailwindProperty::AlignSelf)],
+  "justify-self" => &[PropertyParser::Align(TailwindProperty::JustifySelf)],
+  "justify-items" => &[PropertyParser::Align(TailwindProperty::JustifyItems)],
+  "overflow-x" => &[PropertyParser::Overflow(TailwindProperty::OverflowX)],
+  "overflow-y" => &[PropertyParser::Overflow(TailwindProperty::OverflowY)],
+  "overflow" => &[PropertyParser::Overflow(TailwindProperty::Overflow)],
+  "border" => &[PropertyParser::Color(TailwindProperty::BorderColor), PropertyParser::BorderWidth(TailwindProperty::BorderWidth)],
+  "border-t" => &[PropertyParser::BorderWidth(TailwindProperty::BorderTopWidth)],
+  "border-r" => &[PropertyParser::BorderWidth(TailwindProperty::BorderRightWidth)],
+  "border-b" => &[PropertyParser::BorderWidth(TailwindProperty::BorderBottomWidth)],
+  "border-l" => &[PropertyParser::BorderWidth(TailwindProperty::BorderLeftWidth)],
+  "border-x" => &[PropertyParser::BorderWidth(TailwindProperty::BorderXWidth)],
+  "border-y" => &[PropertyParser::BorderWidth(TailwindProperty::BorderYWidth)],
+  "grow" | "flex-grow" => &[PropertyParser::FlexGrow(TailwindProperty::FlexGrow)],
+  "shrink" | "flex-shrink" => &[PropertyParser::FlexGrow(TailwindProperty::FlexShrink)],
+  "basis" | "flex-basis" => &[PropertyParser::Length(TailwindProperty::FlexBasis)],
+  "aspect" => &[PropertyParser::Aspect(TailwindProperty::Aspect)],
+  "text" => &[PropertyParser::FontSize(TailwindProperty::FontSize), PropertyParser::Color(TailwindProperty::Color), PropertyParser::TextAlign(TailwindProperty::TextAlign)],
+  "decoration" => &[PropertyParser::Color(TailwindProperty::TextDecorationColor)],
+  "leading" => &[PropertyParser::LineHeight(TailwindProperty::LineHeight)],
+  "opacity" => &[PropertyParser::Percentage(TailwindProperty::Opacity)],
+  "line-clamp" => &[PropertyParser::LineClamp(TailwindProperty::LineClamp)],
+  "whitespace" => &[PropertyParser::WhiteSpace(TailwindProperty::WhiteSpace)],
+  "wrap" => &[PropertyParser::OverflowWrap(TailwindProperty::OverflowWrap)],
+  "flex" => &[PropertyParser::Flex(TailwindProperty::Flex)],
+  "origin" => &[PropertyParser::BgPosition(TailwindProperty::TransformOrigin)],
+  "translate" => &[PropertyParser::Length(TailwindProperty::Translate)],
+  "rotate" => &[PropertyParser::Angle(TailwindProperty::Rotate)],
+  "scale" => &[PropertyParser::Percentage(TailwindProperty::Scale)],
+  "scale-x" => &[PropertyParser::Percentage(TailwindProperty::ScaleX)],
+  "scale-y" => &[PropertyParser::Percentage(TailwindProperty::ScaleY)],
+  "translate-x" => &[PropertyParser::Length(TailwindProperty::TranslateX)],
+  "translate-y" => &[PropertyParser::Length(TailwindProperty::TranslateY)],
+  "m" => &[PropertyParser::Length(TailwindProperty::Margin)],
+  "mx" | "ms" => &[PropertyParser::Length(TailwindProperty::MarginX)],
+  "my" | "me" => &[PropertyParser::Length(TailwindProperty::MarginY)],
+  "mt" => &[PropertyParser::Length(TailwindProperty::MarginTop)],
+  "mr" => &[PropertyParser::Length(TailwindProperty::MarginRight)],
+  "mb" => &[PropertyParser::Length(TailwindProperty::MarginBottom)],
+  "ml" => &[PropertyParser::Length(TailwindProperty::MarginLeft)],
+  "p" => &[PropertyParser::Length(TailwindProperty::Padding)],
+  "px" | "ps" => &[PropertyParser::Length(TailwindProperty::PaddingX)],
+  "py" | "pe" => &[PropertyParser::Length(TailwindProperty::PaddingY)],
+  "pt" => &[PropertyParser::Length(TailwindProperty::PaddingTop)],
+  "pr" => &[PropertyParser::Length(TailwindProperty::PaddingRight)],
+  "pb" => &[PropertyParser::Length(TailwindProperty::PaddingBottom)],
+  "pl" => &[PropertyParser::Length(TailwindProperty::PaddingLeft)],
+  "inset" => &[PropertyParser::Length(TailwindProperty::Inset)],
+  "inset-x" => &[PropertyParser::Length(TailwindProperty::InsetX)],
+  "inset-y" => &[PropertyParser::Length(TailwindProperty::InsetY)],
+  "top" => &[PropertyParser::Length(TailwindProperty::Top)],
+  "right" => &[PropertyParser::Length(TailwindProperty::Right)],
+  "bottom" => &[PropertyParser::Length(TailwindProperty::Bottom)],
+  "left" => &[PropertyParser::Length(TailwindProperty::Left)],
+  "rounded" => &[PropertyParser::Rounded(TailwindProperty::Rounded)],
+  "rounded-t" => &[PropertyParser::Rounded(TailwindProperty::RoundedTop)],
+  "rounded-r" => &[PropertyParser::Rounded(TailwindProperty::RoundedRight)],
+  "rounded-b" => &[PropertyParser::Rounded(TailwindProperty::RoundedBottom)],
+  "rounded-l" => &[PropertyParser::Rounded(TailwindProperty::RoundedLeft)],
+  "rounded-tl" => &[PropertyParser::Rounded(TailwindProperty::RoundedTopLeft)],
+  "rounded-tr" => &[PropertyParser::Rounded(TailwindProperty::RoundedTopRight)],
+  "rounded-br" => &[PropertyParser::Rounded(TailwindProperty::RoundedBottomRight)],
+  "rounded-bl" => &[PropertyParser::Rounded(TailwindProperty::RoundedBottomLeft)],
+  "grid-cols" => &[PropertyParser::GridTemplate(TailwindProperty::GridTemplateColumns)],
+  "grid-rows" => &[PropertyParser::GridTemplate(TailwindProperty::GridTemplateRows)],
+  "auto-cols" => &[PropertyParser::GridAuto(TailwindProperty::GridAutoColumns)],
+  "auto-rows" => &[PropertyParser::GridAuto(TailwindProperty::GridAutoRows)],
+  "col-span" => &[PropertyParser::GridSpan(TailwindProperty::GridColumn)],
+  "row-span" => &[PropertyParser::GridSpan(TailwindProperty::GridRow)],
+  "col-start" => &[PropertyParser::GridPlacement(TailwindProperty::GridColumnStart)],
+  "col-end" => &[PropertyParser::GridPlacement(TailwindProperty::GridColumnEnd)],
+  "row-start" => &[PropertyParser::GridPlacement(TailwindProperty::GridRowStart)],
+  "row-end" => &[PropertyParser::GridPlacement(TailwindProperty::GridRowEnd)],
+  "tracking" => &[PropertyParser::LetterSpacing(TailwindProperty::LetterSpacing)],
 };
 
 pub static FIXED_PROPERTIES: phf::Map<&str, TailwindProperty> = phf_map! {
