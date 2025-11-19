@@ -64,6 +64,162 @@ impl TailwindPropertyParser for ColorInput {
   }
 }
 
+/// Tailwind color shades and their corresponding RGB values
+/// Each color has 11 shades: 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950
+const SLATE: [u32; 11] = [
+  0xf8fafc, 0xf1f5f9, 0xe2e8f0, 0xcbd5e1, 0x94a3b8, 0x64748b, 0x475569, 0x334155, 0x1e293b,
+  0x0f172a, 0x020617,
+];
+
+const GRAY: [u32; 11] = [
+  0xf9fafb, 0xf3f4f6, 0xe5e7eb, 0xd1d5db, 0x9ca3af, 0x6b7280, 0x4b5563, 0x374151, 0x1f2937,
+  0x111827, 0x030712,
+];
+
+const ZINC: [u32; 11] = [
+  0xfafafa, 0xf4f4f5, 0xe4e4e7, 0xd4d4d8, 0xa1a1aa, 0x71717a, 0x52525b, 0x3f3f46, 0x27272a,
+  0x18181b, 0x09090b,
+];
+
+const NEUTRAL: [u32; 11] = [
+  0xfafafa, 0xf5f5f5, 0xe5e5e5, 0xd4d4d4, 0xa3a3a3, 0x737373, 0x525252, 0x404040, 0x262626,
+  0x171717, 0x0a0a0a,
+];
+
+const STONE: [u32; 11] = [
+  0xfafaf9, 0xf5f5f4, 0xe7e5e4, 0xd6d3d1, 0xa8a29e, 0x78716c, 0x57534e, 0x44403c, 0x292524,
+  0x1c1917, 0x0c0a09,
+];
+
+const RED: [u32; 11] = [
+  0xfef2f2, 0xfee2e2, 0xfecaca, 0xfca5a5, 0xf87171, 0xef4444, 0xdc2626, 0xb91c1c, 0x991b1b,
+  0x7f1d1d, 0x450a0a,
+];
+
+const ORANGE: [u32; 11] = [
+  0xfff7ed, 0xffedd5, 0xfed7aa, 0xfdba74, 0xfb923c, 0xf97316, 0xea580c, 0xc2410c, 0x9a3412,
+  0x7c2d12, 0x431407,
+];
+
+const AMBER: [u32; 11] = [
+  0xfffbeb, 0xfef3c7, 0xfde68a, 0xfcd34d, 0xfbbf24, 0xf59e0b, 0xd97706, 0xb45309, 0x92400e,
+  0x78350f, 0x451a03,
+];
+
+const YELLOW: [u32; 11] = [
+  0xfefce8, 0xfef9c3, 0xfef08a, 0xfde047, 0xfacc15, 0xeab308, 0xca8a04, 0xa16207, 0x854d0e,
+  0x713f12, 0x422006,
+];
+
+const LIME: [u32; 11] = [
+  0xf7fee7, 0xecfccb, 0xd9f99d, 0xbef264, 0xa3e635, 0x84cc16, 0x65a30d, 0x4d7c0f, 0x3f6212,
+  0x365314, 0x1a2e05,
+];
+
+const GREEN: [u32; 11] = [
+  0xf0fdf4, 0xdcfce7, 0xbbf7d0, 0x86efac, 0x4ade80, 0x22c55e, 0x16a34a, 0x15803d, 0x166534,
+  0x14532d, 0x052e16,
+];
+
+const EMERALD: [u32; 11] = [
+  0xecfdf5, 0xd1fae5, 0xa7f3d0, 0x6ee7b7, 0x34d399, 0x10b981, 0x059669, 0x047857, 0x065f46,
+  0x064e3b, 0x052c22,
+];
+
+const TEAL: [u32; 11] = [
+  0xf0fdfa, 0xccfbf1, 0x99f6e4, 0x5eead4, 0x2dd4bf, 0x14b8a6, 0x0d9488, 0x0f766e, 0x115e59,
+  0x134e4a, 0x042f2e,
+];
+
+const CYAN: [u32; 11] = [
+  0xecfeff, 0xcffafe, 0xa5f3fc, 0x67e8f9, 0x22d3ee, 0x06b6d4, 0x0891b2, 0x0e7490, 0x155e75,
+  0x164e63, 0x083344,
+];
+
+const SKY: [u32; 11] = [
+  0xf0f9ff, 0xe0f2fe, 0xbae6fd, 0x7dd3fc, 0x38bdf8, 0x0ea5e9, 0x0284c7, 0x0369a1, 0x075985,
+  0x0c4a6e, 0x082f49,
+];
+
+const BLUE: [u32; 11] = [
+  0xeff6ff, 0xdbeafe, 0xbfdbfe, 0x93c5fd, 0x60a5fa, 0x3b82f6, 0x2563eb, 0x1d4ed8, 0x1e40af,
+  0x1e3a8a, 0x172554,
+];
+
+const INDIGO: [u32; 11] = [
+  0xeef2ff, 0xe0e7ff, 0xc7d2fe, 0xa5b4fc, 0x818cf8, 0x6366f1, 0x4f46e5, 0x4338ca, 0x3730a3,
+  0x312e81, 0x1e1b4b,
+];
+
+const VIOLET: [u32; 11] = [
+  0xf5f3ff, 0xede9fe, 0xddd6fe, 0xc4b5fd, 0xa78bfa, 0x8b5cf6, 0x7c3aed, 0x6d28d9, 0x5b21b6,
+  0x4c1d95, 0x2e1065,
+];
+
+const PURPLE: [u32; 11] = [
+  0xfaf5ff, 0xf3e8ff, 0xe9d5ff, 0xd8b4fe, 0xc084fc, 0xa855f7, 0x9333ea, 0x7e22ce, 0x6b21a8,
+  0x581c87, 0x3b0764,
+];
+
+const FUCHSIA: [u32; 11] = [
+  0xfdf4ff, 0xfae8ff, 0xf5d0fe, 0xf0abfc, 0xe879f9, 0xd946ef, 0xc026d3, 0xa21caf, 0x86198f,
+  0x701a75, 0x4a044e,
+];
+
+const PINK: [u32; 11] = [
+  0xfdf2f8, 0xfce7f3, 0xfbcfe8, 0xf9a8d4, 0xf472b6, 0xec4899, 0xdb2777, 0xbe185d, 0x9d174d,
+  0x831843, 0x500724,
+];
+
+const ROSE: [u32; 11] = [
+  0xfff1f2, 0xffe4e6, 0xfecdd3, 0xfda4af, 0xfb7185, 0xf43f5e, 0xe11d48, 0xbe123c, 0x9f1239,
+  0x881337, 0x4c0519,
+];
+
+/// Shade values in ascending order for binary search
+const SHADES: [u16; 11] = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
+
+/// Map shade number to array index using binary search
+#[inline]
+fn shade_to_index(shade: u16) -> Option<usize> {
+  SHADES.binary_search(&shade).ok()
+}
+
+/// Lookup Tailwind color by name and shade
+///
+/// Returns the RGB value as a u32 (0xRRGGBB format)
+fn lookup_tailwind_color(color_name: &str, shade: u16) -> Option<u32> {
+  let index = shade_to_index(shade)?;
+
+  let colors = match_ignore_ascii_case! {color_name,
+      "slate" => &SLATE,
+      "gray" => &GRAY,
+      "zinc" => &ZINC,
+      "neutral" => &NEUTRAL,
+      "stone" => &STONE,
+      "red" => &RED,
+      "orange" => &ORANGE,
+      "amber" => &AMBER,
+      "yellow" => &YELLOW,
+      "lime" => &LIME,
+      "green" => &GREEN,
+      "emerald" => &EMERALD,
+      "teal" => &TEAL,
+      "cyan" => &CYAN,
+      "sky" => &SKY,
+      "blue" => &BLUE,
+      "indigo" => &INDIGO,
+      "violet" => &VIOLET,
+      "purple" => &PURPLE,
+      "fuchsia" => &FUCHSIA,
+      "pink" => &PINK,
+      "rose" => &ROSE,
+      _ => return None,
+  };
+
+  colors.get(index).copied()
+}
+
 impl TailwindPropertyParser for Color {
   fn parse_tw(token: &str) -> Option<Self> {
     // handle opacity text like `text-red-50/30`
@@ -74,254 +230,20 @@ impl TailwindPropertyParser for Color {
       return Some(color.with_opacity(opacity));
     }
 
+    // Handle basic colors first
     match_ignore_ascii_case! {token,
-      "transparent" => Some(Color::transparent()),
-      "black" => Some(Color::black()),
-      "white" => Some(Color::white()),
-      "slate-50" => Some(Color::from_rgb(0xf8fafc)),
-      "slate-100" => Some(Color::from_rgb(0xf1f5f9)),
-      "slate-200" => Some(Color::from_rgb(0xe2e8f0)),
-      "slate-300" => Some(Color::from_rgb(0xcbd5e1)),
-      "slate-400" => Some(Color::from_rgb(0x94a3b8)),
-      "slate-500" => Some(Color::from_rgb(0x64748b)),
-      "slate-600" => Some(Color::from_rgb(0x475569)),
-      "slate-700" => Some(Color::from_rgb(0x334155)),
-      "slate-800" => Some(Color::from_rgb(0x1e293b)),
-      "slate-900" => Some(Color::from_rgb(0x0f172a)),
-      "slate-950" => Some(Color::from_rgb(0x020617)),
-      "gray-50" => Some(Color::from_rgb(0xf9fafb)),
-      "gray-100" => Some(Color::from_rgb(0xf3f4f6)),
-      "gray-200" => Some(Color::from_rgb(0xe5e7eb)),
-      "gray-300" => Some(Color::from_rgb(0xd1d5db)),
-      "gray-400" => Some(Color::from_rgb(0x9ca3af)),
-      "gray-500" => Some(Color::from_rgb(0x6b7280)),
-      "gray-600" => Some(Color::from_rgb(0x4b5563)),
-      "gray-700" => Some(Color::from_rgb(0x374151)),
-      "gray-800" => Some(Color::from_rgb(0x1f2937)),
-      "gray-900" => Some(Color::from_rgb(0x111827)),
-      "gray-950" => Some(Color::from_rgb(0x030712)),
-      "zinc-50" => Some(Color::from_rgb(0xfafafa)),
-      "zinc-100" => Some(Color::from_rgb(0xf4f4f5)),
-      "zinc-200" => Some(Color::from_rgb(0xe4e4e7)),
-      "zinc-300" => Some(Color::from_rgb(0xd4d4d8)),
-      "zinc-400" => Some(Color::from_rgb(0xa1a1aa)),
-      "zinc-500" => Some(Color::from_rgb(0x71717a)),
-      "zinc-600" => Some(Color::from_rgb(0x52525b)),
-      "zinc-700" => Some(Color::from_rgb(0x3f3f46)),
-      "zinc-800" => Some(Color::from_rgb(0x27272a)),
-      "zinc-900" => Some(Color::from_rgb(0x18181b)),
-      "zinc-950" => Some(Color::from_rgb(0x09090b)),
-      "neutral-50" => Some(Color::from_rgb(0xfafafa)),
-      "neutral-100" => Some(Color::from_rgb(0xf5f5f5)),
-      "neutral-200" => Some(Color::from_rgb(0xe5e5e5)),
-      "neutral-300" => Some(Color::from_rgb(0xd4d4d4)),
-      "neutral-400" => Some(Color::from_rgb(0xa3a3a3)),
-      "neutral-500" => Some(Color::from_rgb(0x737373)),
-      "neutral-600" => Some(Color::from_rgb(0x525252)),
-      "neutral-700" => Some(Color::from_rgb(0x404040)),
-      "neutral-800" => Some(Color::from_rgb(0x262626)),
-      "neutral-900" => Some(Color::from_rgb(0x171717)),
-      "neutral-950" => Some(Color::from_rgb(0x0a0a0a)),
-      "stone-50" => Some(Color::from_rgb(0xfafaf9)),
-      "stone-100" => Some(Color::from_rgb(0xf5f5f4)),
-      "stone-200" => Some(Color::from_rgb(0xe7e5e4)),
-      "stone-300" => Some(Color::from_rgb(0xd6d3d1)),
-      "stone-400" => Some(Color::from_rgb(0xa8a29e)),
-      "stone-500" => Some(Color::from_rgb(0x78716c)),
-      "stone-600" => Some(Color::from_rgb(0x57534e)),
-      "stone-700" => Some(Color::from_rgb(0x44403c)),
-      "stone-800" => Some(Color::from_rgb(0x292524)),
-      "stone-900" => Some(Color::from_rgb(0x1c1917)),
-      "stone-950" => Some(Color::from_rgb(0x0c0a09)),
-      "red-50" => Some(Color::from_rgb(0xfef2f2)),
-      "red-100" => Some(Color::from_rgb(0xfee2e2)),
-      "red-200" => Some(Color::from_rgb(0xfecaca)),
-      "red-300" => Some(Color::from_rgb(0xfca5a5)),
-      "red-400" => Some(Color::from_rgb(0xf87171)),
-      "red-500" => Some(Color::from_rgb(0xef4444)),
-      "red-600" => Some(Color::from_rgb(0xdc2626)),
-      "red-700" => Some(Color::from_rgb(0xb91c1c)),
-      "red-800" => Some(Color::from_rgb(0x991b1b)),
-      "red-900" => Some(Color::from_rgb(0x7f1d1d)),
-      "red-950" => Some(Color::from_rgb(0x450a0a)),
-      "orange-50" => Some(Color::from_rgb(0xfff7ed)),
-      "orange-100" => Some(Color::from_rgb(0xffedd5)),
-      "orange-200" => Some(Color::from_rgb(0xfed7aa)),
-      "orange-300" => Some(Color::from_rgb(0xfdba74)),
-      "orange-400" => Some(Color::from_rgb(0xfb923c)),
-      "orange-500" => Some(Color::from_rgb(0xf97316)),
-      "orange-600" => Some(Color::from_rgb(0xea580c)),
-      "orange-700" => Some(Color::from_rgb(0xc2410c)),
-      "orange-800" => Some(Color::from_rgb(0x9a3412)),
-      "orange-900" => Some(Color::from_rgb(0x7c2d12)),
-      "orange-950" => Some(Color::from_rgb(0x431407)),
-      "amber-50" => Some(Color::from_rgb(0xfffbeb)),
-      "amber-100" => Some(Color::from_rgb(0xfef3c7)),
-      "amber-200" => Some(Color::from_rgb(0xfde68a)),
-      "amber-300" => Some(Color::from_rgb(0xfcd34d)),
-      "amber-400" => Some(Color::from_rgb(0xfbbf24)),
-      "amber-500" => Some(Color::from_rgb(0xf59e0b)),
-      "amber-600" => Some(Color::from_rgb(0xd97706)),
-      "amber-700" => Some(Color::from_rgb(0xb45309)),
-      "amber-800" => Some(Color::from_rgb(0x92400e)),
-      "amber-900" => Some(Color::from_rgb(0x78350f)),
-      "amber-950" => Some(Color::from_rgb(0x451a03)),
-      "yellow-50" => Some(Color::from_rgb(0xfefce8)),
-      "yellow-100" => Some(Color::from_rgb(0xfef9c3)),
-      "yellow-200" => Some(Color::from_rgb(0xfef08a)),
-      "yellow-300" => Some(Color::from_rgb(0xfde047)),
-      "yellow-400" => Some(Color::from_rgb(0xfacc15)),
-      "yellow-500" => Some(Color::from_rgb(0xeab308)),
-      "yellow-600" => Some(Color::from_rgb(0xca8a04)),
-      "yellow-700" => Some(Color::from_rgb(0xa16207)),
-      "yellow-800" => Some(Color::from_rgb(0x854d0e)),
-      "yellow-900" => Some(Color::from_rgb(0x713f12)),
-      "yellow-950" => Some(Color::from_rgb(0x422006)),
-      "lime-50" => Some(Color::from_rgb(0xf7fee7)),
-      "lime-100" => Some(Color::from_rgb(0xecfccb)),
-      "lime-200" => Some(Color::from_rgb(0xd9f99d)),
-      "lime-300" => Some(Color::from_rgb(0xbef264)),
-      "lime-400" => Some(Color::from_rgb(0xa3e635)),
-      "lime-500" => Some(Color::from_rgb(0x84cc16)),
-      "lime-600" => Some(Color::from_rgb(0x65a30d)),
-      "lime-700" => Some(Color::from_rgb(0x4d7c0f)),
-      "lime-800" => Some(Color::from_rgb(0x3f6212)),
-      "lime-900" => Some(Color::from_rgb(0x365314)),
-      "lime-950" => Some(Color::from_rgb(0x1a2e05)),
-      "green-50" => Some(Color::from_rgb(0xf0fdf4)),
-      "green-100" => Some(Color::from_rgb(0xdcfce7)),
-      "green-200" => Some(Color::from_rgb(0xbbf7d0)),
-      "green-300" => Some(Color::from_rgb(0x86efac)),
-      "green-400" => Some(Color::from_rgb(0x4ade80)),
-      "green-500" => Some(Color::from_rgb(0x22c55e)),
-      "green-600" => Some(Color::from_rgb(0x16a34a)),
-      "green-700" => Some(Color::from_rgb(0x15803d)),
-      "green-800" => Some(Color::from_rgb(0x166534)),
-      "green-900" => Some(Color::from_rgb(0x14532d)),
-      "green-950" => Some(Color::from_rgb(0x052e16)),
-      "emerald-50" => Some(Color::from_rgb(0xecfdf5)),
-      "emerald-100" => Some(Color::from_rgb(0xd1fae5)),
-      "emerald-200" => Some(Color::from_rgb(0xa7f3d0)),
-      "emerald-300" => Some(Color::from_rgb(0x6ee7b7)),
-      "emerald-400" => Some(Color::from_rgb(0x34d399)),
-      "emerald-500" => Some(Color::from_rgb(0x10b981)),
-      "emerald-600" => Some(Color::from_rgb(0x059669)),
-      "emerald-700" => Some(Color::from_rgb(0x047857)),
-      "emerald-800" => Some(Color::from_rgb(0x065f46)),
-      "emerald-900" => Some(Color::from_rgb(0x064e3b)),
-      "emerald-950" => Some(Color::from_rgb(0x052c22)),
-      "teal-50" => Some(Color::from_rgb(0xf0fdfa)),
-      "teal-100" => Some(Color::from_rgb(0xccfbf1)),
-      "teal-200" => Some(Color::from_rgb(0x99f6e4)),
-      "teal-300" => Some(Color::from_rgb(0x5eead4)),
-      "teal-400" => Some(Color::from_rgb(0x2dd4bf)),
-      "teal-500" => Some(Color::from_rgb(0x14b8a6)),
-      "teal-600" => Some(Color::from_rgb(0x0d9488)),
-      "teal-700" => Some(Color::from_rgb(0x0f766e)),
-      "teal-800" => Some(Color::from_rgb(0x115e59)),
-      "teal-900" => Some(Color::from_rgb(0x134e4a)),
-      "teal-950" => Some(Color::from_rgb(0x042f2e)),
-      "cyan-50" => Some(Color::from_rgb(0xecfeff)),
-      "cyan-100" => Some(Color::from_rgb(0xcffafe)),
-      "cyan-200" => Some(Color::from_rgb(0xa5f3fc)),
-      "cyan-300" => Some(Color::from_rgb(0x67e8f9)),
-      "cyan-400" => Some(Color::from_rgb(0x22d3ee)),
-      "cyan-500" => Some(Color::from_rgb(0x06b6d4)),
-      "cyan-600" => Some(Color::from_rgb(0x0891b2)),
-      "cyan-700" => Some(Color::from_rgb(0x0e7490)),
-      "cyan-800" => Some(Color::from_rgb(0x155e75)),
-      "cyan-900" => Some(Color::from_rgb(0x164e63)),
-      "cyan-950" => Some(Color::from_rgb(0x083344)),
-      "sky-50" => Some(Color::from_rgb(0xf0f9ff)),
-      "sky-100" => Some(Color::from_rgb(0xe0f2fe)),
-      "sky-200" => Some(Color::from_rgb(0xbae6fd)),
-      "sky-300" => Some(Color::from_rgb(0x7dd3fc)),
-      "sky-400" => Some(Color::from_rgb(0x38bdf8)),
-      "sky-500" => Some(Color::from_rgb(0x0ea5e9)),
-      "sky-600" => Some(Color::from_rgb(0x0284c7)),
-      "sky-700" => Some(Color::from_rgb(0x0369a1)),
-      "sky-800" => Some(Color::from_rgb(0x075985)),
-      "sky-900" => Some(Color::from_rgb(0x0c4a6e)),
-      "sky-950" => Some(Color::from_rgb(0x082f49)),
-      "blue-50" => Some(Color::from_rgb(0xeff6ff)),
-      "blue-100" => Some(Color::from_rgb(0xdbeafe)),
-      "blue-200" => Some(Color::from_rgb(0xbfdbfe)),
-      "blue-300" => Some(Color::from_rgb(0x93c5fd)),
-      "blue-400" => Some(Color::from_rgb(0x60a5fa)),
-      "blue-500" => Some(Color::from_rgb(0x3b82f6)),
-      "blue-600" => Some(Color::from_rgb(0x2563eb)),
-      "blue-700" => Some(Color::from_rgb(0x1d4ed8)),
-      "blue-800" => Some(Color::from_rgb(0x1e40af)),
-      "blue-900" => Some(Color::from_rgb(0x1e3a8a)),
-      "blue-950" => Some(Color::from_rgb(0x172554)),
-      "indigo-50" => Some(Color::from_rgb(0xeef2ff)),
-      "indigo-100" => Some(Color::from_rgb(0xe0e7ff)),
-      "indigo-200" => Some(Color::from_rgb(0xc7d2fe)),
-      "indigo-300" => Some(Color::from_rgb(0xa5b4fc)),
-      "indigo-400" => Some(Color::from_rgb(0x818cf8)),
-      "indigo-500" => Some(Color::from_rgb(0x6366f1)),
-      "indigo-600" => Some(Color::from_rgb(0x4f46e5)),
-      "indigo-700" => Some(Color::from_rgb(0x4338ca)),
-      "indigo-800" => Some(Color::from_rgb(0x3730a3)),
-      "indigo-900" => Some(Color::from_rgb(0x312e81)),
-      "indigo-950" => Some(Color::from_rgb(0x1e1b4b)),
-      "violet-50" => Some(Color::from_rgb(0xf5f3ff)),
-      "violet-100" => Some(Color::from_rgb(0xede9fe)),
-      "violet-200" => Some(Color::from_rgb(0xddd6fe)),
-      "violet-300" => Some(Color::from_rgb(0xc4b5fd)),
-      "violet-400" => Some(Color::from_rgb(0xa78bfa)),
-      "violet-500" => Some(Color::from_rgb(0x8b5cf6)),
-      "violet-600" => Some(Color::from_rgb(0x7c3aed)),
-      "violet-700" => Some(Color::from_rgb(0x6d28d9)),
-      "violet-800" => Some(Color::from_rgb(0x5b21b6)),
-      "violet-900" => Some(Color::from_rgb(0x4c1d95)),
-      "violet-950" => Some(Color::from_rgb(0x2e1065)),
-      "purple-50" => Some(Color::from_rgb(0xfaf5ff)),
-      "purple-100" => Some(Color::from_rgb(0xf3e8ff)),
-      "purple-200" => Some(Color::from_rgb(0xe9d5ff)),
-      "purple-300" => Some(Color::from_rgb(0xd8b4fe)),
-      "purple-400" => Some(Color::from_rgb(0xc084fc)),
-      "purple-500" => Some(Color::from_rgb(0xa855f7)),
-      "purple-600" => Some(Color::from_rgb(0x9333ea)),
-      "purple-700" => Some(Color::from_rgb(0x7e22ce)),
-      "purple-800" => Some(Color::from_rgb(0x6b21a8)),
-      "purple-900" => Some(Color::from_rgb(0x581c87)),
-      "purple-950" => Some(Color::from_rgb(0x3b0764)),
-      "fuchsia-50" => Some(Color::from_rgb(0xfdf4ff)),
-      "fuchsia-100" => Some(Color::from_rgb(0xfae8ff)),
-      "fuchsia-200" => Some(Color::from_rgb(0xf5d0fe)),
-      "fuchsia-300" => Some(Color::from_rgb(0xf0abfc)),
-      "fuchsia-400" => Some(Color::from_rgb(0xe879f9)),
-      "fuchsia-500" => Some(Color::from_rgb(0xd946ef)),
-      "fuchsia-600" => Some(Color::from_rgb(0xc026d3)),
-      "fuchsia-700" => Some(Color::from_rgb(0xa21caf)),
-      "fuchsia-800" => Some(Color::from_rgb(0x86198f)),
-      "fuchsia-900" => Some(Color::from_rgb(0x701a75)),
-      "fuchsia-950" => Some(Color::from_rgb(0x4a044e)),
-      "pink-50" => Some(Color::from_rgb(0xfdf2f8)),
-      "pink-100" => Some(Color::from_rgb(0xfce7f3)),
-      "pink-200" => Some(Color::from_rgb(0xfbcfe8)),
-      "pink-300" => Some(Color::from_rgb(0xf9a8d4)),
-      "pink-400" => Some(Color::from_rgb(0xf472b6)),
-      "pink-500" => Some(Color::from_rgb(0xec4899)),
-      "pink-600" => Some(Color::from_rgb(0xdb2777)),
-      "pink-700" => Some(Color::from_rgb(0xbe185d)),
-      "pink-800" => Some(Color::from_rgb(0x9d174d)),
-      "pink-900" => Some(Color::from_rgb(0x831843)),
-      "pink-950" => Some(Color::from_rgb(0x500724)),
-      "rose-50" => Some(Color::from_rgb(0xfff1f2)),
-      "rose-100" => Some(Color::from_rgb(0xffe4e6)),
-      "rose-200" => Some(Color::from_rgb(0xfecdd3)),
-      "rose-300" => Some(Color::from_rgb(0xfda4af)),
-      "rose-400" => Some(Color::from_rgb(0xfb7185)),
-      "rose-500" => Some(Color::from_rgb(0xf43f5e)),
-      "rose-600" => Some(Color::from_rgb(0xe11d48)),
-      "rose-700" => Some(Color::from_rgb(0xbe123c)),
-      "rose-800" => Some(Color::from_rgb(0x9f1239)),
-      "rose-900" => Some(Color::from_rgb(0x881337)),
-      "rose-950" => Some(Color::from_rgb(0x4c0519)),
-      _ => None,
+      "transparent" => return Some(Color::transparent()),
+      "black" => return Some(Color::black()),
+      "white" => return Some(Color::white()),
+      _ => {}
     }
+
+    // Parse color-shade format (e.g., "red-500")
+    let (color_name, shade_str) = token.rsplit_once('-')?;
+    let shade: u16 = shade_str.parse().ok()?;
+
+    // Lookup in color table
+    lookup_tailwind_color(color_name, shade).map(Color::from_rgb)
   }
 }
 
