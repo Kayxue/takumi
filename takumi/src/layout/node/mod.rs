@@ -17,7 +17,7 @@ use crate::{
     style::{BackgroundImage, CssOption, CssValue, InheritedStyle, Style},
   },
   rendering::{
-    BorderProperties, Canvas, RenderContext, SizedShadow, draw_background_layers, draw_border,
+    BorderProperties, Canvas, RenderContext, SizedShadow, draw_background_layers,
     resolve_layers_tiles,
   },
   resources::task::FetchTaskCollection,
@@ -60,12 +60,6 @@ macro_rules! impl_node_enum {
       ) -> $crate::taffy::Size<f32> {
         match self {
           $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::measure(inner, context, available_space, known_dimensions, style), )*
-        }
-      }
-
-      fn draw_on_canvas(&self, context: &$crate::rendering::RenderContext, canvas: &mut $crate::rendering::Canvas, layout: $crate::taffy::Layout) {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::draw_on_canvas(inner, context, canvas, layout), )*
         }
       }
 
@@ -219,48 +213,46 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
     Size::ZERO
   }
 
-  /// Draws the node onto the canvas using the computed layout.
-  fn draw_on_canvas(&self, context: &RenderContext, canvas: &mut Canvas, layout: Layout) {
-    self.draw_outset_box_shadow(context, canvas, layout);
-    self.draw_background_color(context, canvas, layout);
-    self.draw_background_image(context, canvas, layout);
-    self.draw_inset_box_shadow(context, canvas, layout);
-    self.draw_border(context, canvas, layout);
-    self.draw_content(context, canvas, layout);
-  }
-
   /// Draws the outset box shadow of the node.
   fn draw_outset_box_shadow(&self, context: &RenderContext, canvas: &mut Canvas, layout: Layout) {
-    if let Some(box_shadow) = context.style.box_shadow.as_ref() {
-      let border_radius = BorderProperties::from_context(context, &layout);
+    let Some(box_shadow) = context.style.box_shadow.as_ref() else {
+      return;
+    };
 
-      for shadow in box_shadow.0.iter() {
-        if shadow.inset {
-          continue;
-        }
+    let border_radius = BorderProperties::from_context(context, layout.size, layout.border);
 
-        let mut paths = Vec::new();
-
-        let shadow = SizedShadow::from_box_shadow(*shadow, context, layout.size);
-
-        border_radius
-          .expand_by(shadow.spread_radius)
-          .append_mask_commands(&mut paths);
-        border_radius.transform.apply_on_paths(&mut paths);
-
-        context.transform.apply_on_paths(&mut paths);
-
-        let (mask, placement) = Mask::new(&paths).render();
-
-        shadow.draw_outset(canvas, mask.into(), placement, layout.location);
+    for shadow in box_shadow.0.iter() {
+      if shadow.inset {
+        continue;
       }
+
+      let mut paths = Vec::new();
+
+      let shadow = SizedShadow::from_box_shadow(*shadow, context, layout.size);
+
+      border_radius
+        .expand_by(shadow.spread_radius)
+        .append_mask_commands(
+          &mut paths,
+          layout.size,
+          Point {
+            x: -shadow.spread_radius,
+            y: -shadow.spread_radius,
+          },
+        );
+
+      let (mask, placement) = Mask::new(&paths)
+        .transform(Some(context.transform.into()))
+        .render();
+
+      shadow.draw_outset_mask(canvas, mask.into(), placement);
     }
   }
 
   /// Draws the inset box shadow of the node.
   fn draw_inset_box_shadow(&self, context: &RenderContext, canvas: &mut Canvas, layout: Layout) {
     if let Some(box_shadow) = context.style.box_shadow.as_ref() {
-      let border_radius = BorderProperties::from_context(context, &layout);
+      let border_radius = BorderProperties::from_context(context, layout.size, layout.border);
 
       for shadow in box_shadow.0.iter() {
         if !shadow.inset {
@@ -275,17 +267,10 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
 
   /// Draws the background color of the node.
   fn draw_background_color(&self, context: &RenderContext, canvas: &mut Canvas, layout: Layout) {
-    let radius = BorderProperties::from_context(context, &layout);
+    let radius = BorderProperties::from_context(context, layout.size, layout.border);
 
     canvas.fill_color(
-      Point {
-        x: layout.location.x as i32,
-        y: layout.location.y as i32,
-      },
-      Size {
-        width: layout.size.width as u32,
-        height: layout.size.height as u32,
-      },
+      layout.size,
       context
         .style
         .background_color
@@ -312,10 +297,9 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
 
     draw_background_layers(
       tiles,
-      BorderProperties::from_context(context, &layout).inset_by_border_width(),
+      BorderProperties::from_context(context, layout.size, layout.border).inset_by_border_width(),
       context,
       canvas,
-      layout,
     );
   }
 
@@ -326,10 +310,10 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
 
   /// Draws the border of the node.
   fn draw_border(&self, context: &RenderContext, canvas: &mut Canvas, layout: Layout) {
-    draw_border(
+    BorderProperties::from_context(context, layout.size, layout.border).draw(
       canvas,
-      layout.location,
-      BorderProperties::from_context(context, &layout),
+      layout.size,
+      context.transform,
     );
   }
 }

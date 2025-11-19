@@ -11,7 +11,7 @@ use crate::{
     style::{Display, InheritedStyle, SizedFontStyle, TextOverflow},
   },
   rendering::{
-    Canvas, MaxHeight, RenderContext, draw_debug_border,
+    Canvas, MaxHeight, RenderContext,
     inline_drawing::{draw_inline_box, draw_inline_layout},
   },
 };
@@ -23,18 +23,25 @@ pub(crate) struct NodeTree<'g, N: Node<N>> {
 }
 
 impl<'g, N: Node<N>> NodeTree<'g, N> {
-  pub fn draw_on_canvas(&self, canvas: &mut Canvas, layout: Layout) {
-    // Draw the block node itself first
-    if let Some(node) = &self.node {
-      node.draw_on_canvas(&self.context, canvas, layout);
-    }
+  pub(crate) fn draw_shell(&self, canvas: &mut Canvas, layout: Layout) {
+    let Some(node) = &self.node else {
+      return;
+    };
 
-    if self.context.draw_debug_border {
-      draw_debug_border(canvas, layout, self.context.transform);
+    node.draw_outset_box_shadow(&self.context, canvas, layout);
+    node.draw_background_color(&self.context, canvas, layout);
+    node.draw_background_image(&self.context, canvas, layout);
+    node.draw_inset_box_shadow(&self.context, canvas, layout);
+    node.draw_border(&self.context, canvas, layout);
+  }
+
+  pub(crate) fn draw_content(&self, canvas: &mut Canvas, layout: Layout) {
+    if let Some(node) = &self.node {
+      node.draw_content(&self.context, canvas, layout);
     }
   }
 
-  pub fn draw_inline(&self, canvas: &mut Canvas, layout: Layout) {
+  pub fn draw_inline(&mut self, canvas: &mut Canvas, layout: Layout) {
     if self.context.opacity == 0.0 {
       return;
     }
@@ -48,7 +55,7 @@ impl<'g, N: Node<N>> NodeTree<'g, N> {
 
     // Then handle the inline boxes directly by zipping the node refs with their positioned boxes
     for ((node, context, _), positioned) in boxes.iter().zip(positioned_inline_boxes.iter()) {
-      draw_inline_box(positioned, *node, context, layout, canvas);
+      draw_inline_box(positioned, *node, context, canvas, self.context.transform);
     }
   }
 

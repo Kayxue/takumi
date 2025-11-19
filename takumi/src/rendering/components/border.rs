@@ -1,6 +1,6 @@
 use std::f32::consts::SQRT_2;
 
-use taffy::{Layout, Point, Size};
+use taffy::{Point, Rect, Size};
 use zeno::{Command, Fill, Mask, PathBuilder};
 
 use crate::{
@@ -22,36 +22,35 @@ fn resolve_border_radius_from_percentage_css(
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct BorderProperties {
   /// The width of the border on each side (top, right, bottom, left)
-  pub width: taffy::Rect<f32>,
-  /// The offset of the border in the local coordinate space
-  pub offset: Point<f32>,
-  /// The size of the border area
-  pub size: Size<f32>,
+  pub width: Rect<f32>,
   /// The color of the border
   pub color: Color,
   /// Corner radii: top, right, bottom, left (in pixels)
   pub radius: Sides<f32>,
-  /// The transform applied when drawing this border
-  pub transform: Affine,
 }
 
 impl BorderProperties {
+  /// The amount of path commands to append for this border.
+  /// This is used to pre-allocate the vector size for the mask commands.
+  const PATH_COMMANDS_AMOUNT: usize = 10;
+
   /// Create an empty BorderProperties with zeroed radii and default values.
   pub const fn zero() -> Self {
     Self {
-      width: taffy::Rect::ZERO,
-      offset: Point::ZERO,
-      size: Size::ZERO,
+      width: Rect::ZERO,
       color: Color([0, 0, 0, 255]),
       radius: Sides([0.0; 4]),
-      transform: Affine::identity(),
     }
   }
 
   /// Resolves the border radius from the context and layout.
-  pub fn from_context(context: &RenderContext, layout: &Layout) -> Self {
+  pub fn from_context(
+    context: &RenderContext,
+    border_box: Size<f32>,
+    border_width: Rect<f32>,
+  ) -> Self {
     let resolved = context.style.resolved_border_radius();
-    let reference_size = layout.size.width.min(layout.size.height);
+    let reference_size = border_box.width.min(border_box.height);
 
     let top_left = resolve_border_radius_from_percentage_css(context, resolved.top, reference_size);
     let top_right =
@@ -62,9 +61,7 @@ impl BorderProperties {
       resolve_border_radius_from_percentage_css(context, resolved.left, reference_size);
 
     Self {
-      width: layout.border,
-      offset: Point::ZERO,
-      size: layout.size,
+      width: border_width,
       color: context
         .style
         .border_color
@@ -72,7 +69,6 @@ impl BorderProperties {
         .unwrap_or(ColorInput::CurrentColor)
         .resolve(context.current_color, context.opacity),
       radius: Sides([top_left, top_right, bottom_right, bottom_left]),
-      transform: context.transform,
     }
   }
 
@@ -89,14 +85,6 @@ impl BorderProperties {
   pub fn expand_by(&self, amount: f32) -> Self {
     Self {
       width: self.width,
-      offset: Point {
-        x: self.offset.x - amount,
-        y: self.offset.y - amount,
-      },
-      size: Size {
-        width: (self.size.width + amount * 2.0).max(0.0),
-        height: (self.size.height + amount * 2.0).max(0.0),
-      },
       color: self.color,
       radius: Sides([
         (self.radius.0[0] + amount).max(0.0),
@@ -104,7 +92,6 @@ impl BorderProperties {
         (self.radius.0[2] + amount).max(0.0),
         (self.radius.0[3] + amount).max(0.0),
       ]),
-      transform: self.transform,
     }
   }
 
@@ -115,15 +102,22 @@ impl BorderProperties {
   }
 
   /// Append rounded-rect path commands for this border's corner radii.
-  pub fn append_mask_commands(&self, path: &mut Vec<Command>) {
+  pub fn append_mask_commands(
+    &self,
+    path: &mut Vec<Command>,
+    border_box: Size<f32>,
+    offset: Point<f32>,
+  ) {
+    path.reserve_exact(BorderProperties::PATH_COMMANDS_AMOUNT);
+
     const KAPPA: f32 = 4.0 / 3.0 * (SQRT_2 - 1.0);
 
-    let top_edge_width = (self.size.width - self.radius.0[0] - self.radius.0[1]).max(0.0);
-    let right_edge_height = (self.size.height - self.radius.0[1] - self.radius.0[2]).max(0.0);
-    let bottom_edge_width = (self.size.width - self.radius.0[3] - self.radius.0[2]).max(0.0);
-    let left_edge_height = (self.size.height - self.radius.0[3] - self.radius.0[0]).max(0.0);
+    let top_edge_width = (border_box.width - self.radius.0[0] - self.radius.0[1]).max(0.0);
+    let right_edge_height = (border_box.height - self.radius.0[1] - self.radius.0[2]).max(0.0);
+    let bottom_edge_width = (border_box.width - self.radius.0[3] - self.radius.0[2]).max(0.0);
+    let left_edge_height = (border_box.height - self.radius.0[3] - self.radius.0[0]).max(0.0);
 
-    path.move_to((self.offset.x + self.radius.0[0], self.offset.y));
+    path.move_to((offset.x + self.radius.0[0], offset.y));
 
     if top_edge_width > 0.0 {
       path.rel_line_to((top_edge_width, 0.0));
@@ -179,41 +173,40 @@ impl BorderProperties {
 
     path.close();
   }
-}
 
-// duplicate/old BorderProperties removed; canonical `BorderProperties` defined above.
+  pub(crate) fn draw(&self, canvas: &mut Canvas, border_box: Size<f32>, transform: Affine) {
+    if self.width.left == 0.0
+      && self.width.right == 0.0
+      && self.width.top == 0.0
+      && self.width.bottom == 0.0
+    {
+      return;
+    }
 
-/// Draws borders around the node with optional border radius.
-///
-/// This function draws borders with specified size and color. If border_radius is specified,
-/// it creates a rounded border using a custom drawing approach.
-pub(crate) fn draw_border(
-  canvas: &mut Canvas,
-  canvas_offset: Point<f32>,
-  border: BorderProperties,
-) {
-  if border.width.left == 0.0
-    && border.width.right == 0.0
-    && border.width.top == 0.0
-    && border.width.bottom == 0.0
-  {
-    return;
+    let mut paths = Vec::with_capacity(BorderProperties::PATH_COMMANDS_AMOUNT * 2);
+
+    self.append_mask_commands(&mut paths, border_box, Point::ZERO);
+
+    let avg_width = (self.width.top + self.width.right + self.width.bottom + self.width.left) / 4.0;
+
+    self.expand_by(-avg_width).append_mask_commands(
+      &mut paths,
+      border_box
+        - Size {
+          width: avg_width * 2.0,
+          height: avg_width * 2.0,
+        },
+      Point {
+        x: avg_width,
+        y: avg_width,
+      },
+    );
+
+    let (mask, placement) = Mask::new(&paths)
+      .style(Fill::EvenOdd)
+      .transform(Some(transform.into()))
+      .render();
+
+    canvas.draw_mask(&mask, placement, self.color, None);
   }
-
-  let mut paths = Vec::new();
-
-  border.append_mask_commands(&mut paths);
-
-  border
-    .inset_by_border_width()
-    .append_mask_commands(&mut paths);
-
-  border.transform.apply_on_paths(&mut paths);
-
-  let (mask, mut placement) = Mask::new(&paths).style(Fill::EvenOdd).render();
-
-  placement.left += border.offset.x as i32 + canvas_offset.x as i32;
-  placement.top += border.offset.y as i32 + canvas_offset.y as i32;
-
-  canvas.draw_mask(&mask, placement, border.color, None);
 }

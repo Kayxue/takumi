@@ -5,7 +5,7 @@ use ts_rs::TS;
 use zeno::{Fill, Mask, PathBuilder, PathData, Placement};
 
 use crate::{
-  layout::style::{Affine, Axis, Color, FromCss, LengthUnit, ParseResult, Sides, SpacePair},
+  layout::style::{Axis, Color, FromCss, LengthUnit, ParseResult, Sides, SpacePair},
   rendering::{BorderProperties, RenderContext},
 };
 
@@ -214,14 +214,6 @@ impl BasicShape {
 
         let border = BorderProperties {
           width: Rect::zero(),
-          offset: Point {
-            x: inset.left,
-            y: inset.top,
-          },
-          size: Size {
-            width: size.width - inset.grid_axis_sum(AbsoluteAxis::Horizontal),
-            height: size.height - inset.grid_axis_sum(AbsoluteAxis::Vertical),
-          },
           color: Color::transparent(),
           radius: shape
             .border_radius
@@ -233,10 +225,19 @@ impl BasicShape {
               )
             })
             .unwrap_or_default(),
-          transform: Affine::identity(),
         };
 
-        border.append_mask_commands(&mut paths);
+        border.append_mask_commands(
+          &mut paths,
+          Size {
+            width: size.width - inset.grid_axis_sum(AbsoluteAxis::Horizontal),
+            height: size.height - inset.grid_axis_sum(AbsoluteAxis::Vertical),
+          },
+          Point {
+            x: inset.left,
+            y: inset.top,
+          },
+        );
       }
       BasicShape::Ellipse(shape) => {
         let distance = Size {
@@ -275,12 +276,11 @@ impl BasicShape {
       }
     }
 
-    context.transform.apply_on_paths(&mut paths);
-
     Mask::new(&paths)
       .style(Fill::from(
         self.fill_rule().unwrap_or(context.style.clip_rule),
       ))
+      .transform(Some(context.transform.into()))
       .render()
   }
 }

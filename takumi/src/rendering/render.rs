@@ -2,17 +2,17 @@ use std::{collections::HashMap, sync::Arc};
 
 use derive_builder::Builder;
 use image::RgbaImage;
-use taffy::{AvailableSpace, Layout, NodeId, Point, TaffyTree, geometry::Size};
+use taffy::{AvailableSpace, NodeId, TaffyTree, geometry::Size};
 
 use crate::{
   GlobalContext,
   layout::{
     Viewport,
     node::Node,
-    style::{Affine, Color, Display, InheritedStyle, LengthUnit, Overflow},
+    style::{Affine, Display, InheritedStyle},
     tree::NodeTree,
   },
-  rendering::{BorderProperties, Canvas},
+  rendering::{Canvas, CanvasConstrain, CanvasConstrainResult, draw_debug_border},
   resources::image::ImageSource,
 };
 
@@ -88,43 +88,34 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
 
   let mut canvas = Canvas::new(root_size);
 
-  render_node(
-    &mut taffy,
-    root_node_id,
-    &mut canvas,
-    Point::ZERO,
-    Affine::identity(),
-    root_size,
-  );
+  render_node(&mut taffy, root_node_id, &mut canvas, Affine::IDENTITY);
 
   Ok(canvas.into_inner())
 }
 
 fn create_transform(
+  mut transform: Affine,
   style: &InheritedStyle,
   border_box: Size<f32>,
   context: &RenderContext,
 ) -> Affine {
-  let transform_origin = style.transform_origin.0.unwrap_or_default();
+  let transform_origin = style.transform_origin.unwrap_or_default();
 
-  let center_x = LengthUnit::from(transform_origin.0.x).resolve_to_px(context, border_box.width);
-  let center_y = LengthUnit::from(transform_origin.0.y).resolve_to_px(context, border_box.height);
+  let center = transform_origin.to_point(context, border_box) + transform.decompose_translation();
 
-  let mut transform = Affine::translation(-center_x, -center_y);
+  transform *= Affine::translation(-center.x, -center.y);
 
-  // According to https://www.w3.org/TR/css-transforms-2/#ctm
-  // the order is `translate` -> `rotate` -> `scale` -> `transform`.
-  // But we need to invert the order because of matrix multiplication.
+  // https://github.com/servo/servo/blob/9dfd6990ba381cbb7b7f9faa63d3425656ceac0a/components/layout/display_list/stacking_context.rs#L1717-L1720
   if let Some(node_transform) = &*style.transform {
     transform *= node_transform.to_affine(context, border_box);
   }
 
-  if let Some(scale) = *style.scale {
-    transform *= Affine::scale(scale.x.0, scale.y.0);
-  }
-
   if let Some(rotate) = *style.rotate {
     transform *= Affine::rotation(rotate);
+  }
+
+  if let Some(scale) = *style.scale {
+    transform *= Affine::scale(scale.x.0, scale.y.0);
   }
 
   if let Some(translate) = *style.translate {
@@ -134,163 +125,77 @@ fn create_transform(
     );
   }
 
-  transform * Affine::translation(center_x, center_y)
+  transform *= Affine::translation(center.x, center.y);
+
+  transform
 }
 
 fn render_node<'g, Nodes: Node<Nodes>>(
   taffy: &mut TaffyTree<NodeTree<'g, Nodes>>,
   node_id: NodeId,
   canvas: &mut Canvas,
-  offset: Point<f32>,
   mut transform: Affine,
-  root_size: Size<u32>,
 ) {
-  let mut layout = *taffy.layout(node_id).unwrap();
-  let node_context = taffy.get_node_context_mut(node_id).unwrap();
+  let layout = *taffy.layout(node_id).unwrap();
+  let node = taffy.get_node_context_mut(node_id).unwrap();
 
-  if node_context.context.opacity == 0.0 || node_context.context.style.display == Display::None {
+  if node.context.opacity == 0.0 || node.context.style.display == Display::None {
     return;
   }
 
-  layout.location = layout.location + offset;
+  transform = Affine::translation(layout.location.x, layout.location.y) * transform;
 
-  transform *= create_transform(
-    &node_context.context.style,
-    layout.size,
-    &node_context.context,
-  );
+  transform = create_transform(transform, &node.context.style, layout.size, &node.context);
 
-  node_context.context.transform = transform;
-
-  if let Some(clip) = &node_context.context.style.clip_path.0 {
-    let translation = node_context.context.transform.decompose().translation;
-
-    node_context.context.transform.zero_translation();
-
-    let (mask, mut placement) = clip.render_mask(&node_context.context, layout.size);
-
-    node_context.context.transform.x = -placement.left as f32;
-    node_context.context.transform.y = -placement.top as f32;
-
-    let mut inner_canvas = Canvas::new(Size {
-      width: placement.width,
-      height: placement.height,
-    });
-
-    let inner_layout = Layout {
-      location: Point::zero(),
-      ..layout
-    };
-
-    node_context.draw_on_canvas(&mut inner_canvas, inner_layout);
-
-    if node_context.should_create_inline_layout() {
-      node_context.draw_inline(&mut inner_canvas, inner_layout);
-    } else {
-      for child_id in taffy.children(node_id).unwrap() {
-        render_node(
-          taffy,
-          child_id,
-          &mut inner_canvas,
-          Point::zero(),
-          transform,
-          root_size,
-        );
-      }
-    }
-
-    placement.left += (layout.location.x + translation.width) as i32;
-    placement.top += (layout.location.y + translation.height) as i32;
-
-    return canvas.draw_mask(
-      &mask,
-      placement,
-      Color::transparent(),
-      Some(inner_canvas.into_inner()),
-    );
+  // If a transform function causes the current transformation matrix of an object to be non-invertible, the object and its content do not get displayed.
+  // https://drafts.csswg.org/css-transforms/#transform-function-lists
+  if !transform.is_invertible() {
+    return;
   }
 
-  node_context.draw_on_canvas(canvas, layout);
+  node.context.transform = transform;
 
-  let overflow = node_context.context.style.resolve_overflows();
+  let constrain = CanvasConstrain::from_node(&node.context, &node.context.style, layout, transform);
 
-  if overflow.should_clip_content() {
-    // if theres no space for canvas to draw, just return.
-    let Some(mut inner_canvas) = overflow.create_clip_canvas(root_size, layout) else {
+  let has_constrain = matches!(constrain, CanvasConstrainResult::Some(_));
+
+  match constrain {
+    CanvasConstrainResult::SkipRendering => {
       return;
-    };
-
-    let image_rendering = node_context.context.style.image_rendering;
-    let filters = node_context.context.style.filter.0.clone();
-
-    let offset = Point {
-      x: if overflow.0.x == Overflow::Visible {
-        layout.location.x
-      } else {
-        0.0
-      },
-      y: if overflow.0.y == Overflow::Visible {
-        layout.location.y
-      } else {
-        0.0
-      },
-    };
-
-    if node_context.should_create_inline_layout() {
-      node_context.draw_inline(
-        &mut inner_canvas,
-        Layout {
-          size: layout.content_box_size(),
-          location: offset,
-          ..Default::default()
-        },
-      );
-    } else {
-      for child_id in taffy.children(node_id).unwrap() {
-        render_node(
-          taffy,
-          child_id,
-          &mut inner_canvas,
-          offset,
-          transform,
-          root_size,
-        );
-      }
     }
-
-    return canvas.overlay_image(
-      &inner_canvas.into_inner(),
-      Point {
-        x: if overflow.0.x == Overflow::Visible {
-          0
-        } else {
-          layout.location.x as i32
-        },
-        y: if overflow.0.y == Overflow::Visible {
-          0
-        } else {
-          layout.location.y as i32
-        },
-      },
-      BorderProperties::zero(),
-      transform,
-      image_rendering,
-      filters.as_ref(),
-    );
+    CanvasConstrainResult::None => {
+      node.draw_shell(canvas, layout);
+    }
+    CanvasConstrainResult::Some(constrain) => match constrain {
+      // Notice the order is important here.
+      // Clip path clips everything include the border, so it should be pushed first.
+      CanvasConstrain::ClipPath { .. } => {
+        canvas.push_constrain(constrain);
+        node.draw_shell(canvas, layout);
+      }
+      // Overflow clips only the inner children, so the shell should be drawn first.
+      CanvasConstrain::Overflow { .. } => {
+        node.draw_shell(canvas, layout);
+        canvas.push_constrain(constrain);
+      }
+    },
   }
 
-  if node_context.should_create_inline_layout() {
-    node_context.draw_inline(canvas, layout);
+  node.draw_content(canvas, layout);
+
+  if node.context.draw_debug_border {
+    draw_debug_border(canvas, layout, transform);
+  }
+
+  if node.should_create_inline_layout() {
+    node.draw_inline(canvas, layout);
   } else {
     for child_id in taffy.children(node_id).unwrap() {
-      render_node(
-        taffy,
-        child_id,
-        canvas,
-        layout.location,
-        transform,
-        root_size,
-      );
+      render_node(taffy, child_id, canvas, transform);
     }
+  }
+
+  if has_constrain {
+    canvas.pop_constrain();
   }
 }

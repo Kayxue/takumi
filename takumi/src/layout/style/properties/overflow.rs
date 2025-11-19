@@ -1,12 +1,11 @@
+use std::ops::Deref;
+
 use cssparser::{Parser, match_ignore_ascii_case};
 use serde::{Deserialize, Serialize};
-use taffy::{Layout, Size};
+use taffy::Point;
 use ts_rs::TS;
 
-use crate::{
-  layout::style::{FromCss, ParseResult, SpacePair, tw::TailwindPropertyParser},
-  rendering::Canvas,
-};
+use crate::layout::style::{FromCss, ParseResult, SpacePair, tw::TailwindPropertyParser};
 
 /// How children overflowing their container should affect layout
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq, Default)]
@@ -63,9 +62,26 @@ impl<'i> FromCss<'i> for Overflow {
 #[serde(transparent)]
 pub struct Overflows(pub SpacePair<Overflow>);
 
+impl From<Overflows> for Point<taffy::Overflow> {
+  fn from(val: Overflows) -> Self {
+    Point {
+      x: val.x.into(),
+      y: val.y.into(),
+    }
+  }
+}
+
 impl Default for Overflows {
   fn default() -> Self {
     Self(SpacePair::from_single(Overflow::Visible))
+  }
+}
+
+impl Deref for Overflows {
+  type Target = SpacePair<Overflow>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
   }
 }
 
@@ -73,27 +89,6 @@ impl Overflows {
   #[inline]
   pub(crate) fn should_clip_content(&self) -> bool {
     *self != Overflows(SpacePair::from_single(Overflow::Visible))
-  }
-
-  pub(crate) fn create_clip_canvas(&self, root_size: Size<u32>, layout: Layout) -> Option<Canvas> {
-    let inner_size = Size {
-      width: if self.0.x == Overflow::Visible {
-        root_size.width
-      } else {
-        (layout.size.width - layout.padding.right - layout.border.right) as u32
-      },
-      height: if self.0.y == Overflow::Visible {
-        root_size.height
-      } else {
-        (layout.size.height - layout.padding.bottom - layout.border.bottom) as u32
-      },
-    };
-
-    if inner_size.width == 0 || inner_size.height == 0 {
-      return None;
-    }
-
-    Some(Canvas::new(inner_size))
   }
 }
 
@@ -108,13 +103,13 @@ mod tests {
     // Test deserialization from string (single value)
     let overflow_json = r#""hidden""#;
     let overflow: Overflows = serde_json::from_str(overflow_json).unwrap();
-    assert_eq!(overflow.0.x, Overflow::Hidden);
-    assert_eq!(overflow.0.y, Overflow::Hidden);
+    assert_eq!(overflow.x, Overflow::Hidden);
+    assert_eq!(overflow.y, Overflow::Hidden);
 
     // Test deserialization from object (pair of values)
     let overflow_json = r#"{"x": "visible", "y": "hidden"}"#;
     let overflow: Overflows = serde_json::from_str(overflow_json).unwrap();
-    assert_eq!(overflow.0.x, Overflow::Visible);
-    assert_eq!(overflow.0.y, Overflow::Hidden);
+    assert_eq!(overflow.x, Overflow::Visible);
+    assert_eq!(overflow.y, Overflow::Hidden);
   }
 }

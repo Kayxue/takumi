@@ -58,6 +58,9 @@ export function image(props: Omit<ImageNode, "type">): ImageNode {
   const node: ImageNode = {
     type: "image",
     src: props.src,
+    width: props.width,
+    height: props.height,
+    tw: props.tw,
   };
 
   applyStyle(node, props.style);

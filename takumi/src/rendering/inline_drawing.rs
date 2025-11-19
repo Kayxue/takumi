@@ -1,6 +1,6 @@
 use image::RgbaImage;
 use parley::{GlyphRun, PositionedInlineBox, PositionedLayoutItem};
-use taffy::{Layout, Point, Size};
+use taffy::{Layout, Size};
 
 use crate::{
   layout::{
@@ -97,30 +97,26 @@ pub(crate) fn draw_inline_box<N: Node<N>>(
   inline_box: &PositionedInlineBox,
   node: &N,
   context: &RenderContext,
-  mut layout: Layout,
   canvas: &mut Canvas,
+  transform: Affine,
 ) {
   if context.opacity == 0.0 {
     return;
   }
 
-  let translated = Affine::translation(inline_box.x, inline_box.y) * context.transform;
+  let context = RenderContext {
+    transform: Affine::translation(inline_box.x, inline_box.y) * transform,
+    ..context.clone()
+  };
 
-  let translation_diff = translated.decompose().translation
-    + context.transform.decompose().translation.map(|axis| -axis);
-
-  layout.location.x += translation_diff.width;
-  layout.location.y += translation_diff.height;
-
-  node.draw_on_canvas(
-    context,
+  node.draw_content(
+    &context,
     canvas,
     Layout {
       size: Size {
         width: inline_box.width,
         height: inline_box.height,
       },
-      location: layout.location,
       ..Default::default()
     },
   );
@@ -189,12 +185,12 @@ fn create_fill_image(
         overlay_image(
           &mut composed,
           &tile_image,
-          Point { x: *x, y: *y },
           Default::default(),
-          Affine::identity(),
+          Affine::translation(*x as f32, *y as f32),
           context.style.image_rendering,
           context.style.filter.as_ref(),
-        )
+          None,
+        );
       }
     }
   }

@@ -6,38 +6,216 @@
 use std::borrow::Cow;
 
 use image::{
-  Pixel, Rgba, RgbaImage,
+  GenericImageView, Pixel, Rgba, RgbaImage, SubImage,
   imageops::{interpolate_bilinear, interpolate_nearest},
 };
-use taffy::{Point, Size};
+use smallvec::SmallVec;
+use taffy::{Layout, Point, Size};
 use zeno::{Mask, Placement};
 
 use crate::{
-  layout::style::{Affine, Angle, Color, Filters, ImageScalingAlgorithm},
-  rendering::BorderProperties,
+  layout::style::{Affine, Color, Filters, ImageScalingAlgorithm, InheritedStyle, Overflow},
+  rendering::{BorderProperties, RenderContext},
 };
 
-/// A canvas handle for sending drawing commands asynchronously.
-///
-/// This struct wraps a channel sender that can be cloned and used to send
-/// drawing commands to a canvas rendering loop without blocking the main thread.
-pub struct Canvas(RgbaImage);
+#[derive(Clone, Copy)]
+pub(crate) enum BorrowedImageOrView<'a> {
+  Image(&'a RgbaImage),
+  SubImage(SubImage<&'a RgbaImage>),
+}
+
+impl<'a> From<&'a RgbaImage> for BorrowedImageOrView<'a> {
+  fn from(image: &'a RgbaImage) -> Self {
+    BorrowedImageOrView::Image(image)
+  }
+}
+
+impl<'a> From<SubImage<&'a RgbaImage>> for BorrowedImageOrView<'a> {
+  fn from(sub_image: SubImage<&'a RgbaImage>) -> Self {
+    BorrowedImageOrView::SubImage(sub_image)
+  }
+}
+
+impl<'a> BorrowedImageOrView<'a> {
+  pub(crate) fn get_pixel(&self, x: u32, y: u32) -> Rgba<u8> {
+    match self {
+      BorrowedImageOrView::Image(image) => *image.get_pixel(x, y),
+      BorrowedImageOrView::SubImage(sub_image) => sub_image.get_pixel(x, y),
+    }
+  }
+}
+
+pub(crate) enum CanvasConstrainResult {
+  Some(CanvasConstrain),
+  None,
+  SkipRendering,
+}
+
+pub(crate) enum CanvasConstrain {
+  Overflow {
+    from: Point<u32>,
+    to: Point<u32>,
+    inverse_transform: Affine,
+  },
+  ClipPath {
+    mask: Vec<u8>,
+    placement: Placement,
+  },
+}
+
+impl CanvasConstrain {
+  pub(crate) fn from_node(
+    context: &RenderContext,
+    style: &InheritedStyle,
+    layout: Layout,
+    transform: Affine,
+  ) -> CanvasConstrainResult {
+    // Clip path would just clip everything, and behaves like overflow: hidden.
+    if let Some(clip_path) = &*style.clip_path {
+      let (mask, placement) = clip_path.render_mask(context, layout.size);
+
+      let end_x = placement.left + placement.width as i32;
+      let end_y = placement.top + placement.height as i32;
+
+      if end_x < 0 || end_y < 0 {
+        return CanvasConstrainResult::SkipRendering;
+      }
+
+      return CanvasConstrainResult::Some(CanvasConstrain::ClipPath { mask, placement });
+    }
+
+    let Some(inverse_transform) = transform.invert() else {
+      return CanvasConstrainResult::SkipRendering;
+    };
+
+    let overflow = style.resolve_overflows();
+
+    let clip_x = overflow.x != Overflow::Visible;
+    let clip_y = overflow.y != Overflow::Visible;
+
+    if !overflow.should_clip_content() {
+      return CanvasConstrainResult::None;
+    }
+
+    if (clip_x && layout.content_box_width() < f32::EPSILON)
+      || (clip_y && layout.content_box_height() < f32::EPSILON)
+    {
+      return CanvasConstrainResult::SkipRendering;
+    }
+
+    let from = Point {
+      x: if clip_x {
+        (layout.padding.left + layout.border.left) as u32
+      } else {
+        0
+      },
+      y: if clip_y {
+        (layout.padding.top + layout.border.top) as u32
+      } else {
+        0
+      },
+    };
+    let to = Point {
+      x: if clip_x {
+        from.x + layout.content_box_width() as u32
+      } else {
+        u32::MAX
+      },
+      y: if clip_y {
+        from.y + layout.content_box_height() as u32
+      } else {
+        u32::MAX
+      },
+    };
+
+    CanvasConstrainResult::Some(CanvasConstrain::Overflow {
+      from,
+      to,
+      inverse_transform,
+    })
+  }
+
+  pub(crate) fn get_alpha(&self, x: u32, y: u32) -> u8 {
+    match *self {
+      CanvasConstrain::Overflow {
+        from,
+        to,
+        inverse_transform,
+      } => {
+        let original_point = inverse_transform.transform_point(Point {
+          x: x as f32,
+          y: y as f32,
+        });
+
+        if original_point.x < 0.0 || original_point.y < 0.0 {
+          return 0;
+        }
+
+        let original_point = original_point.map(|point| point as u32);
+
+        let is_contained = original_point.x >= from.x
+          && original_point.x < to.x
+          && original_point.y >= from.y
+          && original_point.y < to.y;
+
+        if !is_contained {
+          return 0;
+        }
+
+        u8::MAX
+      }
+      CanvasConstrain::ClipPath {
+        ref mask,
+        placement,
+      } => {
+        let mask_x = x as i32 - placement.left;
+        let mask_y = y as i32 - placement.top;
+
+        if mask_x < 0
+          || mask_y < 0
+          || mask_x >= placement.width as i32
+          || mask_y >= placement.height as i32
+        {
+          return 0;
+        }
+
+        mask[mask_index_from_coord(mask_x as u32, mask_y as u32, placement.width)]
+      }
+    }
+  }
+}
+
+/// A canvas that can be used to draw images onto.
+pub struct Canvas {
+  image: RgbaImage,
+  constrains: SmallVec<[CanvasConstrain; 1]>,
+}
 
 impl Canvas {
   /// Creates a new canvas handle from a draw command sender.
   pub(crate) fn new(size: Size<u32>) -> Self {
-    Self(RgbaImage::new(size.width, size.height))
+    Self {
+      image: RgbaImage::new(size.width, size.height),
+      constrains: SmallVec::new(),
+    }
+  }
+
+  pub(crate) fn push_constrain(&mut self, overflow_constrain: CanvasConstrain) {
+    self.constrains.push(overflow_constrain);
+  }
+
+  pub(crate) fn pop_constrain(&mut self) {
+    self.constrains.pop();
   }
 
   pub(crate) fn into_inner(self) -> RgbaImage {
-    self.0
+    self.image
   }
 
   /// Overlays an image onto the canvas with optional border radius.
   pub(crate) fn overlay_image(
     &mut self,
     image: &RgbaImage,
-    offset: Point<i32>,
     border: BorderProperties,
     transform: Affine,
     algorithm: ImageScalingAlgorithm,
@@ -48,13 +226,13 @@ impl Canvas {
     }
 
     overlay_image(
-      &mut self.0,
+      &mut self.image,
       image,
-      offset,
       border,
       transform,
       algorithm,
       filters,
+      self.constrains.last(),
     );
   }
 
@@ -64,20 +242,26 @@ impl Canvas {
     mask: &[u8],
     placement: Placement,
     color: Color,
-    image: Option<RgbaImage>,
+    image: Option<BorrowedImageOrView>,
   ) {
     if mask.is_empty() {
       return;
     }
 
-    draw_mask(&mut self.0, mask, placement, color, image.as_ref());
+    draw_mask(
+      &mut self.image,
+      mask,
+      placement,
+      color,
+      image,
+      self.constrains.last(),
+    );
   }
 
   /// Fills a rectangular area with the specified color and optional border radius.
   pub(crate) fn fill_color(
     &mut self,
-    offset: Point<i32>,
-    size: Size<u32>,
+    size: Size<f32>,
     color: Color,
     border: BorderProperties,
     transform: Affine,
@@ -86,7 +270,48 @@ impl Canvas {
       return;
     }
 
-    fill_color(&mut self.0, size, offset, color, border, transform);
+    let constrain = self.constrains.last();
+
+    // Fast path: if drawing on the entire canvas, we can just replace the entire canvas with the color
+    if transform.is_identity()
+      && border.is_zero()
+      && constrain.is_none()
+      && color.0[3] == 255
+      && size.width as u32 == self.image.width()
+      && size.height as u32 == self.image.height()
+    {
+      let image_mut = self.image.as_mut();
+
+      for chunk in image_mut.chunks_exact_mut(4) {
+        chunk.copy_from_slice(&color.0);
+      }
+
+      return;
+    }
+
+    let can_direct_draw = transform.only_translation() && border.is_zero();
+
+    // Fast path: if no sub-pixel interpolation is needed, we can just draw the color directly
+    if can_direct_draw {
+      let translation = transform.decompose_translation();
+
+      let color: Rgba<u8> = color.into();
+      return overlay_area(
+        &mut self.image,
+        translation,
+        size.map(|size| size as u32),
+        constrain,
+        |_, _| color,
+      );
+    }
+
+    let mut paths = Vec::new();
+
+    border.append_mask_commands(&mut paths, size, Point::ZERO);
+
+    let (mask, placement) = Mask::new(&paths).transform(Some(transform.into())).render();
+
+    draw_mask(&mut self.image, &mask, placement, color, None, constrain);
   }
 }
 
@@ -94,26 +319,41 @@ impl Canvas {
 ///
 /// If the color is fully transparent (alpha = 0), no operation is performed.
 /// Otherwise, the pixel is blended with the existing canvas pixel using alpha blending.
-#[inline]
-pub(crate) fn draw_pixel(canvas: &mut RgbaImage, x: u32, y: u32, color: Rgba<u8>) {
+#[inline(always)]
+fn draw_pixel(
+  canvas: &mut RgbaImage,
+  x: u32,
+  y: u32,
+  mut color: Rgba<u8>,
+  constrain: Option<&CanvasConstrain>,
+) {
   if color.0[3] == 0 {
     return;
   }
 
-  // image-rs blend will skip the operation if the source color is fully transparent
-  if let Some(pixel) = canvas.get_pixel_mut_checked(x, y) {
-    if pixel.0[3] == 0 {
-      // If the destination pixel is fully transparent, we directly assign the new color.
-      // This is a performance optimization: blending with a fully transparent pixel is
-      // equivalent to assignment, so we skip the blend operation. This deviates from the
-      // standard alpha blending approach for efficiency.
-      *pixel = color;
-    } else {
-      pixel.blend(&color);
+  if let Some(constrain_alpha) = constrain.map(|c| c.get_alpha(x, y)) {
+    if constrain_alpha == 0 {
+      return;
     }
+
+    color = apply_mask_alpha_to_pixel(color, constrain_alpha);
+  }
+
+  // image-rs blend will skip the operation if the source color is fully transparent
+  let pixel = canvas.get_pixel_mut(x, y);
+
+  if pixel.0[3] == 0 {
+    // If the destination pixel is fully transparent, we directly assign the new color.
+    // This is a performance optimization: blending with a fully transparent pixel is
+    // equivalent to assignment, so we skip the blend operation. This deviates from the
+    // standard alpha blending approach for efficiency.
+    *pixel = color;
+  } else {
+    pixel.blend(&color);
   }
 }
 
+#[inline(always)]
 pub(crate) fn apply_mask_alpha_to_pixel(mut pixel: Rgba<u8>, alpha: u8) -> Rgba<u8> {
   if alpha == u8::MAX {
     pixel
@@ -124,134 +364,55 @@ pub(crate) fn apply_mask_alpha_to_pixel(mut pixel: Rgba<u8>, alpha: u8) -> Rgba<
   }
 }
 
-/// Draws a filled rectangle with a solid color.
-pub(crate) fn fill_color<C: Into<Rgba<u8>>>(
-  image: &mut RgbaImage,
-  size: Size<u32>,
-  offset: Point<i32>,
-  color: C,
-  radius: BorderProperties,
-  transform: Affine,
-) {
-  let color: Rgba<u8> = color.into();
-
-  // Fast path: if drawing on the entire canvas, we can just replace the entire canvas with the color
-  if transform.is_identity()
-    && radius.is_zero()
-    && color.0[3] == 255
-    && offset.x == 0
-    && offset.y == 0
-    && size.width == image.width()
-    && size.height == image.height()
-  {
-    let image_mut = image.as_mut();
-
-    for chunk in image_mut.chunks_exact_mut(4) {
-      chunk.copy_from_slice(&color.0);
-    }
-
-    return;
-  }
-
-  let transform_part = transform.decompose();
-  let can_direct_draw = transform_part.rotation == Angle::zero() && radius.is_zero();
-
-  // Fast path: if no sub-pixel interpolation is needed, we can just draw the color directly
-  if can_direct_draw {
-    let transformed_size = Size {
-      width: (size.width as f32 * transform_part.scale.width).round() as u32,
-      height: (size.height as f32 * transform_part.scale.height).round() as u32,
-    };
-
-    let transformed_offset = Point {
-      x: (offset.x as f32 + transform_part.translation.width).round() as i32,
-      y: (offset.y as f32 + transform_part.translation.height).round() as i32,
-    };
-
-    for y in 0..transformed_size.height {
-      for x in 0..transformed_size.width {
-        let dest_x = x as i32 + transformed_offset.x;
-        let dest_y = y as i32 + transformed_offset.y;
-
-        if dest_x < 0 || dest_y < 0 {
-          continue;
-        }
-
-        draw_pixel(image, dest_x as u32, dest_y as u32, color);
-      }
-    }
-
-    return;
-  }
-
-  let mut paths = Vec::new();
-
-  radius.append_mask_commands(&mut paths);
-  transform.apply_on_paths(&mut paths);
-
-  let (mask, mut placement) = Mask::new(&paths).render();
-
-  placement.left += offset.x;
-  placement.top += offset.y;
-
-  draw_mask(image, &mask, placement, color, None);
-}
-
 pub(crate) fn draw_mask<C: Into<Rgba<u8>>>(
   canvas: &mut RgbaImage,
   mask: &[u8],
   placement: Placement,
   color: C,
-  image: Option<&RgbaImage>,
+  image: Option<BorrowedImageOrView>,
+  constrain: Option<&CanvasConstrain>,
 ) {
-  let color: Rgba<u8> = color.into();
-  let mut i = 0;
-
-  for y in 0..placement.height {
-    for x in 0..placement.width {
-      let alpha = mask[i];
-      i += 1;
-
-      if alpha == 0 {
-        continue;
-      }
-
-      let dest_x = x as i32 + placement.left;
-      let dest_y = y as i32 + placement.top;
-
-      if dest_x < 0 || dest_y < 0 {
-        continue;
-      }
-
-      let pixel = image
-        .map(|image| {
-          let pixel = *image.get_pixel(x, y);
-          apply_mask_alpha_to_pixel(pixel, alpha)
-        })
-        .unwrap_or_else(|| apply_mask_alpha_to_pixel(color, alpha));
-
-      draw_pixel(canvas, dest_x as u32, dest_y as u32, pixel);
-    }
+  if mask.is_empty() {
+    return;
   }
+
+  let offset = Point {
+    x: placement.left as f32,
+    y: placement.top as f32,
+  };
+  let top_size = Size {
+    width: placement.width,
+    height: placement.height,
+  };
+
+  let color = color.into();
+
+  overlay_area(canvas, offset, top_size, constrain, |x, y| {
+    let alpha = mask[mask_index_from_coord(x, y, placement.width)];
+
+    if alpha == 0 {
+      return Color::transparent().into();
+    }
+
+    let pixel = image.map(|image| image.get_pixel(x, y)).unwrap_or(color);
+
+    apply_mask_alpha_to_pixel(pixel, alpha)
+  });
 }
 
 pub(crate) fn overlay_image(
   canvas: &mut RgbaImage,
   image: &RgbaImage,
-  offset: Point<i32>,
   border: BorderProperties,
   transform: Affine,
   algorithm: ImageScalingAlgorithm,
   filters: Option<&Filters>,
+  constrain: Option<&CanvasConstrain>,
 ) {
-  let transform_part = transform.decompose();
-  let can_direct_draw =
-    !transform_part.is_rotated() && !transform_part.is_scaled() && border.is_zero();
-
   let mut image = Cow::Borrowed(image);
 
   if let Some(filters) = filters
-    && !filters.0.is_empty()
+    && !filters.is_empty()
   {
     let mut owned_image = image.into_owned();
 
@@ -260,26 +421,20 @@ pub(crate) fn overlay_image(
     image = Cow::Owned(owned_image);
   }
 
-  if can_direct_draw {
-    let transformed_offset = Point {
-      x: (offset.x as f32 + transform_part.translation.width).round() as i32,
-      y: (offset.y as f32 + transform_part.translation.height).round() as i32,
-    };
+  // Fast path: if no sub-pixel interpolation is needed, we can just draw the image directly
+  if transform.only_translation() && border.is_zero() {
+    let translation = transform.decompose_translation();
 
-    for y in 0..image.height() {
-      for x in 0..image.width() {
-        let dest_x = x as i32 + transformed_offset.x;
-        let dest_y = y as i32 + transformed_offset.y;
-
-        if dest_x < 0 || dest_y < 0 {
-          continue;
-        }
-
-        draw_pixel(canvas, dest_x as u32, dest_y as u32, *image.get_pixel(x, y));
-      }
-    }
-
-    return;
+    return overlay_area(
+      canvas,
+      translation,
+      Size {
+        width: image.width(),
+        height: image.height(),
+      },
+      constrain,
+      |x, y| *image.get_pixel(x, y),
+    );
   }
 
   let Some(inverse) = transform.invert() else {
@@ -288,46 +443,111 @@ pub(crate) fn overlay_image(
 
   let mut paths = Vec::new();
 
-  border.append_mask_commands(&mut paths);
-  transform.apply_on_paths(&mut paths);
+  border.append_mask_commands(
+    &mut paths,
+    Size {
+      width: image.width() as f32,
+      height: image.height() as f32,
+    },
+    Point::ZERO,
+  );
 
-  let (mask, placement) = Mask::new(&paths).render();
+  let (mask, placement) = Mask::new(&paths).transform(Some(transform.into())).render();
 
-  let mut i = 0;
+  let is_identity = transform.is_identity();
 
-  for y in 0..placement.height {
-    for x in 0..placement.width {
-      let alpha = mask[i];
-      i += 1;
+  let get_original_pixel = |x, y| {
+    let alpha = mask[mask_index_from_coord(x, y, placement.width)];
 
-      if alpha == 0 {
-        continue;
-      }
+    if alpha == 0 {
+      return Color::transparent().into();
+    }
 
-      let canvas_x = x as i32 + offset.x + placement.left;
-      let canvas_y = y as i32 + offset.y + placement.top;
+    // Fast path: If only border radius is applied, we can just map the pixel directly
+    if is_identity && placement.left >= 0 && placement.top >= 0 {
+      return apply_mask_alpha_to_pixel(
+        *image.get_pixel(x + placement.left as u32, y + placement.top as u32),
+        alpha,
+      );
+    }
 
-      if canvas_x < 0 || canvas_y < 0 {
-        continue;
-      }
+    let point = inverse.transform_point(Point {
+      x: (x as f32 + placement.left as f32).round(),
+      y: (y as f32 + placement.top as f32).round(),
+    });
 
-      let point = Point {
-        x: x as f32 + placement.left as f32,
-        y: y as f32 + placement.top as f32,
-      } * inverse;
+    let sampled_pixel = match algorithm {
+      ImageScalingAlgorithm::Pixelated => interpolate_nearest(&*image, point.x, point.y),
+      _ => interpolate_bilinear(&*image, point.x, point.y),
+    };
 
-      let sampled_pixel = match algorithm {
-        ImageScalingAlgorithm::Pixelated => interpolate_nearest(&*image, point.x, point.y),
-        _ => interpolate_bilinear(&*image, point.x, point.y),
-      };
+    let Some(pixel) = sampled_pixel else {
+      return Color::transparent().into();
+    };
 
-      if let Some(mut pixel) = sampled_pixel {
-        if alpha != u8::MAX {
-          pixel = apply_mask_alpha_to_pixel(pixel, alpha);
-        }
+    apply_mask_alpha_to_pixel(pixel, alpha)
+  };
 
-        draw_pixel(canvas, canvas_x as u32, canvas_y as u32, pixel);
-      }
+  overlay_area(
+    canvas,
+    Point {
+      x: placement.left as f32,
+      y: placement.top as f32,
+    },
+    Size {
+      width: placement.width,
+      height: placement.height,
+    },
+    constrain,
+    get_original_pixel,
+  );
+}
+
+#[inline(always)]
+pub(crate) fn mask_index_from_coord(x: u32, y: u32, width: u32) -> usize {
+  (y * width + x) as usize
+}
+
+pub(crate) fn overlay_area(
+  bottom: &mut RgbaImage,
+  offset: Point<f32>,
+  top_size: Size<u32>,
+  constrain: Option<&CanvasConstrain>,
+  f: impl Fn(u32, u32) -> Rgba<u8>,
+) {
+  if top_size.width == 0 || top_size.height == 0 {
+    return;
+  }
+
+  let offset_x = offset.x as i32;
+  let offset_y = offset.y as i32;
+  let bottom_width = bottom.width() as i32;
+  let bottom_height = bottom.height() as i32;
+
+  // Calculate the valid range in the destination image
+  let dest_y_min = offset_y.max(0);
+  let dest_y_max = (offset_y + top_size.height as i32).min(bottom_height);
+
+  if dest_y_min >= dest_y_max {
+    return; // No overlap
+  }
+
+  let dest_x_min = offset_x.max(0);
+  let dest_x_max = (offset_x + top_size.width as i32).min(bottom_width);
+
+  if dest_x_min >= dest_x_max {
+    return; // No horizontal overlap on this row
+  }
+
+  // For each destination y, calculate corresponding source y
+  for dest_y in dest_y_min..dest_y_max {
+    let src_y = (dest_y - offset_y) as u32;
+
+    for dest_x in dest_x_min..dest_x_max {
+      let src_x = (dest_x - offset_x) as u32;
+      let pixel = f(src_x, src_y);
+
+      draw_pixel(bottom, dest_x as u32, dest_y as u32, pixel, constrain);
     }
   }
 }
