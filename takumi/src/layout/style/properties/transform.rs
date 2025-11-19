@@ -140,6 +140,14 @@ impl Affine {
   /// Transforms a point by the transform
   #[inline(always)]
   pub fn transform_point(self, point: Point<f32>) -> Point<f32> {
+    // Fast path: If the transform is only a translation, we can just add the translation to the point
+    if self.only_translation() {
+      return Point {
+        x: point.x + self.x,
+        y: point.y + self.y,
+      };
+    }
+
     Point {
       x: self.a * point.x + self.c * point.y + self.x,
       y: self.b * point.x + self.d * point.y + self.y,
@@ -180,13 +188,15 @@ impl Affine {
       return None;
     }
 
+    let inv_det = 1.0 / det;
+
     Some(Self {
-      a: self.d / det,
-      b: self.b / -det,
-      c: self.c / -det,
-      d: self.a / det,
-      x: (self.d * self.x - self.c * self.y) / -det,
-      y: (self.b * self.x - self.a * self.y) / det,
+      a: self.d * inv_det,
+      b: self.b * -inv_det,
+      c: self.c * -inv_det,
+      d: self.a * inv_det,
+      x: (self.d * self.x - self.c * self.y) * -inv_det,
+      y: (self.b * self.x - self.a * self.y) * inv_det,
     })
   }
 }
