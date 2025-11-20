@@ -5,10 +5,3 @@ edition = "2024"
 
 [dependencies.takumi]
 path = "../../takumi"
-
-[dependencies.serde]
-version = "1"
-features = ["derive"]
-
-[dependencies]
-async-trait = "0.1"
