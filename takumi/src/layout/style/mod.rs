@@ -4,10 +4,14 @@ mod stylesheets;
 /// Handle Tailwind CSS properties.
 pub mod tw;
 
+use std::marker::PhantomData;
+
 use cssparser::match_ignore_ascii_case;
 pub use properties::*;
-use serde::{Deserialize, Deserializer, de::Error as DeError};
-use serde_untagged::UntaggedEnumVisitor;
+use serde::{
+  Deserialize, Deserializer,
+  de::{self, Visitor},
+};
 pub use stylesheets::*;
 
 /// Represents a CSS property value that can be explicitly set, inherited from parent, or reset to initial value.
@@ -21,6 +25,67 @@ pub enum CssValue<T, const DEFAULT_INHERIT: bool = false> {
   Value(T),
 }
 
+// Visitor for CssValue<T>
+struct CssValueVisitor<T, const DEFAULT_INHERIT: bool> {
+  _marker: PhantomData<T>,
+}
+
+impl<T, const DEFAULT_INHERIT: bool> CssValueVisitor<T, DEFAULT_INHERIT> {
+  fn new() -> Self {
+    Self {
+      _marker: PhantomData,
+    }
+  }
+}
+
+impl<'de, T: for<'i> FromCss<'i>, const DEFAULT_INHERIT: bool> Visitor<'de>
+  for CssValueVisitor<T, DEFAULT_INHERIT>
+{
+  type Value = CssValue<T, DEFAULT_INHERIT>;
+
+  fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    formatter.write_str("a CSS value (string, number, 'initial', or 'inherit')")
+  }
+
+  fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+  where
+    E: de::Error,
+  {
+    match_ignore_ascii_case! {value,
+      "initial" => Ok(CssValue::Initial),
+      "inherit" => Ok(CssValue::Inherit),
+      _ => T::from_str(value).map(CssValue::Value).map_err(E::custom),
+    }
+  }
+
+  fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+  where
+    E: de::Error,
+  {
+    T::from_str(&value.to_string())
+      .map(CssValue::Value)
+      .map_err(E::custom)
+  }
+
+  fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+  where
+    E: de::Error,
+  {
+    T::from_str(&value.to_string())
+      .map(CssValue::Value)
+      .map_err(E::custom)
+  }
+
+  fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+  where
+    E: de::Error,
+  {
+    T::from_str(&value.to_string())
+      .map(CssValue::Value)
+      .map_err(E::custom)
+  }
+}
+
 impl<'de, T: for<'i> FromCss<'i>, const DEFAULT_INHERIT: bool> Deserialize<'de>
   for CssValue<T, DEFAULT_INHERIT>
 {
@@ -28,26 +93,69 @@ impl<'de, T: for<'i> FromCss<'i>, const DEFAULT_INHERIT: bool> Deserialize<'de>
   where
     D: Deserializer<'de>,
   {
-    UntaggedEnumVisitor::new()
-      .expecting(r#"#initial# | #inherit# | string | number"#)
-      .string(|str| {
-        match_ignore_ascii_case! {str,
-          "initial" => Ok(CssValue::Initial),
-          "inherit" => Ok(CssValue::Inherit),
-          _ => T::from_str(str).map(CssValue::Value).map_err(DeError::custom),
-        }
-      })
-      .i64(|num| {
-        T::from_str(num.to_string().as_str())
-          .map(CssValue::Value)
-          .map_err(DeError::custom)
-      })
-      .f64(|num| {
-        T::from_str(num.to_string().as_str())
-          .map(CssValue::Value)
-          .map_err(DeError::custom)
-      })
-      .deserialize(deserializer)
+    deserializer.deserialize_any(CssValueVisitor::new())
+  }
+}
+
+// Visitor for CssValue<Option<T>>
+struct CssValueOptionVisitor<T, const DEFAULT_INHERIT: bool> {
+  _marker: PhantomData<T>,
+}
+
+impl<T, const DEFAULT_INHERIT: bool> CssValueOptionVisitor<T, DEFAULT_INHERIT> {
+  fn new() -> Self {
+    Self {
+      _marker: PhantomData,
+    }
+  }
+}
+
+impl<'de, T: for<'i> FromCss<'i>, const DEFAULT_INHERIT: bool> Visitor<'de>
+  for CssValueOptionVisitor<T, DEFAULT_INHERIT>
+{
+  type Value = CssValue<Option<T>, DEFAULT_INHERIT>;
+
+  fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    formatter.write_str("a CSS value (string, number, 'none', 'initial', or 'inherit')")
+  }
+
+  fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+  where
+    E: de::Error,
+  {
+    match_ignore_ascii_case! {value,
+      "none" => Ok(CssValue::Value(None)),
+      "initial" => Ok(CssValue::Initial),
+      "inherit" => Ok(CssValue::Inherit),
+      _ => T::from_str(value).map(|v| CssValue::Value(Some(v))).map_err(E::custom),
+    }
+  }
+
+  fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+  where
+    E: de::Error,
+  {
+    T::from_str(&value.to_string())
+      .map(|v| CssValue::Value(Some(v)))
+      .map_err(E::custom)
+  }
+
+  fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+  where
+    E: de::Error,
+  {
+    T::from_str(&value.to_string())
+      .map(|v| CssValue::Value(Some(v)))
+      .map_err(E::custom)
+  }
+
+  fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
+  where
+    E: de::Error,
+  {
+    T::from_str(&value.to_string())
+      .map(|v| CssValue::Value(Some(v)))
+      .map_err(E::custom)
   }
 }
 
@@ -58,27 +166,7 @@ impl<'de, T: for<'i> FromCss<'i>, const DEFAULT_INHERIT: bool> Deserialize<'de>
   where
     D: Deserializer<'de>,
   {
-    UntaggedEnumVisitor::new()
-      .expecting(r#"#initial# | #inherit# | #none# | string | number"#)
-      .string(|str| {
-        match_ignore_ascii_case! {str,
-          "none" => Ok(CssValue::Value(None)),
-          "initial" => Ok(CssValue::Initial),
-          "inherit" => Ok(CssValue::Inherit),
-          _ => T::from_str(str).map(|value| CssValue::Value(Some(value))).map_err(DeError::custom)
-        }
-      })
-      .i64(|num| {
-        T::from_str(num.to_string().as_str())
-          .map(|value| CssValue::Value(Some(value)))
-          .map_err(DeError::custom)
-      })
-      .f64(|num| {
-        T::from_str(num.to_string().as_str())
-          .map(|value| CssValue::Value(Some(value)))
-          .map_err(DeError::custom)
-      })
-      .deserialize(deserializer)
+    deserializer.deserialize_any(CssValueOptionVisitor::new())
   }
 }
 
