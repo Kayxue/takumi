@@ -1,12 +1,10 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use swash::text::WordBreakStrength;
-use ts_rs::TS;
 
 /// Controls how text should be broken at word boundaries.
 ///
 /// Corresponds to CSS word-break property.
-#[derive(Debug, Default, Copy, Clone, Deserialize, Serialize, TS, PartialEq)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Default, Copy, Clone, Deserialize, PartialEq)]
 pub enum WordBreak {
   /// Normal line breaking behavior—lines may break according to language rules.
   #[default]

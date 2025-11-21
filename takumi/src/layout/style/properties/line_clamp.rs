@@ -1,10 +1,10 @@
 use cssparser::Parser;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use ts_rs::TS;
 
 use crate::layout::style::{FromCss, ParseResult, tw::TailwindPropertyParser};
 
-#[derive(Debug, Clone, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Deserialize, TS, PartialEq)]
 #[serde(try_from = "LineClampValue")]
 #[ts(as = "LineClampValue")]
 /// Represents a line clamp value.
@@ -34,7 +34,7 @@ impl From<u32> for LineClamp {
   }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, TS)]
+#[derive(Debug, Clone, Deserialize, TS)]
 #[serde(untagged)]
 pub(crate) enum LineClampValue {
   Structured {

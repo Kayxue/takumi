@@ -1,11 +1,11 @@
 use cssparser::{Parser, Token};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use ts_rs::TS;
 
 use crate::layout::style::{FromCss, ParseResult};
 
 /// Represents grid track repetition keywords
-#[derive(Debug, Clone, Deserialize, Serialize, TS, Copy, PartialEq)]
+#[derive(Debug, Clone, Deserialize, TS, Copy, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum GridRepetitionKeyword {
   /// Automatically fills the available space with as many tracks as possible
@@ -15,7 +15,7 @@ pub enum GridRepetitionKeyword {
 }
 
 /// Represents a grid track repetition pattern
-#[derive(Debug, Clone, Deserialize, Serialize, TS, Copy, PartialEq)]
+#[derive(Debug, Clone, Deserialize, TS, Copy, PartialEq)]
 #[serde(untagged)]
 pub enum GridRepetitionCount {
   /// Keywords for auto-fill and auto-fit

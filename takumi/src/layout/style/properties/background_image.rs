@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cssparser::{Parser, match_ignore_ascii_case};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use smallvec::SmallVec;
 use ts_rs::TS;
 
@@ -10,7 +10,7 @@ use crate::layout::style::{
 };
 
 /// Background image variants supported by Takumi.
-#[derive(Debug, Clone, PartialEq, TS, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, TS, Deserialize)]
 #[serde(untagged)]
 pub enum BackgroundImage {
   /// CSS linear-gradient(...)
@@ -63,7 +63,7 @@ pub(crate) enum BackgroundImagesValue {
 }
 
 /// A collection of background images.
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, TS)]
+#[derive(Debug, Deserialize, Clone, PartialEq, TS)]
 #[ts(as = "BackgroundImagesValue")]
 #[serde(try_from = "BackgroundImagesValue")]
 pub struct BackgroundImages(pub SmallVec<[BackgroundImage; 4]>);

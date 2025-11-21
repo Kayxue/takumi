@@ -1,5 +1,5 @@
 use cssparser::Parser;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use taffy::{MaxTrackSizingFunction, MinTrackSizingFunction, TrackSizingFunction};
 use ts_rs::TS;
 
@@ -9,14 +9,14 @@ use crate::{
 };
 
 /// A wrapper around a list of `GridTrackSize` that can also be parsed from a CSS string.
-#[derive(Debug, Clone, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Deserialize, TS, PartialEq)]
 #[serde(try_from = "GridTrackSizesValue")]
 #[ts(as = "GridTrackSizesValue")]
 pub struct GridTrackSizes(pub Vec<GridTrackSize>);
 
 /// Serializable input for `GridTrackSizes` that accepts either a list of
 /// pre-parsed `GridTrackSize` values or a CSS string to parse.
-#[derive(Debug, Clone, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Deserialize, TS, PartialEq)]
 #[serde(untagged)]
 pub(crate) enum GridTrackSizesValue {
   /// Explicit list of track sizes.
@@ -48,7 +48,7 @@ impl TryFrom<GridTrackSizesValue> for GridTrackSizes {
 }
 
 /// Represents a grid track size
-#[derive(Debug, Clone, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Deserialize, TS, PartialEq)]
 #[serde(untagged)]
 pub enum GridTrackSize {
   /// A minmax() track size

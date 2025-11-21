@@ -1,14 +1,14 @@
 use std::ops::Deref;
 
 use cssparser::{Parser, match_ignore_ascii_case};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use taffy::Point;
 use ts_rs::TS;
 
 use crate::layout::style::{FromCss, ParseResult, SpacePair, tw::TailwindPropertyParser};
 
 /// How children overflowing their container should affect layout
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, Deserialize, TS, PartialEq, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum Overflow {
   /// The automatic minimum size of this node as a flexbox/grid item should be based on the size of its content.
@@ -58,7 +58,7 @@ impl<'i> FromCss<'i> for Overflow {
 ///
 /// Can be either a single value applied to both axes, or separate values
 /// for horizontal and vertical overflow.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, TS, PartialEq)]
 #[serde(transparent)]
 pub struct Overflows(pub SpacePair<Overflow>);
 

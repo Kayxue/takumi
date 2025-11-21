@@ -1,6 +1,6 @@
 use cssparser::Parser;
 use serde::{
-  Deserialize, Deserializer, Serialize,
+  Deserialize, Deserializer,
   de::{Error, Unexpected},
 };
 use serde_untagged::UntaggedEnumVisitor;
@@ -8,9 +8,8 @@ use ts_rs::TS;
 
 use crate::layout::style::{FromCss, ParseResult, tw::TailwindPropertyParser};
 
-#[derive(Debug, Clone, Serialize, Copy, TS, PartialEq)]
+#[derive(Debug, Clone, Copy, TS, PartialEq)]
 #[ts(type = "number | string")]
-#[serde(transparent)]
 /// Represents a flex grow value.
 pub struct FlexGrow(pub f32);
 

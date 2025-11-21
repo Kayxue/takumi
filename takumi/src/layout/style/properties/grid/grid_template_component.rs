@@ -1,5 +1,5 @@
 use cssparser::Parser;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use ts_rs::TS;
 
 use crate::layout::style::{FromCss, ParseResult};
@@ -10,14 +10,14 @@ use super::{GridRepeatTrack, GridRepetitionCount, GridTrackSize};
 ///
 /// This exists to provide a distinct type for template component lists while
 /// preserving JSON compatibility (serialized as a plain array) and clean TS types.
-#[derive(Debug, Clone, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Deserialize, TS, PartialEq)]
 #[serde(try_from = "GridTemplateComponentsValue")]
 #[ts(as = "GridTemplateComponentsValue")]
 pub struct GridTemplateComponents(pub Vec<GridTemplateComponent>);
 
 /// Serializable input for `GridTemplateComponents` that accepts either a
 /// pre-parsed component list or a CSS string to be parsed at runtime.
-#[derive(Debug, Clone, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Deserialize, TS, PartialEq)]
 #[serde(untagged)]
 pub(crate) enum GridTemplateComponentsValue {
   /// Explicit list of template components.
@@ -40,7 +40,7 @@ impl TryFrom<GridTemplateComponentsValue> for GridTemplateComponents {
 }
 
 /// Represents a track sizing function or a list of line names between tracks
-#[derive(Debug, Clone, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Deserialize, TS, PartialEq)]
 #[serde(untagged)]
 pub enum GridTemplateComponent {
   /// A list of line names that apply to the current grid line (e.g., [a b])

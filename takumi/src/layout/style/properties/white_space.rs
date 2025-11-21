@@ -1,5 +1,5 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use ts_rs::TS;
 
 use crate::layout::style::{
@@ -7,7 +7,7 @@ use crate::layout::style::{
 };
 
 /// Controls how whitespace should be handled.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, TS, PartialEq)]
 #[serde(try_from = "WhiteSpaceValue", into = "WhiteSpaceValue")]
 #[ts(as = "WhiteSpaceValue")]
 pub struct WhiteSpace {
@@ -72,7 +72,7 @@ impl WhiteSpace {
   }
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, TS, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum WhiteSpaceKeywords {
   Normal,
@@ -108,7 +108,7 @@ impl From<WhiteSpaceKeywords> for WhiteSpace {
   }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Deserialize, TS, PartialEq)]
 #[serde(untagged)]
 pub(crate) enum WhiteSpaceValue {
   Keyword(WhiteSpaceKeywords),

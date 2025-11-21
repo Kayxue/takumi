@@ -1,11 +1,11 @@
 use cssparser::{Parser, ParserInput};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use ts_rs::TS;
 
 use crate::layout::style::{ColorInput, FromCss, ParseResult, properties::LengthUnit};
 
 /// Represents the `text-stroke` shorthand which accepts a width and an optional color.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Deserialize, TS)]
 #[serde(untagged)]
 pub(crate) enum TextStrokeValue {
   /// Structured representation when provided as JSON.
@@ -21,7 +21,7 @@ pub(crate) enum TextStrokeValue {
 /// Parsed `text-stroke` value.
 ///
 /// `color` is optional; when absent the element's `color` property should be used.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, TS)]
 #[serde(try_from = "TextStrokeValue")]
 #[ts(as = "TextStrokeValue")]
 pub struct TextStroke {

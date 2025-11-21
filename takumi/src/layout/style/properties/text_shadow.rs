@@ -1,14 +1,14 @@
 use std::{borrow::Cow, fmt::Debug};
 
 use cssparser::{BasicParseErrorKind, ParseError, Parser};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use smallvec::SmallVec;
 use ts_rs::TS;
 
 use crate::layout::style::{Color, ColorInput, FromCss, LengthUnit, ParseResult};
 
 /// Represents a text shadow with all its properties.
-#[derive(Debug, Clone, PartialEq, Copy, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Copy, Deserialize, TS)]
 #[ts(as = "TextShadowValue")]
 #[serde(try_from = "TextShadowValue")]
 pub struct TextShadow {
@@ -64,7 +64,7 @@ impl TryFrom<TextShadowValue> for TextShadow {
 }
 
 /// Represents a collection of text shadows; has custom `FromCss` implementation for comma-separated values.
-#[derive(Debug, Clone, PartialEq, Deserialize, TS, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, TS)]
 #[ts(as = "TextShadowsValue")]
 #[serde(try_from = "TextShadowsValue")]
 pub struct TextShadows(pub SmallVec<[TextShadow; 4]>);

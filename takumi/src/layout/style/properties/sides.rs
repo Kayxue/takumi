@@ -1,12 +1,12 @@
 use cssparser::Parser;
-use serde::{Deserialize, Deserializer, Serialize, de::Error as DeError};
+use serde::{Deserialize, Deserializer, de::Error as DeError};
 use taffy::Rect;
 use ts_rs::TS;
 
 use crate::layout::style::{FromCss, LengthUnit, ParseResult};
 
 /// Represents the values for the four sides of a box (top, right, bottom, left).
-#[derive(Debug, Clone, Copy, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Copy, TS, PartialEq)]
 #[ts(as = "SidesValue<T>")]
 pub struct Sides<T: TS + Copy>(pub [T; 4]);
 
@@ -37,7 +37,7 @@ impl<T: TS + Copy> Sides<T> {
 /// This enum allows for flexible specification of values like padding, margin,
 /// or border sizes using either a single value for all sides, separate values
 /// for vertical/horizontal axes, or individual values for each side.
-#[derive(Debug, Clone, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Deserialize, TS, PartialEq)]
 #[serde(untagged)]
 pub enum SidesValue<T> {
   /// CSS string representation

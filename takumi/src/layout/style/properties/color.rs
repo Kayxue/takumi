@@ -7,40 +7,20 @@ use cssparser::{
   match_ignore_ascii_case,
 };
 use image::Rgba;
-use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 use crate::layout::style::{FromCss, ParseResult, tw::TailwindPropertyParser};
 
-/// `Color` proxy type for deserializing CSS color values.
-#[derive(Debug, Clone, Deserialize, TS)]
-#[serde(untagged)]
-pub(crate) enum ColorInputValue {
-  /// RGB color with 8-bit components
-  Rgb(u8, u8, u8),
-  /// RGBA color with 8-bit RGB components and 32-bit float alpha (alpha is between 0.0 and 1.0)
-  Rgba(u8, u8, u8, f32),
-  /// Single 32-bit integer containing RGB values
-  RgbInt(u32),
-  /// CSS color string
-  #[ts(type = "\"currentColor\" | string")]
-  Css(String),
-}
-
 /// Represents a color with 8-bit RGBA components.
-#[derive(Debug, Clone, PartialEq, Serialize, TS, Copy)]
+#[derive(Debug, Default, Clone, PartialEq, Copy)]
 pub struct Color(pub [u8; 4]);
 
 /// Represents a color input value.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS, Copy)]
-#[serde(try_from = "ColorInputValue")]
-#[ts(as = "ColorInputValue")]
+#[derive(Debug, Default, Clone, PartialEq, Copy)]
 pub enum ColorInput {
-  #[serde(rename = "currentColor")]
+  #[default]
   /// Inherit from the `color` value.
   CurrentColor,
   /// A color value.
-  #[serde(untagged)]
   Value(Color),
 }
 
@@ -272,12 +252,6 @@ impl Display for Color {
   }
 }
 
-impl Default for Color {
-  fn default() -> Self {
-    Self::transparent()
-  }
-}
-
 impl Color {
   /// Creates a new transparent color.
   pub const fn transparent() -> Self {
@@ -309,27 +283,6 @@ impl Color {
       (rgb & 0xFF) as u8,
       255,
     ])
-  }
-}
-
-impl TryFrom<ColorInputValue> for ColorInput {
-  type Error = String;
-
-  fn try_from(value: ColorInputValue) -> Result<Self, Self::Error> {
-    match value {
-      ColorInputValue::Rgb(r, g, b) => Ok(ColorInput::Value(Color([r, g, b, 255]))),
-      ColorInputValue::Rgba(r, g, b, a) => {
-        Ok(ColorInput::Value(Color([r, g, b, (a * 255.0) as u8])))
-      }
-      ColorInputValue::RgbInt(rgb) => {
-        let r = ((rgb >> 16) & 0xFF) as u8;
-        let g = ((rgb >> 8) & 0xFF) as u8;
-        let b = (rgb & 0xFF) as u8;
-
-        Ok(ColorInput::Value(Color([r, g, b, 255])))
-      }
-      ColorInputValue::Css(css) => ColorInput::from_str(&css).map_err(|e| e.to_string()),
-    }
   }
 }
 

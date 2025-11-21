@@ -1,5 +1,5 @@
 use parley::FontFeature;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer};
 use smallvec::SmallVec;
 use ts_rs::TS;
 
@@ -19,21 +19,5 @@ impl<'de> Deserialize<'de> for FontFeatureSettings {
     let s = String::deserialize(deserializer)?;
 
     Ok(FontFeatureSettings(FontFeature::parse_list(&s).collect()))
-  }
-}
-
-impl Serialize for FontFeatureSettings {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    serializer.serialize_str(
-      &self
-        .0
-        .iter()
-        .map(ToString::to_string)
-        .collect::<Vec<_>>()
-        .join(","),
-    )
   }
 }

@@ -1,5 +1,5 @@
 use cssparser::Parser;
-use serde::{Deserialize, Deserializer, Serialize, de::Error as DeError};
+use serde::{Deserialize, Deserializer, de::Error as DeError};
 use taffy::{LengthPercentage, Point, Size};
 use ts_rs::TS;
 
@@ -9,8 +9,7 @@ use crate::{
 };
 
 /// A pair of values for horizontal and vertical axes.
-#[derive(Debug, Clone, Copy, Serialize, TS, PartialEq)]
-#[serde(try_from = "SpacePairValue<T>")]
+#[derive(Debug, Clone, Copy, TS, PartialEq)]
 #[ts(as = "SpacePairValue<T>")]
 pub struct SpacePair<T: TS + Copy, const Y_FIRST: bool = false> {
   /// The horizontal value.
@@ -19,7 +18,7 @@ pub struct SpacePair<T: TS + Copy, const Y_FIRST: bool = false> {
   pub y: T,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Deserialize, TS, PartialEq)]
 #[serde(untagged)]
 pub(crate) enum SpacePairValue<T: TS + Copy> {
   SingleValue(T),

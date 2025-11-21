@@ -1,5 +1,5 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use taffy::{Point, Size};
 use ts_rs::TS;
 
@@ -9,7 +9,7 @@ use crate::{
 };
 
 /// Horizontal keywords for `background-position`.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, TS, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum PositionKeywordX {
   /// Align to the left edge.
@@ -21,7 +21,7 @@ pub enum PositionKeywordX {
 }
 
 /// Vertical keywords for `background-position`.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, TS, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub enum PositionKeywordY {
   /// Align to the top edge.
@@ -33,7 +33,7 @@ pub enum PositionKeywordY {
 }
 
 /// A single `background-position` component for an axis.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, TS, PartialEq)]
 #[serde(untagged)]
 pub enum PositionComponent {
   /// A horizontal keyword.
@@ -63,7 +63,7 @@ impl From<PositionComponent> for LengthUnit {
 }
 
 /// Parsed `background-position` value for one layer.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Copy, Deserialize, TS, PartialEq)]
 #[serde(transparent)]
 pub struct BackgroundPosition(pub SpacePair<PositionComponent>);
 
@@ -180,7 +180,7 @@ pub(crate) enum BackgroundPositionsValue {
 }
 
 /// A list of `background-position` values (one per layer).
-#[derive(Debug, Default, Deserialize, Serialize, Clone, PartialEq, TS)]
+#[derive(Debug, Default, Deserialize, Clone, PartialEq, TS)]
 #[ts(as = "BackgroundPositionsValue")]
 #[serde(try_from = "BackgroundPositionsValue")]
 pub struct BackgroundPositions(pub Vec<BackgroundPosition>);

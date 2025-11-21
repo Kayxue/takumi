@@ -1,5 +1,5 @@
 use parley::style::FontStyle as ParleyFontStyle;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer};
 use ts_rs::TS;
 
 /// Controls the slant (italic/oblique) of text rendering.
@@ -39,14 +39,5 @@ impl<'de> Deserialize<'de> for FontStyle {
     Ok(FontStyle(ParleyFontStyle::parse(&s).ok_or_else(|| {
       serde::de::Error::custom(format!("Invalid font style: {s}"))
     })?))
-  }
-}
-
-impl Serialize for FontStyle {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    serializer.serialize_str(&self.0.to_string())
   }
 }

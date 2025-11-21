@@ -1,11 +1,11 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use ts_rs::TS;
 
 use crate::layout::style::{FromCss, ParseResult};
 
 /// Per-axis repeat style.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, Deserialize, TS, PartialEq, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum BackgroundRepeatStyle {
   /// Tile as many times as needed with no extra spacing
@@ -20,7 +20,7 @@ pub enum BackgroundRepeatStyle {
 }
 
 /// Combined repeat for X and Y axes.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, TS, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, Deserialize, TS, PartialEq, Default)]
 #[serde(rename_all = "kebab-case")]
 pub struct BackgroundRepeat(pub BackgroundRepeatStyle, pub BackgroundRepeatStyle);
 
@@ -112,7 +112,7 @@ pub(crate) enum BackgroundRepeatsValue {
 }
 
 /// A list of background-repeat values (layered).
-#[derive(Debug, Default, Deserialize, Serialize, Clone, PartialEq, TS)]
+#[derive(Debug, Default, Deserialize, Clone, PartialEq, TS)]
 #[ts(as = "BackgroundRepeatsValue")]
 #[serde(try_from = "BackgroundRepeatsValue")]
 pub struct BackgroundRepeats(pub Vec<BackgroundRepeat>);

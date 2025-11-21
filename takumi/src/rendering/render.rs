@@ -106,19 +106,19 @@ fn create_transform(
   transform *= Affine::translation(-center.x, -center.y);
 
   // https://github.com/servo/servo/blob/9dfd6990ba381cbb7b7f9faa63d3425656ceac0a/components/layout/display_list/stacking_context.rs#L1717-L1720
-  if let Some(node_transform) = &*style.transform {
+  if let Some(node_transform) = &style.transform {
     transform *= node_transform.to_affine(context, border_box);
   }
 
-  if let Some(rotate) = *style.rotate {
+  if let Some(rotate) = style.rotate {
     transform *= Affine::rotation(rotate);
   }
 
-  if let Some(scale) = *style.scale {
+  if let Some(scale) = style.scale {
     transform *= Affine::scale(scale.x.0, scale.y.0);
   }
 
-  if let Some(translate) = *style.translate {
+  if let Some(translate) = style.translate {
     transform *= Affine::translation(
       translate.x.resolve_to_px(context, border_box.width),
       translate.y.resolve_to_px(context, border_box.height),

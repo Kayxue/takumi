@@ -1,12 +1,12 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use smallvec::SmallVec;
 use ts_rs::TS;
 
 use crate::layout::style::{FromCss, ParseResult, properties::ColorInput};
 
 /// Represents the `text-decoration` shorthand which accepts a line style and an optional color.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Deserialize, TS)]
 #[serde(untagged)]
 pub(crate) enum TextDecorationValue {
   /// Structured representation when provided as JSON.
@@ -21,7 +21,7 @@ pub(crate) enum TextDecorationValue {
 }
 
 /// Represents text decoration line options.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 pub enum TextDecorationLine {
   /// Underline text decoration.
@@ -33,12 +33,12 @@ pub enum TextDecorationLine {
 }
 
 /// Represents a collection of text decoration lines.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Default, PartialEq, Deserialize, TS)]
 #[ts(as = "TextDecorationLinesValue")]
 #[serde(try_from = "TextDecorationLinesValue")]
 pub struct TextDecorationLines(pub SmallVec<[TextDecorationLine; 3]>);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Deserialize, TS)]
 #[serde(untagged)]
 enum TextDecorationLinesValue {
   #[ts(as = "Vec<TextDecorationLine>")]
@@ -80,7 +80,7 @@ impl TextDecorationLines {
 }
 
 /// Represents text decoration style options (currently only solid is supported).
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 pub enum TextDecorationStyle {
   /// Solid text decoration style.
@@ -88,7 +88,7 @@ pub enum TextDecorationStyle {
 }
 
 /// Parsed `text-decoration` value.
-#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Default, Clone, PartialEq, Deserialize, TS)]
 #[serde(try_from = "TextDecorationValue")]
 #[ts(as = "TextDecorationValue")]
 pub struct TextDecoration {

@@ -1,6 +1,6 @@
 use cssparser::{Parser, ParserInput, Token, match_ignore_ascii_case};
 use image::RgbaImage;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer};
 use serde_untagged::UntaggedEnumVisitor;
 use smallvec::SmallVec;
 use std::ops::{Deref, Neg};
@@ -40,7 +40,7 @@ pub(crate) trait Gradient: Send + Sync {
 }
 
 /// Represents a linear gradient.
-#[derive(Debug, Clone, PartialEq, TS, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, TS, Deserialize)]
 #[serde(try_from = "LinearGradientValue")]
 #[ts(as = "LinearGradientValue")]
 pub struct LinearGradient {
@@ -168,13 +168,13 @@ impl LinearGradientDrawContext {
 
 /// Represents a gradient stop position.
 /// If a percentage or number (0.0-1.0) is provided, it is treated as a percentage.
-#[derive(Debug, Clone, Copy, PartialEq, TS, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, TS, Deserialize)]
 #[ts(as = "StopPositionValue")]
 #[serde(try_from = "StopPositionValue")]
 pub struct StopPosition(pub LengthUnit);
 
 /// Proxy type for `StopPosition` Css deserialization.
-#[derive(Debug, Clone, PartialEq, TS, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, TS, Deserialize)]
 #[serde(untagged)]
 pub(crate) enum StopPositionValue {
   /// Length value, percentage or number (0.0-1.0) is treated as a percentage.
@@ -184,7 +184,7 @@ pub(crate) enum StopPositionValue {
 }
 
 /// Represents a gradient stop.
-#[derive(Debug, Clone, PartialEq, TS, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, TS, Deserialize)]
 #[serde(untagged)]
 pub enum GradientStop {
   /// A color gradient stop.
@@ -261,8 +261,7 @@ impl<'i> FromCss<'i> for GradientStop {
 }
 
 /// Represents an angle value in degrees.
-#[derive(Debug, Default, Clone, Copy, PartialEq, TS, Serialize)]
-#[serde(transparent)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, TS)]
 #[ts(type = "number | string")]
 pub struct Angle(f32);
 

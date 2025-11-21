@@ -1,11 +1,11 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use ts_rs::TS;
 
 use crate::layout::style::{ColorInput, FromCss, ParseResult, properties::LengthUnit};
 
 /// Represents the `border` shorthand which accepts a width, style ("solid"), and an optional color.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Deserialize, TS)]
 #[serde(untagged)]
 pub(crate) enum BorderValue {
   /// Structured representation when provided as JSON.
@@ -20,7 +20,7 @@ pub(crate) enum BorderValue {
 }
 
 /// Represents border style options (currently only solid is supported).
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, TS)]
 #[serde(rename_all = "kebab-case")]
 pub enum BorderStyle {
   /// Solid border style.
@@ -28,7 +28,7 @@ pub enum BorderStyle {
 }
 
 /// Parsed `border` value.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Deserialize, TS)]
 #[serde(try_from = "BorderValue")]
 #[ts(as = "BorderValue")]
 pub struct Border {

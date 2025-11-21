@@ -1,11 +1,11 @@
 use cssparser::Parser;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use ts_rs::TS;
 
 use crate::layout::style::{FromCss, GridLengthUnit, ParseResult};
 
 /// Represents a grid minmax()
-#[derive(Debug, Clone, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Deserialize, TS, PartialEq)]
 pub struct GridMinMaxSize {
   /// The minimum size of the grid item
   pub min: GridLengthUnit,

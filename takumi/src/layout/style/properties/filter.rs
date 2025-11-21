@@ -5,14 +5,14 @@ use image::{
   Pixel, RgbaImage,
   imageops::colorops::{contrast_in_place, huerotate_in_place},
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use smallvec::SmallVec;
 use ts_rs::TS;
 
 use crate::layout::style::{Angle, FromCss, ParseResult, PercentageNumber};
 
 /// Represents a single CSS filter operation
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, TS)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, TS)]
 #[serde(rename_all = "kebab-case")]
 pub enum Filter {
   /// Brightness multiplier (1 = unchanged). Accepts number or percentage
@@ -32,7 +32,7 @@ pub enum Filter {
 }
 
 /// A list of filters
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, TS)]
+#[derive(Debug, Clone, Deserialize, PartialEq, TS)]
 #[serde(untagged)]
 pub(crate) enum FiltersValue {
   /// Structured set of filters
@@ -42,7 +42,7 @@ pub(crate) enum FiltersValue {
   Css(String),
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, TS, Default)]
+#[derive(Debug, Clone, Deserialize, PartialEq, TS, Default)]
 #[ts(as = "FiltersValue")]
 #[serde(try_from = "FiltersValue")]
 /// A list of filter operations

@@ -1,5 +1,5 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use smallvec::SmallVec;
 use ts_rs::TS;
 
@@ -13,7 +13,7 @@ use crate::{
 };
 
 /// Represents a radial gradient.
-#[derive(Debug, Clone, PartialEq, TS, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, TS, Deserialize)]
 pub struct RadialGradient {
   /// The radial gradient shape
   pub shape: RadialShape,
@@ -26,7 +26,7 @@ pub struct RadialGradient {
 }
 
 /// Supported shapes for radial gradients
-#[derive(Debug, Clone, Copy, PartialEq, TS, Deserialize, Serialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, TS, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum RadialShape {
   /// A circle shape where radii are equal
@@ -37,7 +37,7 @@ pub enum RadialShape {
 }
 
 /// Supported size keywords for radial gradients
-#[derive(Debug, Clone, Copy, PartialEq, TS, Deserialize, Serialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, TS, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum RadialSize {
   /// The gradient end stops at the nearest side from the center

@@ -1,7 +1,7 @@
 use std::ops::{Mul, MulAssign};
 
 use cssparser::{Parser, Token, match_ignore_ascii_case};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer};
 use smallvec::SmallVec;
 use taffy::{Point, Size};
 use ts_rs::TS;
@@ -14,7 +14,7 @@ use crate::{
 const DEFAULT_SCALE: f32 = 1.0;
 
 /// Represents a single CSS transform operation
-#[derive(Debug, Clone, Deserialize, Serialize, Copy, TS, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Copy, TS, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum Transform {
   /// Translates an element along the X-axis and Y-axis by the specified lengths
@@ -217,29 +217,6 @@ impl<'de> Deserialize<'de> for Affine {
   }
 }
 
-impl Serialize for Affine {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    let mut string = String::new();
-
-    string.push_str(&self.a.to_string());
-    string.push(',');
-    string.push_str(&self.b.to_string());
-    string.push(',');
-    string.push_str(&self.c.to_string());
-    string.push(',');
-    string.push_str(&self.d.to_string());
-    string.push(',');
-    string.push_str(&self.x.to_string());
-    string.push(',');
-    string.push_str(&self.y.to_string());
-
-    serializer.serialize_str(&string)
-  }
-}
-
 impl<'i> FromCss<'i> for Affine {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
     let a = input.expect_number()?;
@@ -254,7 +231,7 @@ impl<'i> FromCss<'i> for Affine {
 }
 
 /// A collection of transform operations that can be applied together
-#[derive(Debug, Clone, Deserialize, Serialize, TS, Default, PartialEq)]
+#[derive(Debug, Clone, Deserialize, TS, Default, PartialEq)]
 #[ts(as = "TransformsValue")]
 #[serde(try_from = "TransformsValue")]
 pub struct Transforms(pub SmallVec<[Transform; 4]>);

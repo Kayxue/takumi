@@ -1,5 +1,5 @@
 use cssparser::Parser;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use ts_rs::TS;
 
 use crate::{
@@ -14,7 +14,7 @@ use crate::{
 };
 
 /// Represents a line height value, number value is parsed as em.
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, TS, Copy)]
+#[derive(Debug, Clone, PartialEq, Deserialize, TS, Copy)]
 #[serde(try_from = "LineHeightValue")]
 #[ts(as = "LineHeightValue")]
 pub struct LineHeight(pub LengthUnit);
@@ -40,7 +40,7 @@ impl TailwindPropertyParser for LineHeight {
 }
 
 /// Proxy type for `LineHeight` Css deserialization.
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, TS)]
+#[derive(Debug, Clone, PartialEq, Deserialize, TS)]
 #[serde(untagged)]
 pub(crate) enum LineHeightValue {
   /// A number value.

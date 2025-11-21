@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use cssparser::{Parser, Token};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use ts_rs::TS;
 
 use crate::layout::style::{FromCss, ParseResult};
@@ -10,13 +10,13 @@ use crate::layout::style::{FromCss, ParseResult};
 ///
 /// Supports either a 2D matrix of area names (use "." for empty) or a CSS string value
 /// like: "a a ." "b b c"
-#[derive(Default, Debug, Clone, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Default, Debug, Clone, Deserialize, TS, PartialEq)]
 #[serde(try_from = "GridTemplateAreasValue")]
 #[ts(as = "GridTemplateAreasValue")]
 pub struct GridTemplateAreas(pub Vec<Vec<String>>);
 
 /// Serde helper that accepts either a matrix or a CSS string
-#[derive(Debug, Clone, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Clone, Deserialize, TS, PartialEq)]
 #[serde(untagged)]
 pub(crate) enum GridTemplateAreasValue {
   /// A 2D matrix representation (use "." for empty)

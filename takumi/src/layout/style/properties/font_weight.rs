@@ -2,7 +2,7 @@ use std::fmt::Formatter;
 
 use cssparser::{Parser, match_ignore_ascii_case};
 use parley::style::FontWeight as ParleyFontWeight;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer};
 use ts_rs::TS;
 
 use crate::layout::style::{FromCss, ParseResult, tw::TailwindPropertyParser};
@@ -90,14 +90,5 @@ impl<'de> Deserialize<'de> for FontWeight {
     }
 
     deserializer.deserialize_any(Visitor)
-  }
-}
-
-impl Serialize for FontWeight {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    serializer.serialize_f32(self.0.value())
   }
 }

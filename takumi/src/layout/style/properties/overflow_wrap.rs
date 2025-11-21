@@ -1,11 +1,11 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use ts_rs::TS;
 
 use crate::layout::style::{FromCss, ParseResult, tw::TailwindPropertyParser};
 
 /// Controls how text should be overflowed.
-#[derive(Debug, Default, Copy, Clone, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, Deserialize, TS, PartialEq)]
 #[serde(from = "OverflowWrapValue", into = "OverflowWrapValue")]
 #[ts(as = "OverflowWrapValue")]
 pub struct OverflowWrap(parley::OverflowWrap);
@@ -32,7 +32,7 @@ impl<'i> FromCss<'i> for OverflowWrap {
   }
 }
 
-#[derive(Debug, Copy, Clone, Deserialize, Serialize, TS, PartialEq)]
+#[derive(Debug, Copy, Clone, Deserialize, TS, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 enum OverflowWrapValue {
   Normal,
