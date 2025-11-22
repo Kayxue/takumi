@@ -47,6 +47,30 @@ export default defineConfig({
 If you still encounter issues after all, try opening issues on GitHub or try the WebAssembly version instead.
 
   </Accordion>
+  <Accordion title="Nitro (Tanstack Start)">
+First, install the `@takumi-rs/core` package where we grab the optional dependencies from.
+
+```npm
+npm i @takumi-rs/core
+```
+
+Then, configure Nitro to externalize the dependencies and include the optional dependencies in the trace.
+
+```ts title="vite.config.ts"
+import takumiPackageJson from "@takumi-rs/core/package.json" with {
+  type: "json",
+};
+
+export default defineConfig({
+  nitro: {
+    externals: {
+      external: ["@takumi-rs/core"], // [!code highlight]
+      traceInclude: Object.keys(takumiPackageJson.optionalDependencies), // [!code highlight]
+    }
+  }
+});
+```
+  </Accordion>
 </Accordions>
 
 #### Edge Runtime / Browser
