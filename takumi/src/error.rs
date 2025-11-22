@@ -1,6 +1,9 @@
 use crate::resources::{font::FontError, image::ImageResourceError};
 use thiserror::Error;
 
+/// Alias to [`TakumiError`].
+pub type Error = TakumiError;
+
 /// The main error type for the Takumi crate.
 #[derive(Error, Debug)]
 pub enum TakumiError {
