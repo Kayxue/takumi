@@ -68,20 +68,24 @@ impl WhiteSpace {
   }
 }
 
+fn parse_white_space_keyword<'i>(input: &mut Parser<'i, '_>) -> ParseResult<'i, WhiteSpace> {
+  let location = input.current_source_location();
+  let ident = input.expect_ident()?;
+
+  match_ignore_ascii_case! {&ident,
+    "normal" => Ok(WhiteSpace::normal()),
+    "pre" => Ok(WhiteSpace::pre()),
+    "pre-wrap" => Ok(WhiteSpace::pre_wrap()),
+    "pre-line" => Ok(WhiteSpace::pre_line()),
+    _ => Err(location.new_basic_unexpected_token_error(Token::Ident(ident.clone())).into())
+  }
+}
+
 impl<'i> FromCss<'i> for WhiteSpace {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
     // Try parsing as a keyword first
-    if let Ok(ident) = input.try_parse(Parser::expect_ident_cloned) {
-      return match_ignore_ascii_case! {&ident,
-        "normal" => Ok(WhiteSpace::normal()),
-        "pre" => Ok(WhiteSpace::pre()),
-        "pre-wrap" => Ok(WhiteSpace::pre_wrap()),
-        "pre-line" => Ok(WhiteSpace::pre_line()),
-        _ => {
-          let token = Token::Ident(ident.clone());
-          Err(input.new_basic_unexpected_token_error(token).into())
-        }
-      };
+    if let Ok(ident) = input.try_parse(parse_white_space_keyword) {
+      return Ok(ident);
     }
 
     // Otherwise parse individual components
@@ -106,5 +110,15 @@ impl<'i> FromCss<'i> for WhiteSpace {
       text_wrap_mode: text_wrap_mode.unwrap_or_default(),
       white_space_collapse: white_space_collapse.unwrap_or_default(),
     })
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_parse_white_space_no_wrap() {
+    assert_eq!(WhiteSpace::from_str("nowrap"), Ok(WhiteSpace::no_wrap()));
   }
 }
