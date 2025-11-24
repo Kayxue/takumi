@@ -1,5 +1,15 @@
 # takumi
 
+## 0.54.0
+
+### Minor Changes
+
+- e8ea400: refactor `TakumiError` struct and eliminate `unwrap()` calls
+
+### Patch Changes
+
+- e6a0934: Crate: fix justify-content css parse
+
 ## 0.53.1
 
 ### Patch Changes
