@@ -1,5 +1,11 @@
 # @takumi-rs/core
 
+## 0.54.3
+
+### Patch Changes
+
+- 8c6e17e: make `render(options)` parameter optional
+
 ## 0.54.2
 
 ## 0.54.1
