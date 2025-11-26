@@ -106,6 +106,59 @@ describe("render", () => {
 
     expect(result).toBeInstanceOf(Uint8Array);
   });
+
+  test("auto-calculated dimensions", () => {
+    const result = renderer.render(node, {
+      format: "png",
+    });
+
+    expect(result).toBeInstanceOf(Uint8Array);
+  });
+
+  test("with debug borders", () => {
+    const result = renderer.render(node, {
+      width: 1200,
+      height: 630,
+      format: "png",
+      drawDebugBorder: true,
+    });
+
+    expect(result).toBeInstanceOf(Uint8Array);
+  });
+
+  test("with device pixel ratio 2.0", () => {
+    const result = renderer.render(node, {
+      width: 1200,
+      height: 630,
+      format: "png",
+      devicePixelRatio: 2.0,
+    });
+
+    expect(result).toBeInstanceOf(Uint8Array);
+  });
+
+  test("with fetched resources", () => {
+    const fetchedResources = new Map<string, Uint8Array>();
+    fetchedResources.set(
+      "../assets/images/yeecord.png",
+      new Uint8Array(localImage),
+    );
+
+    const result = renderer.render(node, {
+      width: 1200,
+      height: 630,
+      format: "png",
+      fetchedResources,
+    });
+
+    expect(result).toBeInstanceOf(Uint8Array);
+  });
+
+  test("with no options provided", () => {
+    const result = renderer.render(node);
+
+    expect(result).toBeInstanceOf(Uint8Array);
+  });
 });
 
 describe("renderAsDataUrl", () => {
@@ -144,6 +197,48 @@ describe("renderAsDataUrl", () => {
       width: 1200,
       height: 630,
       format: "png",
+    });
+
+    expect(result).toMatch(/^data:image\/png;base64,/);
+    expect(result.length).toBeGreaterThan(100);
+  });
+
+  test("renderAsDataUrl with debug borders", () => {
+    const result = renderer.renderAsDataUrl(node, {
+      width: 1200,
+      height: 630,
+      format: "png",
+      drawDebugBorder: true,
+    });
+
+    expect(result).toMatch(/^data:image\/png;base64,/);
+    expect(result.length).toBeGreaterThan(100);
+  });
+
+  test("renderAsDataUrl with device pixel ratio", () => {
+    const result = renderer.renderAsDataUrl(node, {
+      width: 1200,
+      height: 630,
+      format: "png",
+      devicePixelRatio: 2.0,
+    });
+
+    expect(result).toMatch(/^data:image\/png;base64,/);
+    expect(result.length).toBeGreaterThan(100);
+  });
+
+  test("renderAsDataUrl with fetched resources", () => {
+    const fetchedResources = new Map<string, Uint8Array>();
+    fetchedResources.set(
+      "../assets/images/yeecord.png",
+      new Uint8Array(localImage),
+    );
+
+    const result = renderer.renderAsDataUrl(node, {
+      width: 1200,
+      height: 630,
+      format: "png",
+      fetchedResources,
     });
 
     expect(result).toMatch(/^data:image\/png;base64,/);

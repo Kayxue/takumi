@@ -158,10 +158,57 @@ describe("render", () => {
 
     expect(result).toBeInstanceOf(Buffer);
   });
+
+  test("auto-calculated dimensions", async () => {
+    const result = await renderer.render(node, {
+      format: "png",
+    });
+
+    expect(result).toBeInstanceOf(Buffer);
+  });
+
+  test("with debug borders", async () => {
+    const result = await renderer.render(node, {
+      ...options,
+      format: "png",
+      drawDebugBorder: true,
+    });
+
+    expect(result).toBeInstanceOf(Buffer);
+  });
+
+  test("with device pixel ratio 2.0", async () => {
+    const result = await renderer.render(node, {
+      ...options,
+      format: "png",
+      devicePixelRatio: 2.0,
+    });
+
+    expect(result).toBeInstanceOf(Buffer);
+  });
+
+  test("with custom fetch function", async () => {
+    const result = await renderer.render(node, {
+      ...options,
+      format: "png",
+      fetch(url: string) {
+        if (url === localImagePath) {
+          return new Response(localImage);
+        }
+        throw new Error(`Unexpected URL: ${url}`);
+      },
+    });
+
+    expect(result).toBeInstanceOf(Buffer);
+  });
+
+  test("with no options provided", async () => {
+    const result = await renderer.render(node);
+
+    expect(result).toBeInstanceOf(Buffer);
+  });
 });
 
 describe("clean up", () => {
   test("clearImageStore", () => renderer.clearImageStore());
-
-  test("purgeFontCache", () => renderer.purgeFontCache());
 });

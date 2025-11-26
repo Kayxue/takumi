@@ -105,7 +105,7 @@ extern "C" {
   fn console_error(msg: String);
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 struct RenderOptions {
   width: Option<u32>,
@@ -254,9 +254,11 @@ impl Renderer {
   }
 
   #[wasm_bindgen]
-  pub fn render(&self, node: AnyNode, options: RenderOptionsType) -> Vec<u8> {
+  pub fn render(&self, node: AnyNode, options: Option<RenderOptionsType>) -> Vec<u8> {
     let node: NodeKind = from_value(node.into()).unwrap();
-    let options: RenderOptions = from_value(options.into()).unwrap();
+    let options: RenderOptions = options
+      .map(|options| from_value(options.into()).unwrap())
+      .unwrap_or_default();
 
     self.render_internal(node, options)
   }

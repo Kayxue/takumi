@@ -33,6 +33,7 @@ pub struct Renderer {
 }
 
 #[napi(object)]
+#[derive(Default)]
 pub struct RenderOptions<'env> {
   /// The width of the image. If not provided, the width will be automatically calculated based on the content.
   pub width: Option<u32>,
@@ -358,34 +359,40 @@ impl Renderer {
   }
 
   #[napi(
-    ts_args_type = "source: AnyNode, options: RenderOptions, signal?: AbortSignal",
+    ts_args_type = "source: AnyNode, options?: RenderOptions, signal?: AbortSignal",
     ts_return_type = "Promise<Buffer>"
   )]
   pub fn render(
     &'_ self,
     env: Env,
     source: Object,
-    options: RenderOptions,
+    options: Option<RenderOptions>,
     signal: Option<AbortSignal>,
   ) -> Result<AsyncTask<RenderTask<'_>>> {
     let node: NodeKind = deserialize_with_tracing(source)?;
 
     Ok(AsyncTask::with_optional_signal(
-      RenderTask::from_options(env, node, options, &self.resources_cache, &self.global)?,
+      RenderTask::from_options(
+        env,
+        node,
+        options.unwrap_or_default(),
+        &self.resources_cache,
+        &self.global,
+      )?,
       signal,
     ))
   }
 
   /// @deprecated Use `render` instead (to align with the naming convention for sync/async functions).
   #[napi(
-    ts_args_type = "source: AnyNode, options: RenderOptions, signal?: AbortSignal",
+    ts_args_type = "source: AnyNode, options?: RenderOptions, signal?: AbortSignal",
     ts_return_type = "Promise<Buffer>"
   )]
   pub fn render_async(
     &'_ mut self,
     env: Env,
     source: Object,
-    options: RenderOptions,
+    options: Option<RenderOptions>,
     signal: Option<AbortSignal>,
   ) -> Result<AsyncTask<RenderTask<'_>>> {
     self.render(env, source, options, signal)
