@@ -2,7 +2,6 @@ use image::RgbaImage;
 use parley::{GlyphRun, PositionedInlineBox, PositionedLayoutItem};
 use swash::FontRef;
 use taffy::{Layout, Size};
-use zeno::Scratch;
 
 use crate::{
   Result,
@@ -12,7 +11,8 @@ use crate::{
     style::{Affine, SizedFontStyle, TextDecorationLine},
   },
   rendering::{
-    Canvas, RenderContext, draw_decoration, draw_glyph, overlay_image, resolve_layers_tiles,
+    Canvas, MaskMemory, RenderContext, draw_decoration, draw_glyph, overlay_image,
+    resolve_layers_tiles,
   },
   resources::font::FontError,
 };
@@ -147,7 +147,7 @@ pub(crate) fn draw_inline_layout(
 
   // If we have a mask image on the style, render it using the background tiling logic into a
   // temporary image and use that as the glyph fill.
-  let fill_image = create_fill_image(context, layout, content_box, &mut canvas.scratch_mut())?;
+  let fill_image = create_fill_image(context, layout, content_box, &mut canvas.mask_memory)?;
 
   let mut positioned_inline_boxes = Vec::new();
 
@@ -176,7 +176,7 @@ fn create_fill_image(
   context: &RenderContext,
   layout: Layout,
   size: Size<f32>,
-  scratch: &mut Scratch,
+  mask_memory: &mut MaskMemory,
 ) -> Result<Option<RgbaImage>> {
   let images = match context.style.mask_image.as_ref() {
     Some(images) => images,
@@ -208,7 +208,7 @@ fn create_fill_image(
           context.style.image_rendering,
           context.style.filter.as_ref(),
           None,
-          scratch,
+          mask_memory,
         );
       }
     }

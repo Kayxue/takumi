@@ -1,11 +1,11 @@
 use std::f32::consts::SQRT_2;
 
 use taffy::{Point, Rect, Size};
-use zeno::{Command, Fill, Mask, PathBuilder};
+use zeno::{Command, Fill, PathBuilder};
 
 use crate::{
   layout::style::{Affine, Color, ColorInput, LengthUnit, Sides},
-  rendering::{Canvas, RenderContext},
+  rendering::{Canvas, RenderContext, draw_mask},
 };
 
 fn resolve_border_radius_from_percentage_css<const DEFAULT_AUTO: bool>(
@@ -202,11 +202,18 @@ impl BorderProperties {
       },
     );
 
-    let (mask, placement) = Mask::with_scratch(&paths, &mut canvas.scratch_mut())
-      .style(Fill::EvenOdd)
-      .transform(Some(transform.into()))
-      .render();
+    let (mask, placement) =
+      canvas
+        .mask_memory
+        .render(&paths, Some(transform), Some(Fill::EvenOdd.into()));
 
-    canvas.draw_mask(&mask, placement, self.color, None);
+    draw_mask(
+      &mut canvas.image,
+      mask,
+      placement,
+      self.color,
+      None,
+      canvas.constrains.last(),
+    );
   }
 }

@@ -1,10 +1,10 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
 use taffy::{AbsoluteAxis, Point, Rect, Size};
-use zeno::{Fill, Mask, PathBuilder, PathData, Placement, Scratch};
+use zeno::{Fill, PathBuilder, PathData, Placement};
 
 use crate::{
   layout::style::{Axis, Color, FromCss, LengthUnit, ParseResult, Sides, SpacePair},
-  rendering::{BorderProperties, RenderContext},
+  rendering::{BorderProperties, MaskMemory, RenderContext},
 };
 
 /// Represents the fill rule used for determining the interior of shapes.
@@ -138,12 +138,12 @@ impl BasicShape {
     }
   }
 
-  pub(crate) fn render_mask(
+  pub(crate) fn render_mask<'m>(
     &self,
     context: &RenderContext,
     size: Size<f32>,
-    scratch: &mut Scratch,
-  ) -> (Vec<u8>, Placement) {
+    mask_memory: &'m mut MaskMemory,
+  ) -> (&'m [u8], Placement) {
     let mut paths = Vec::new();
 
     match self {
@@ -225,12 +225,11 @@ impl BasicShape {
       }
     }
 
-    Mask::with_scratch(&paths, scratch)
-      .style(Fill::from(
-        self.fill_rule().unwrap_or(context.style.clip_rule),
-      ))
-      .transform(Some(context.transform.into()))
-      .render()
+    mask_memory.render(
+      &paths,
+      Some(context.transform),
+      Some(Fill::from(self.fill_rule().unwrap_or(context.style.clip_rule)).into()),
+    )
   }
 }
 

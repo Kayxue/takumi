@@ -1,12 +1,12 @@
-use std::borrow::Cow;
-
 use image::{RgbaImage, imageops::fast_blur};
 use taffy::{Layout, Point, Size};
-use zeno::{Fill, Mask, Placement, Scratch};
+use zeno::{Fill, PathData, Placement};
 
 use crate::{
   layout::style::{Affine, BoxShadow, Color, ImageScalingAlgorithm, TextShadow},
-  rendering::{BorderProperties, Canvas, RenderContext, draw_mask},
+  rendering::{
+    BorderProperties, Canvas, CanvasConstrain, MaskMemory, RenderContext, draw_mask, overlay_image,
+  },
 };
 
 /// Applies a fast blur to an image using image-rs's optimized implementation.
@@ -65,34 +65,39 @@ impl SizedShadow {
   }
 
   /// Draws the outset mask of the shadow.
-  pub fn draw_outset_mask(
+  pub fn draw_outset<D: PathData>(
     &self,
-    canvas: &mut Canvas,
-    spread_mask: Cow<[u8]>,
-    mut spread_placement: Placement,
+    canvas: &mut RgbaImage,
+    mask_memory: &mut MaskMemory,
+    constrain: Option<&CanvasConstrain>,
+    paths: D,
+    transform: Affine,
+    style: zeno::Style,
   ) {
-    spread_placement.left += self.offset_x as i32;
-    spread_placement.top += self.offset_y as i32;
+    let (mask, mut placement) = mask_memory.render(&paths, Some(transform), Some(style));
+
+    placement.left += self.offset_x as i32;
+    placement.top += self.offset_y as i32;
 
     // Fast path: if the blur radius is 0, we can just draw the spread mask
     if self.blur_radius <= 0.0 {
-      return canvas.draw_mask(&spread_mask, spread_placement, self.color, None);
+      return draw_mask(canvas, mask, placement, self.color, None, constrain);
     }
 
     // Create a new image with the spread mask on, blurred by the blur radius
     let mut image = RgbaImage::new(
-      spread_placement.width + (self.blur_radius * 2.0) as u32,
-      spread_placement.height + (self.blur_radius * 2.0) as u32,
+      placement.width + (self.blur_radius * 2.0) as u32,
+      placement.height + (self.blur_radius * 2.0) as u32,
     );
 
     draw_mask(
       &mut image,
-      &spread_mask,
+      mask,
       Placement {
         left: self.blur_radius as i32,
         top: self.blur_radius as i32,
-        width: spread_placement.width,
-        height: spread_placement.height,
+        width: placement.width,
+        height: placement.height,
       },
       self.color,
       None,
@@ -101,15 +106,18 @@ impl SizedShadow {
 
     apply_fast_blur(&mut image, self.blur_radius);
 
-    canvas.overlay_image(
+    overlay_image(
+      canvas,
       &image,
       BorderProperties::zero(),
       Affine::translation(
-        spread_placement.left as f32 - self.blur_radius,
-        spread_placement.top as f32 - self.blur_radius,
+        placement.left as f32 - self.blur_radius,
+        placement.top as f32 - self.blur_radius,
       ),
       ImageScalingAlgorithm::Auto,
       None,
+      constrain,
+      mask_memory,
     );
   }
 
@@ -120,7 +128,7 @@ impl SizedShadow {
     canvas: &mut Canvas,
     layout: Layout,
   ) {
-    let image = draw_inset_shadow(self, border_radius, layout.size, &mut canvas.scratch_mut());
+    let image = draw_inset_shadow(self, border_radius, layout.size, &mut canvas.mask_memory);
 
     canvas.overlay_image(
       &image,
@@ -136,7 +144,7 @@ fn draw_inset_shadow(
   shadow: &SizedShadow,
   border: BorderProperties,
   border_box: Size<f32>,
-  scratch: &mut Scratch,
+  mask_memory: &mut MaskMemory,
 ) -> RgbaImage {
   let mut shadow_image = RgbaImage::from_pixel(
     border_box.width as u32,
@@ -167,18 +175,9 @@ fn draw_inset_shadow(
       },
   );
 
-  let (mask, placement) = Mask::with_scratch(&paths, scratch)
-    .style(Fill::EvenOdd)
-    .render();
+  let (mask, placement) = mask_memory.render(&paths, None, Some(Fill::EvenOdd.into()));
 
-  draw_mask(
-    &mut shadow_image,
-    &mask,
-    placement,
-    shadow.color,
-    None,
-    None,
-  );
+  draw_mask(&mut shadow_image, mask, placement, shadow.color, None, None);
 
   apply_fast_blur(&mut shadow_image, shadow.blur_radius);
 

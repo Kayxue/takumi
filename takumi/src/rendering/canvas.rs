@@ -3,10 +3,7 @@
 //! This module provides performance-optimized canvas operations including
 //! fast image blending and pixel manipulation operations.
 
-use std::{
-  borrow::Cow,
-  cell::{RefCell, RefMut},
-};
+use std::borrow::Cow;
 
 use image::{
   GenericImageView, Pixel, Rgba, RgbaImage, SubImage,
@@ -14,7 +11,7 @@ use image::{
 };
 use smallvec::SmallVec;
 use taffy::{Layout, Point, Size};
-use zeno::{Mask, Placement, Scratch};
+use zeno::{Mask, PathData, Placement, Scratch};
 
 use crate::{
   layout::style::{Affine, Color, Filters, ImageScalingAlgorithm, InheritedStyle, Overflow},
@@ -72,11 +69,11 @@ impl CanvasConstrain {
     style: &InheritedStyle,
     layout: Layout,
     transform: Affine,
-    scratch: &mut Scratch,
+    mask_memory: &mut MaskMemory,
   ) -> CanvasConstrainResult {
     // Clip path would just clip everything, and behaves like overflow: hidden.
     if let Some(clip_path) = &style.clip_path {
-      let (mask, placement) = clip_path.render_mask(context, layout.size, scratch);
+      let (mask, placement) = clip_path.render_mask(context, layout.size, mask_memory);
 
       let end_x = placement.left + placement.width as i32;
       let end_y = placement.top + placement.height as i32;
@@ -85,7 +82,10 @@ impl CanvasConstrain {
         return CanvasConstrainResult::SkipRendering;
       }
 
-      return CanvasConstrainResult::Some(CanvasConstrain::ClipPath { mask, placement });
+      return CanvasConstrainResult::Some(CanvasConstrain::ClipPath {
+        mask: mask.to_vec(),
+        placement,
+      });
     }
 
     let Some(inverse_transform) = transform.invert() else {
@@ -189,12 +189,75 @@ impl CanvasConstrain {
   }
 }
 
+/// Memory for reusing dynamic memory allocations for masking operations.
+#[derive(Default)]
+pub(crate) struct MaskMemory {
+  scratch: Scratch,
+  buffer: Vec<u8>,
+}
+
+impl MaskMemory {
+  pub(crate) fn placement(
+    &mut self,
+    paths: impl PathData,
+    transform: Option<Affine>,
+    style: Option<zeno::Style>,
+  ) -> Placement {
+    let mut bounds =
+      self
+        .scratch
+        .bounds(&paths, style.unwrap_or_default(), transform.map(Into::into));
+
+    bounds.min = bounds.min.floor();
+    bounds.max = bounds.max.ceil();
+
+    Placement {
+      left: bounds.min.x as i32,
+      top: bounds.min.y as i32,
+      width: bounds.width() as u32,
+      height: bounds.height() as u32,
+    }
+  }
+
+  pub(crate) fn render<D: PathData>(
+    &mut self,
+    paths: D,
+    transform: Option<Affine>,
+    style: Option<zeno::Style>,
+  ) -> (&[u8], Placement) {
+    let style = style.unwrap_or_default();
+    let mut bounds = self
+      .scratch
+      .bounds(&paths, style, transform.map(Into::into));
+
+    bounds.min = bounds.min.floor();
+    bounds.max = bounds.max.ceil();
+
+    // Make sure the buffer is the correct size AND its initialized with zeros.
+    self.buffer.clear();
+    self
+      .buffer
+      .resize((bounds.width() as usize) * (bounds.height() as usize), 0);
+
+    let placement = Mask::with_scratch(paths, &mut self.scratch)
+      .transform(transform.map(Into::into))
+      .style(style)
+      .render_into(&mut self.buffer, None);
+
+    assert_eq!(bounds.width() as u32, placement.width);
+    assert_eq!(bounds.height() as u32, placement.height);
+
+    (self.buffer.as_slice(), placement)
+  }
+}
+
 /// A canvas that can be used to draw images onto.
 pub struct Canvas {
-  image: RgbaImage,
-  constrains: SmallVec<[CanvasConstrain; 1]>,
-  // A shared scratch memory for reusing dynamic memory allocations
-  scratch: RefCell<Scratch>,
+  pub(crate) image: RgbaImage,
+  pub(crate) constrains: SmallVec<[CanvasConstrain; 1]>,
+  // Since canvas is shared with mutable borrows everywhere already,
+  // we can just include the memory here instead of making the function argument bloated.
+  pub(crate) mask_memory: MaskMemory,
 }
 
 impl Canvas {
@@ -203,12 +266,8 @@ impl Canvas {
     Self {
       image: RgbaImage::new(size.width, size.height),
       constrains: SmallVec::new(),
-      scratch: RefCell::new(Scratch::default()),
+      mask_memory: MaskMemory::default(),
     }
-  }
-
-  pub(crate) fn scratch_mut(&self) -> RefMut<'_, Scratch> {
-    self.scratch.borrow_mut()
   }
 
   pub(crate) fn push_constrain(&mut self, overflow_constrain: CanvasConstrain) {
@@ -236,12 +295,6 @@ impl Canvas {
       return;
     }
 
-    // Extract the constrain before any mutable borrows
-    let constrain = self.constrains.last();
-
-    // Borrow the scratch mutably to avoid borrowing conflicts
-    let mut scratch = self.scratch.borrow_mut();
-
     overlay_image(
       &mut self.image,
       image,
@@ -249,30 +302,8 @@ impl Canvas {
       transform,
       algorithm,
       filters,
-      constrain,
-      &mut scratch,
-    );
-  }
-
-  /// Draws a mask with the specified color onto the canvas.
-  pub(crate) fn draw_mask(
-    &mut self,
-    mask: &[u8],
-    placement: Placement,
-    color: Color,
-    image: Option<BorrowedImageOrView>,
-  ) {
-    if mask.is_empty() {
-      return;
-    }
-
-    draw_mask(
-      &mut self.image,
-      mask,
-      placement,
-      color,
-      image,
       self.constrains.last(),
+      &mut self.mask_memory,
     );
   }
 
@@ -325,13 +356,11 @@ impl Canvas {
 
     border.append_mask_commands(&mut paths, size, Point::ZERO);
 
-    let (mask, placement) = Mask::with_scratch(&paths, &mut self.scratch_mut())
-      .transform(Some(transform.into()))
-      .render();
+    let (mask, placement) = self.mask_memory.render(&paths, Some(transform), None);
 
     draw_mask(
       &mut self.image,
-      &mask,
+      mask,
       placement,
       color,
       None,
@@ -401,6 +430,11 @@ pub(crate) fn draw_mask<C: Into<Rgba<u8>>>(
     return;
   }
 
+  assert_eq!(
+    mask.len(),
+    placement.width as usize * placement.height as usize,
+  );
+
   let offset = Point {
     x: placement.left as f32,
     y: placement.top as f32,
@@ -434,7 +468,7 @@ pub(crate) fn overlay_image(
   algorithm: ImageScalingAlgorithm,
   filters: Option<&Filters>,
   constrain: Option<&CanvasConstrain>,
-  scratch: &mut Scratch,
+  mask_memory: &mut MaskMemory,
 ) {
   let mut image = Cow::Borrowed(image);
 
@@ -479,9 +513,7 @@ pub(crate) fn overlay_image(
     Point::ZERO,
   );
 
-  let (mask, placement) = Mask::with_scratch(&paths, scratch)
-    .transform(Some(transform.into()))
-    .render();
+  let (mask, placement) = mask_memory.render(&paths, Some(transform), None);
 
   let is_identity = transform.is_identity();
 

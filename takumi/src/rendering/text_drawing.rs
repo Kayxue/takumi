@@ -8,7 +8,7 @@ use image::{
 use parley::{Glyph, GlyphRun};
 use swash::{ColorPalette, scale::outline::Outline};
 use taffy::{Layout, Point, Size};
-use zeno::{Command, Join, Mask, PathData, Stroke};
+use zeno::{Command, Join, PathData, Stroke};
 
 use crate::{
   GlobalContext, Result,
@@ -19,7 +19,8 @@ use crate::{
     },
   },
   rendering::{
-    BorderProperties, Canvas, apply_mask_alpha_to_pixel, mask_index_from_coord, overlay_area,
+    BorderProperties, Canvas, CanvasConstrain, MaskMemory, apply_mask_alpha_to_pixel, draw_mask,
+    mask_index_from_coord, overlay_area,
   },
   resources::font::ResolvedGlyph,
 };
@@ -158,17 +159,22 @@ pub(crate) fn draw_glyph(
         .map(invert_y_coordinate)
         .collect::<Vec<_>>();
 
-      let (mask, placement) = Mask::with_scratch(&paths, &mut canvas.scratch_mut())
-        .transform(Some(transform.into()))
-        .render();
-
       if let Some(ref shadows) = style.text_shadow {
         for shadow in shadows.iter() {
-          shadow.draw_outset_mask(canvas, Cow::Borrowed(&mask), placement);
+          shadow.draw_outset(
+            &mut canvas.image,
+            &mut canvas.mask_memory,
+            canvas.constrains.last(),
+            &paths,
+            transform,
+            Default::default(),
+          );
         }
       }
 
       let cropped_fill_image = image_fill.map(|image| {
+        let placement = canvas.mask_memory.placement(&paths, Some(transform), None);
+
         crop_imm(
           image,
           placement.left as u32,
@@ -178,18 +184,32 @@ pub(crate) fn draw_glyph(
         )
       });
 
+      let canvas_constrain = canvas.constrains.last();
+
       // If only color outline is required, draw the mask directly
       if outline.is_color()
         && cropped_fill_image.is_none()
         && let Some(palette) = palette
       {
-        draw_color_outline_image(canvas, outline, palette, text_style.brush.color, transform);
+        draw_color_outline_image(
+          &mut canvas.image,
+          &mut canvas.mask_memory,
+          outline,
+          palette,
+          text_style.brush.color,
+          transform,
+          canvas_constrain,
+        );
       } else {
-        canvas.draw_mask(
-          &mask,
+        let (mask, placement) = canvas.mask_memory.render(&paths, Some(transform), None);
+
+        draw_mask(
+          &mut canvas.image,
+          mask,
           placement,
           text_style.brush.color,
           cropped_fill_image.map(Into::into),
+          canvas_constrain,
         );
       }
 
@@ -198,16 +218,18 @@ pub(crate) fn draw_glyph(
         stroke.scale = false;
         stroke.join = Join::Bevel;
 
-        let (stroke_mask, stroke_placement) = Mask::with_scratch(&paths, &mut canvas.scratch_mut())
-          .transform(Some(transform.into()))
-          .style(stroke)
-          .render();
+        let (stroke_mask, stroke_placement) =
+          canvas
+            .mask_memory
+            .render(&paths, Some(transform), Some(stroke.into()));
 
-        canvas.draw_mask(
-          &stroke_mask,
+        draw_mask(
+          &mut canvas.image,
+          stroke_mask,
           stroke_placement,
           style.text_stroke_color,
           None,
+          canvas.constrains.last(),
         );
       }
     }
@@ -218,11 +240,13 @@ pub(crate) fn draw_glyph(
 
 // https://github.com/dfrg/swash/blob/3d8e6a781c93454dadf97e5c15764ceafab228e0/src/scale/mod.rs#L921
 fn draw_color_outline_image(
-  canvas: &mut Canvas,
+  canvas: &mut RgbaImage,
+  mask_memory: &mut MaskMemory,
   outline: &Outline,
   palette: ColorPalette,
   default_color: Color,
   transform: Affine,
+  constrain: Option<&CanvasConstrain>,
 ) {
   for i in 0..outline.len() {
     let Some(layer) = outline.get(i) else {
@@ -240,11 +264,9 @@ fn draw_color_outline_image(
       .map(invert_y_coordinate)
       .collect::<Vec<_>>();
 
-    let (mask, placement) = Mask::with_scratch(&paths, &mut canvas.scratch_mut())
-      .transform(Some(transform.into()))
-      .render();
+    let (mask, placement) = mask_memory.render(&paths, Some(transform), None);
 
-    canvas.draw_mask(&mask, placement, color, None);
+    draw_mask(canvas, mask, placement, color, None, constrain);
   }
 }
 

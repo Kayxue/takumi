@@ -8,7 +8,7 @@ pub use text::*;
 
 use serde::Deserialize;
 use taffy::{AvailableSpace, Layout, Point, Size};
-use zeno::Mask;
+use zeno::Fill;
 
 use crate::{
   Result,
@@ -247,11 +247,14 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
           },
         );
 
-      let (mask, placement) = Mask::with_scratch(&paths, &mut canvas.scratch_mut())
-        .transform(Some(context.transform.into()))
-        .render();
-
-      shadow.draw_outset_mask(canvas, mask.into(), placement);
+      shadow.draw_outset(
+        &mut canvas.image,
+        &mut canvas.mask_memory,
+        canvas.constrains.last(),
+        &paths,
+        context.transform,
+        Fill::EvenOdd.into(),
+      );
     }
 
     Ok(())
