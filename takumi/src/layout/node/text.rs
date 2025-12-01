@@ -46,10 +46,7 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for TextNode {
 
   fn inline_content(&self, context: &RenderContext) -> Option<InlineContentKind> {
     let transformed = apply_text_transform(&self.text, context.style.text_transform);
-    let collapsed = apply_white_space_collapse(
-      &transformed,
-      context.style.white_space().white_space_collapse,
-    );
+    let collapsed = apply_white_space_collapse(&transformed, context.style.white_space_collapse());
 
     Some(InlineContentKind::Text(collapsed.into_owned()))
   }
@@ -138,10 +135,8 @@ fn create_text_only_layout(
 ) -> parley::Layout<InlineBrush> {
   let (mut inline_layout, text) = {
     let transformed = apply_text_transform(text, context.style.text_transform);
-    let collapsed = apply_white_space_collapse(
-      &transformed,
-      font_style.parent.white_space().white_space_collapse,
-    );
+    let collapsed =
+      apply_white_space_collapse(&transformed, font_style.parent.white_space_collapse());
 
     context
       .global
@@ -171,7 +166,7 @@ fn create_text_only_layout(
       font_style,
       context.global,
       max_width,
-      font_style.ellipsis_char(),
+      font_style.parent.ellipsis_char(),
     );
 
     return create_text_only_layout(

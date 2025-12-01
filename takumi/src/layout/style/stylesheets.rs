@@ -233,7 +233,7 @@ impl<'s> From<&'s SizedFontStyle<'s>> for TextStyle<'s, InlineBrush> {
         decoration_color: style.text_decoration_color,
         stroke_color: style.text_stroke_color,
       },
-      text_wrap_mode: style.parent.white_space().text_wrap_mode.into(),
+      text_wrap_mode: style.parent.text_wrap_mode_and_line_clamp().0.into(),
 
       font_width: FontWidth::NORMAL,
       locale: None,
@@ -246,29 +246,6 @@ impl<'s> From<&'s SizedFontStyle<'s>> for TextStyle<'s, InlineBrush> {
       strikethrough_size: None,
       strikethrough_brush: None,
     }
-  }
-}
-
-impl<'s> SizedFontStyle<'s> {
-  pub(crate) fn ellipsis_char(&self) -> &str {
-    const ELLIPSIS_CHAR: &str = "…";
-
-    match &self.parent.text_overflow {
-      TextOverflow::Ellipsis => return ELLIPSIS_CHAR,
-      TextOverflow::Custom(custom) => return custom.as_str(),
-      _ => {}
-    }
-
-    if let Some(clamp) = &self
-      .parent
-      .line_clamp
-      .as_ref()
-      .and_then(|clamp| clamp.ellipsis.as_deref())
-    {
-      return clamp;
-    }
-
-    ELLIPSIS_CHAR
   }
 }
 
@@ -298,16 +275,52 @@ impl InheritedStyle {
     )
   }
 
-  pub(crate) fn white_space(&self) -> WhiteSpace {
-    WhiteSpace {
-      text_wrap_mode: self
-        .text_wrap_mode
-        .or(self.text_wrap)
-        .unwrap_or(self.white_space.text_wrap_mode),
-      white_space_collapse: self
-        .white_space_collapse
-        .unwrap_or(self.white_space.white_space_collapse),
+  pub(crate) fn ellipsis_char(&self) -> &str {
+    const ELLIPSIS_CHAR: &str = "…";
+
+    match &self.text_overflow {
+      TextOverflow::Ellipsis => return ELLIPSIS_CHAR,
+      TextOverflow::Custom(custom) => return custom.as_str(),
+      _ => {}
     }
+
+    if let Some(clamp) = &self
+      .line_clamp
+      .as_ref()
+      .and_then(|clamp| clamp.ellipsis.as_deref())
+    {
+      return clamp;
+    }
+
+    ELLIPSIS_CHAR
+  }
+
+  pub(crate) fn white_space_collapse(&self) -> WhiteSpaceCollapse {
+    self
+      .white_space_collapse
+      .unwrap_or(self.white_space.white_space_collapse)
+  }
+
+  pub(crate) fn text_wrap_mode_and_line_clamp(&self) -> (TextWrapMode, Option<Cow<'_, LineClamp>>) {
+    let mut text_wrap_mode = self
+      .text_wrap_mode
+      .or(self.text_wrap)
+      .unwrap_or(self.white_space.text_wrap_mode);
+
+    let mut line_clamp = self.line_clamp.as_ref().map(Cow::Borrowed);
+
+    // Special case: when nowrap + ellipsis, parley will layout all the text even when it overflows.
+    // So we need to use a fixed line clamp of 1 instead.
+    if text_wrap_mode == TextWrapMode::NoWrap && self.text_overflow == TextOverflow::Ellipsis {
+      line_clamp = Some(Cow::Owned(LineClamp {
+        count: 1,
+        ellipsis: Some(self.ellipsis_char().to_string()),
+      }));
+
+      text_wrap_mode = TextWrapMode::Wrap;
+    }
+
+    (text_wrap_mode, line_clamp)
   }
 
   #[inline]

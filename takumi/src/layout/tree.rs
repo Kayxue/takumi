@@ -449,7 +449,7 @@ fn create_ellipsis_layout<N: Node<N>>(
           builder.push_inline_box(inline_box.clone());
         }
 
-        builder.push_text(root_font_style.ellipsis_char());
+        builder.push_text(root_font_style.parent.ellipsis_char());
       });
 
     break_lines(&mut layout, max_width, max_height);

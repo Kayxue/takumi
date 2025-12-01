@@ -51,7 +51,10 @@ pub(crate) fn create_inline_constraint(
     .unwrap_or(f32::MAX);
 
   // applies a maximum height to reduce unnecessary calculation.
-  let max_height = match (context.viewport.height, &context.style.line_clamp) {
+  let max_height = match (
+    context.viewport.height,
+    context.style.text_wrap_mode_and_line_clamp().1,
+  ) {
     (Some(height), Some(line_clamp)) => {
       Some(MaxHeight::HeightAndLines(height as f32, line_clamp.count))
     }

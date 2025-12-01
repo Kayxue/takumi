@@ -549,3 +549,44 @@ fn fixtures_text_whitespace_collapse() {
     "tests/fixtures/text_whitespace_collapse.webp",
   );
 }
+
+/// Handles special case where nowrap + ellipsis is used.
+#[test]
+fn fixtures_text_ellipsis_text_nowrap() {
+  let container = ContainerNode {
+    tw: None,
+    style: Some(
+      StyleBuilder::default()
+        .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
+        .font_size(Some(Px(48.0)))
+        .padding(Sides([Px(20.0); 4]))
+        .overflow(SpacePair::from_single(Overflow::Hidden))
+        .width(Percentage(100.0))
+        .build()
+        .unwrap(),
+    ),
+    children: Some(vec![
+      TextNode {
+        tw: None,
+        style: Some(
+          StyleBuilder::default()
+            .text_overflow(TextOverflow::Ellipsis)
+            .text_wrap(Some(TextWrapMode::NoWrap))
+            .border_width(Some(Sides([Px(1.0); 4])))
+            .border_color(Some(ColorInput::Value(Color([255, 0, 0, 255]))))
+            .word_break(WordBreak::BreakAll)
+            .width(Percentage(100.0))
+            .build()
+            .unwrap(),
+        ),
+        text: "This is a very long piece of text that should demonstrate text wrapping behavior when it exceeds the container width. The quick brown fox jumps over the lazy dog.".to_string(),
+      }
+      .into(),
+    ]),
+  };
+
+  run_style_width_test(
+    container.into(),
+    "tests/fixtures/text_ellipsis_text_nowrap.webp",
+  );
+}

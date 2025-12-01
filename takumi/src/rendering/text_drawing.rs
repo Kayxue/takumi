@@ -395,10 +395,11 @@ pub(crate) fn make_ellipsis_text<'s>(
   ellipsis_char: &'s str,
 ) -> Cow<'s, str> {
   let mut truncated_text = &render_text[text_range.start..text_range.end];
+  let mut text_with_ellipsis = String::with_capacity(truncated_text.len() + ellipsis_char.len());
 
   while !truncated_text.is_empty() {
     // try to calculate the last line only with the truncated text and ellipsis character
-    let mut text_with_ellipsis = String::with_capacity(truncated_text.len() + ellipsis_char.len());
+    text_with_ellipsis.clear();
 
     text_with_ellipsis.push_str(truncated_text);
     text_with_ellipsis.push_str(ellipsis_char);
