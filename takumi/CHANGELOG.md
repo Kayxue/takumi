@@ -1,5 +1,11 @@
 # takumi
 
+## 0.55.3
+
+### Patch Changes
+
+- cd93ee9: handles special case of `text-overflow: ellipsis` + `text-wrap: nowrap`
+
 ## 0.55.2
 
 ### Patch Changes
