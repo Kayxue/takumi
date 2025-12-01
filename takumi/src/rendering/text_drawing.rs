@@ -3,7 +3,7 @@ use std::{borrow::Cow, convert::Into, ops::Range};
 use image::{
   ImageError, RgbaImage,
   error::{DecodingError, ImageFormatHint},
-  imageops::crop_imm,
+  imageops::{interpolate_bilinear, interpolate_nearest},
 };
 use parley::{Glyph, GlyphRun};
 use swash::{ColorPalette, scale::outline::Outline};
@@ -151,44 +151,68 @@ pub(crate) fn draw_glyph(
         None,
       );
     }
-    (ResolvedGlyph::Outline(outline), _) => {
-      // have to invert the y coordinate from y-up to y-down first
-      let paths = outline
-        .path()
-        .commands()
-        .map(invert_y_coordinate)
-        .collect::<Vec<_>>();
+    (ResolvedGlyph::Outline(outline), Some(image_fill)) => {
+      // If the transform is not invertible, we can't draw the glyph
+      let Some(inverse) = transform.invert() else {
+        return Ok(());
+      };
 
-      if let Some(ref shadows) = style.text_shadow {
-        for shadow in shadows.iter() {
-          shadow.draw_outset(
-            &mut canvas.image,
-            &mut canvas.mask_memory,
-            canvas.constrains.last(),
-            &paths,
-            transform,
-            Default::default(),
-          );
-        }
-      }
+      let paths = collect_outline_paths(outline);
 
-      let cropped_fill_image = image_fill.map(|image| {
-        let placement = canvas.mask_memory.placement(&paths, Some(transform), None);
+      maybe_draw_text_shadow(canvas, style, transform, &paths);
 
-        crop_imm(
-          image,
-          placement.left as u32,
-          placement.top as u32,
-          placement.width,
-          placement.height,
-        )
-      });
+      let (mask, placement) = canvas.mask_memory.render(&paths, Some(transform), None);
 
-      let canvas_constrain = canvas.constrains.last();
+      overlay_area(
+        &mut canvas.image,
+        Point {
+          x: placement.left as f32,
+          y: placement.top as f32,
+        },
+        Size {
+          width: placement.width,
+          height: placement.height,
+        },
+        None,
+        |x, y| {
+          let alpha = mask[mask_index_from_coord(x, y, placement.width)];
 
-      // If only color outline is required, draw the mask directly
+          if alpha == 0 {
+            return Color::transparent().into();
+          }
+
+          let point = inverse.transform_point(Point {
+            x: (x as f32 + placement.left as f32).round(),
+            y: (y as f32 + placement.top as f32).round(),
+          });
+
+          let point = point
+            + Point {
+              x: glyph.x,
+              y: glyph.y,
+            };
+
+          let sampled_pixel = match style.parent.image_rendering {
+            ImageScalingAlgorithm::Pixelated => interpolate_nearest(image_fill, point.x, point.y),
+            _ => interpolate_bilinear(image_fill, point.x, point.y),
+          };
+
+          let Some(pixel) = sampled_pixel else {
+            return Color::transparent().into();
+          };
+
+          apply_mask_alpha_to_pixel(pixel, alpha)
+        },
+      );
+
+      maybe_draw_text_stroke(canvas, style, transform, &paths);
+    }
+    (ResolvedGlyph::Outline(outline), None) => {
+      let paths = collect_outline_paths(outline);
+
+      maybe_draw_text_shadow(canvas, style, transform, &paths);
+
       if outline.is_color()
-        && cropped_fill_image.is_none()
         && let Some(palette) = palette
       {
         draw_color_outline_image(
@@ -198,7 +222,7 @@ pub(crate) fn draw_glyph(
           palette,
           text_style.brush.color,
           transform,
-          canvas_constrain,
+          canvas.constrains.last(),
         );
       } else {
         let (mask, placement) = canvas.mask_memory.render(&paths, Some(transform), None);
@@ -208,34 +232,75 @@ pub(crate) fn draw_glyph(
           mask,
           placement,
           text_style.brush.color,
-          cropped_fill_image.map(Into::into),
-          canvas_constrain,
-        );
-      }
-
-      if style.stroke_width > 0.0 {
-        let mut stroke = Stroke::new(style.stroke_width);
-        stroke.scale = false;
-        stroke.join = Join::Bevel;
-
-        let (stroke_mask, stroke_placement) =
-          canvas
-            .mask_memory
-            .render(&paths, Some(transform), Some(stroke.into()));
-
-        draw_mask(
-          &mut canvas.image,
-          stroke_mask,
-          stroke_placement,
-          style.text_stroke_color,
           None,
           canvas.constrains.last(),
         );
       }
+
+      maybe_draw_text_stroke(canvas, style, transform, &paths);
     }
   }
 
   Ok(())
+}
+
+fn maybe_draw_text_stroke(
+  canvas: &mut Canvas,
+  style: &SizedFontStyle,
+  transform: Affine,
+  paths: &[Command],
+) {
+  if style.stroke_width <= 0.0 {
+    return;
+  }
+
+  let mut stroke = Stroke::new(style.stroke_width);
+  stroke.scale = false;
+  stroke.join = Join::Bevel;
+
+  let (stroke_mask, stroke_placement) =
+    canvas
+      .mask_memory
+      .render(paths, Some(transform), Some(stroke.into()));
+
+  draw_mask(
+    &mut canvas.image,
+    stroke_mask,
+    stroke_placement,
+    style.text_stroke_color,
+    None,
+    canvas.constrains.last(),
+  );
+}
+
+fn maybe_draw_text_shadow(
+  canvas: &mut Canvas,
+  style: &SizedFontStyle,
+  transform: Affine,
+  paths: &[Command],
+) {
+  let Some(ref shadows) = style.text_shadow else {
+    return;
+  };
+
+  for shadow in shadows.iter() {
+    shadow.draw_outset(
+      &mut canvas.image,
+      &mut canvas.mask_memory,
+      canvas.constrains.last(),
+      paths,
+      transform,
+      Default::default(),
+    );
+  }
+}
+
+fn collect_outline_paths(outline: &Outline) -> Vec<Command> {
+  outline
+    .path()
+    .commands()
+    .map(invert_y_coordinate)
+    .collect::<Vec<_>>()
 }
 
 // https://github.com/dfrg/swash/blob/3d8e6a781c93454dadf97e5c15764ceafab228e0/src/scale/mod.rs#L921

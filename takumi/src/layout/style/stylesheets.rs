@@ -46,7 +46,6 @@ macro_rules! define_style {
   };
 }
 
-// property: type = node default value => viewport default value
 define_style!(
   // For convenience, we default to border-box
   box_sizing: BoxSizing,

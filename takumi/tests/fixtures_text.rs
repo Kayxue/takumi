@@ -331,25 +331,39 @@ fn fixtures_text_mask_image_gradient_and_emoji() {
   )
   .unwrap();
 
-  let text = TextNode {
+  let container = ContainerNode {
     tw: None,
     style: Some(
       StyleBuilder::default()
         .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
         .width(Percentage(100.0))
+        .height(Percentage(100.0))
         .font_size(Some(Px(72.0)))
-        .mask_image(Some(gradient_images))
-        .mask_size(Some(BackgroundSizes::from_str("100% 100%").unwrap()))
-        .mask_position(Some(BackgroundPositions::from_str("0 0").unwrap()))
-        .mask_repeat(Some(BackgroundRepeats::from_str("no-repeat").unwrap()))
+        .align_items(AlignItems::Center)
+        .justify_content(JustifyContent::Center)
         .build()
         .unwrap(),
     ),
-    text: "Gradient Mask Emoji: 🪓 🦊 💩".to_string(),
+    children: Some(vec![
+      TextNode {
+        tw: None,
+        style: Some(
+          StyleBuilder::default()
+            .mask_image(Some(gradient_images))
+            .mask_size(Some(BackgroundSizes::from_str("100% 100%").unwrap()))
+            .mask_position(Some(BackgroundPositions::from_str("0 0").unwrap()))
+            .mask_repeat(Some(BackgroundRepeats::from_str("no-repeat").unwrap()))
+            .build()
+            .unwrap(),
+        ),
+        text: "Gradient Mask Emoji: 🪓 🦊 💩".to_string(),
+      }
+      .into(),
+    ]),
   };
 
   run_style_width_test(
-    text.clone().into(),
+    container.into(),
     "tests/fixtures/text_mask_image_gradient_emoji.webp",
   );
 }
