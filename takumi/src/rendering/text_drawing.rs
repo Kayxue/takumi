@@ -122,7 +122,7 @@ pub(crate) fn draw_glyph(
       );
 
       canvas.overlay_image(
-        &bottom,
+        bottom.into(),
         BorderProperties::default(),
         transform,
         ImageScalingAlgorithm::Auto,
@@ -144,7 +144,7 @@ pub(crate) fn draw_glyph(
       )))?;
 
       canvas.overlay_image(
-        &image,
+        image.into(),
         Default::default(),
         transform,
         Default::default(),
@@ -232,7 +232,6 @@ pub(crate) fn draw_glyph(
           mask,
           placement,
           text_style.brush.color,
-          None,
           canvas.constrains.last(),
         );
       }
@@ -268,7 +267,6 @@ fn maybe_draw_text_stroke(
     stroke_mask,
     stroke_placement,
     style.text_stroke_color,
-    None,
     canvas.constrains.last(),
   );
 }
@@ -331,7 +329,7 @@ fn draw_color_outline_image(
 
     let (mask, placement) = mask_memory.render(&paths, Some(transform), None);
 
-    draw_mask(canvas, mask, placement, color, None, constrain);
+    draw_mask(canvas, mask, placement, color, constrain);
   }
 }
 

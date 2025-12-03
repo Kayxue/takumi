@@ -315,7 +315,7 @@ pub(crate) fn draw_background_layers(
     for y in &ys {
       for x in &xs {
         canvas.overlay_image(
-          &tile_image,
+          (&tile_image).into(),
           radius,
           Affine::translation(*x as f32, *y as f32) * context.transform,
           ImageScalingAlgorithm::Auto,

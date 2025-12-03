@@ -202,7 +202,7 @@ fn create_fill_image(
       for x in &xs {
         overlay_image(
           &mut composed,
-          &tile_image,
+          (&tile_image).into(),
           Default::default(),
           Affine::translation(*x as f32, *y as f32),
           context.style.image_rendering,

@@ -1,13 +1,11 @@
-use std::borrow::Cow;
-
 use fast_image_resize::images::TypedImageRef;
 use fast_image_resize::{ImageView, PixelTrait, ResizeOptions};
 use fast_image_resize::{IntoImageView, PixelType, Resizer, images::Image};
 use image::RgbaImage;
-use image::imageops::crop_imm;
 use taffy::{Layout, Point, Size};
 
 use crate::layout::style::Affine;
+use crate::rendering::CowImage;
 use crate::{
   Result,
   layout::style::{ImageScalingAlgorithm, LengthUnit, ObjectFit},
@@ -40,7 +38,7 @@ pub fn process_image_for_object_fit<'i>(
   image: &'i ImageSource,
   context: &RenderContext,
   content_box: Size<f32>,
-) -> Result<(Cow<'i, RgbaImage>, Point<f32>)> {
+) -> Result<(CowImage<'i>, Point<f32>)> {
   let (image_width, image_height) = image.size();
 
   let object_position_x =
@@ -50,11 +48,13 @@ pub fn process_image_for_object_fit<'i>(
 
   match context.style.object_fit {
     ObjectFit::Fill => Ok((
-      image.render_to_rgba_image(
-        content_box.width as u32,
-        content_box.height as u32,
-        context.style.image_rendering,
-      )?,
+      image
+        .render_to_rgba_image(
+          content_box.width as u32,
+          content_box.height as u32,
+          context.style.image_rendering,
+        )?
+        .into(),
       Point::zero(),
     )),
     ObjectFit::Contain => {
@@ -74,11 +74,13 @@ pub fn process_image_for_object_fit<'i>(
         calculate_object_position_offset(available_y, content_box.height, object_position_y);
 
       Ok((
-        image.render_to_rgba_image(
-          new_width as u32,
-          new_height as u32,
-          context.style.image_rendering,
-        )?,
+        image
+          .render_to_rgba_image(
+            new_width as u32,
+            new_height as u32,
+            context.style.image_rendering,
+          )?
+          .into(),
         Point {
           x: offset_x,
           y: offset_y,
@@ -107,16 +109,15 @@ pub fn process_image_for_object_fit<'i>(
       let crop_y =
         calculate_object_position_offset(available_crop_y, content_box.height, object_position_y);
 
-      let cropped = crop_imm(
-        resized.as_ref(),
+      let cropped = CowImage::crop(
+        resized,
         crop_x as u32,
         crop_y as u32,
         content_box.width as u32,
         content_box.height as u32,
-      )
-      .to_image();
+      );
 
-      Ok((Cow::Owned(cropped), Point::zero()))
+      Ok((cropped, Point::zero()))
     }
     ObjectFit::ScaleDown => {
       let scale_x = content_box.width / image_width;
@@ -149,7 +150,7 @@ pub fn process_image_for_object_fit<'i>(
         calculate_object_position_offset(available_y, content_box.height, object_position_y);
 
       Ok((
-        processed_image,
+        processed_image.into(),
         Point {
           x: offset_x,
           y: offset_y,
@@ -168,11 +169,13 @@ pub fn process_image_for_object_fit<'i>(
           calculate_object_position_offset(available_y, content_box.height, object_position_y);
 
         return Ok((
-          image.render_to_rgba_image(
-            image_width as u32,
-            image_height as u32,
-            context.style.image_rendering,
-          )?,
+          image
+            .render_to_rgba_image(
+              image_width as u32,
+              image_height as u32,
+              context.style.image_rendering,
+            )?
+            .into(),
           Point {
             x: offset_x,
             y: offset_y,
@@ -197,14 +200,13 @@ pub fn process_image_for_object_fit<'i>(
         context.style.image_rendering,
       )?;
 
-      let cropped = crop_imm(
-        source_image.as_ref(),
+      let cropped = CowImage::crop(
+        source_image,
         crop_x as u32,
         crop_y as u32,
         crop_width as u32,
         crop_height as u32,
-      )
-      .to_image();
+      );
 
       let offset_x = calculate_object_position_offset(
         (content_box.width - crop_width).max(0.0),
@@ -218,7 +220,7 @@ pub fn process_image_for_object_fit<'i>(
       );
 
       Ok((
-        Cow::Owned(cropped),
+        cropped,
         Point {
           x: offset_x,
           y: offset_y,
@@ -250,7 +252,7 @@ pub fn draw_image(
   border.inset_by_border_width();
 
   canvas.overlay_image(
-    &image,
+    image,
     border,
     transform_with_content_offset,
     context.style.image_rendering,

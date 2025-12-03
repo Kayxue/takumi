@@ -178,8 +178,8 @@ fn render_node<'g, Nodes: Node<Nodes>>(
     }
     CanvasConstrainResult::Some(constrain) => match constrain {
       // Notice the order is important here.
-      // Clip path clips everything include the border, so it should be pushed first.
-      CanvasConstrain::ClipPath { .. } => {
+      // Mask clips everything include the border, so it should be pushed first.
+      CanvasConstrain::Mask { .. } => {
         canvas.push_constrain(constrain);
         node.draw_shell(canvas, layout)?;
       }

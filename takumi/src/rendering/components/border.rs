@@ -265,7 +265,6 @@ impl BorderProperties {
       mask,
       placement,
       self.color,
-      None,
       canvas.constrains.last(),
     );
   }

@@ -6,8 +6,8 @@
 use std::borrow::Cow;
 
 use image::{
-  GenericImageView, Pixel, Rgba, RgbaImage, SubImage,
-  imageops::{interpolate_bilinear, interpolate_nearest},
+  GenericImageView, Pixel, Rgba, RgbaImage,
+  imageops::{crop_imm, interpolate_bilinear, interpolate_nearest},
 };
 use smallvec::SmallVec;
 use taffy::{Layout, Point, Size};
@@ -18,29 +18,107 @@ use crate::{
   rendering::{BorderProperties, RenderContext},
 };
 
-#[derive(Clone, Copy)]
-pub(crate) enum BorrowedImageOrView<'a> {
-  Image(&'a RgbaImage),
-  SubImage(SubImage<&'a RgbaImage>),
+#[derive(Clone)]
+pub(crate) struct CowImage<'a> {
+  inner: Cow<'a, RgbaImage>,
+  crop_bounds: Option<(Point<u32>, Size<u32>)>,
 }
 
-impl<'a> From<&'a RgbaImage> for BorrowedImageOrView<'a> {
+impl GenericImageView for CowImage<'_> {
+  type Pixel = Rgba<u8>;
+
+  fn dimensions(&self) -> (u32, u32) {
+    if let Some((_, size)) = self.crop_bounds {
+      (size.width, size.height)
+    } else {
+      (self.inner.width(), self.inner.height())
+    }
+  }
+
+  fn get_pixel(&self, x: u32, y: u32) -> Self::Pixel {
+    if let Some((start, _)) = self.crop_bounds {
+      *self.inner.get_pixel(x + start.x, y + start.y)
+    } else {
+      *self.inner.get_pixel(x, y)
+    }
+  }
+}
+
+impl<'a> From<&'a RgbaImage> for CowImage<'a> {
   fn from(image: &'a RgbaImage) -> Self {
-    BorrowedImageOrView::Image(image)
+    CowImage {
+      inner: Cow::Borrowed(image),
+      crop_bounds: None,
+    }
   }
 }
 
-impl<'a> From<SubImage<&'a RgbaImage>> for BorrowedImageOrView<'a> {
-  fn from(sub_image: SubImage<&'a RgbaImage>) -> Self {
-    BorrowedImageOrView::SubImage(sub_image)
+impl<'a> From<RgbaImage> for CowImage<'a> {
+  fn from(image: RgbaImage) -> Self {
+    CowImage {
+      inner: Cow::Owned(image),
+      crop_bounds: None,
+    }
   }
 }
 
-impl<'a> BorrowedImageOrView<'a> {
-  pub(crate) fn get_pixel(&self, x: u32, y: u32) -> Rgba<u8> {
-    match self {
-      BorrowedImageOrView::Image(image) => *image.get_pixel(x, y),
-      BorrowedImageOrView::SubImage(sub_image) => sub_image.get_pixel(x, y),
+impl<'a> From<Cow<'a, RgbaImage>> for CowImage<'a> {
+  fn from(image: Cow<'a, RgbaImage>) -> Self {
+    CowImage {
+      inner: image,
+      crop_bounds: None,
+    }
+  }
+}
+
+impl<'a> CowImage<'a> {
+  pub(crate) fn crop<I: Into<Cow<'a, RgbaImage>>>(
+    image: I,
+    mut crop_x: u32,
+    mut crop_y: u32,
+    mut crop_width: u32,
+    mut crop_height: u32,
+  ) -> Self {
+    let image = image.into();
+
+    crop_x = crop_x.clamp(0, image.width() - 1);
+    crop_y = crop_y.clamp(0, image.height() - 1);
+    crop_width = crop_width.clamp(0, image.width() - crop_x);
+    crop_height = crop_height.clamp(0, image.height() - crop_y);
+
+    CowImage {
+      inner: image,
+      crop_bounds: Some((
+        Point {
+          x: crop_x,
+          y: crop_y,
+        },
+        Size {
+          width: crop_width,
+          height: crop_height,
+        },
+      )),
+    }
+  }
+
+  pub(crate) fn size(&self) -> Size<u32> {
+    let (width, height) = self.dimensions();
+
+    Size { width, height }
+  }
+
+  pub(crate) fn into_owned(self) -> RgbaImage {
+    if let Some((start, size)) = self.crop_bounds {
+      crop_imm(
+        self.inner.as_ref(),
+        start.x,
+        start.y,
+        size.width,
+        size.height,
+      )
+      .to_image()
+    } else {
+      self.inner.into_owned()
     }
   }
 }
@@ -57,7 +135,7 @@ pub(crate) enum CanvasConstrain {
     to: Point<u32>,
     inverse_transform: Affine,
   },
-  ClipPath {
+  Mask {
     mask: Vec<u8>,
     placement: Placement,
   },
@@ -82,7 +160,7 @@ impl CanvasConstrain {
         return CanvasConstrainResult::SkipRendering;
       }
 
-      return CanvasConstrainResult::Some(CanvasConstrain::ClipPath {
+      return CanvasConstrainResult::Some(CanvasConstrain::Mask {
         mask: mask.to_vec(),
         placement,
       });
@@ -168,7 +246,7 @@ impl CanvasConstrain {
 
         u8::MAX
       }
-      CanvasConstrain::ClipPath {
+      CanvasConstrain::Mask {
         ref mask,
         placement,
       } => {
@@ -263,16 +341,12 @@ impl Canvas {
   /// Overlays an image onto the canvas with optional border radius.
   pub(crate) fn overlay_image(
     &mut self,
-    image: &RgbaImage,
+    image: CowImage,
     border: BorderProperties,
     transform: Affine,
     algorithm: ImageScalingAlgorithm,
     filters: Option<&Filters>,
   ) {
-    if image.is_empty() {
-      return;
-    }
-
     overlay_image(
       &mut self.image,
       image,
@@ -341,7 +415,6 @@ impl Canvas {
       mask,
       placement,
       color,
-      None,
       self.constrains.last(),
     );
   }
@@ -387,12 +460,18 @@ fn draw_pixel(
 
 #[inline(always)]
 pub(crate) fn apply_mask_alpha_to_pixel(mut pixel: Rgba<u8>, alpha: u8) -> Rgba<u8> {
-  if alpha == u8::MAX {
-    pixel
-  } else {
-    pixel.0[3] = ((pixel.0[3] as f32) * (alpha as f32 / 255.0)).round() as u8;
+  match alpha {
+    0 => {
+      pixel.0[3] = 0;
 
-    pixel
+      pixel
+    }
+    255 => pixel,
+    alpha => {
+      pixel.0[3] = ((pixel.0[3] as f32) * (alpha as f32 / 255.0)).round() as u8;
+
+      pixel
+    }
   }
 }
 
@@ -401,7 +480,6 @@ pub(crate) fn draw_mask<C: Into<Rgba<u8>>>(
   mask: &[u8],
   placement: Placement,
   color: C,
-  image: Option<BorrowedImageOrView>,
   constrain: Option<&CanvasConstrain>,
 ) {
   if mask.is_empty() {
@@ -427,20 +505,14 @@ pub(crate) fn draw_mask<C: Into<Rgba<u8>>>(
   overlay_area(canvas, offset, top_size, constrain, |x, y| {
     let alpha = mask[mask_index_from_coord(x, y, placement.width)];
 
-    if alpha == 0 {
-      return Color::transparent().into();
-    }
-
-    let pixel = image.map(|image| image.get_pixel(x, y)).unwrap_or(color);
-
-    apply_mask_alpha_to_pixel(pixel, alpha)
+    apply_mask_alpha_to_pixel(color, alpha)
   });
 }
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn overlay_image(
   canvas: &mut RgbaImage,
-  image: &RgbaImage,
+  mut image: CowImage,
   border: BorderProperties,
   transform: Affine,
   algorithm: ImageScalingAlgorithm,
@@ -448,8 +520,6 @@ pub(crate) fn overlay_image(
   constrain: Option<&CanvasConstrain>,
   mask_memory: &mut MaskMemory,
 ) {
-  let mut image = Cow::Borrowed(image);
-
   if let Some(filters) = filters
     && !filters.is_empty()
   {
@@ -457,23 +527,16 @@ pub(crate) fn overlay_image(
 
     filters.apply_to(&mut owned_image);
 
-    image = Cow::Owned(owned_image);
+    image = owned_image.into();
   }
 
   // Fast path: if no sub-pixel interpolation is needed, we can just draw the image directly
   if transform.only_translation() && border.is_zero() {
     let translation = transform.decompose_translation();
 
-    return overlay_area(
-      canvas,
-      translation,
-      Size {
-        width: image.width(),
-        height: image.height(),
-      },
-      constrain,
-      |x, y| *image.get_pixel(x, y),
-    );
+    return overlay_area(canvas, translation, image.size(), constrain, |x, y| {
+      image.get_pixel(x, y)
+    });
   }
 
   let Some(inverse) = transform.invert() else {
@@ -484,10 +547,7 @@ pub(crate) fn overlay_image(
 
   border.append_mask_commands(
     &mut paths,
-    Size {
-      width: image.width() as f32,
-      height: image.height() as f32,
-    },
+    image.size().map(|size| size as f32),
     Point::ZERO,
   );
 
@@ -505,7 +565,7 @@ pub(crate) fn overlay_image(
     // Fast path: If only border radius is applied, we can just map the pixel directly
     if is_identity && placement.left >= 0 && placement.top >= 0 {
       return apply_mask_alpha_to_pixel(
-        *image.get_pixel(x + placement.left as u32, y + placement.top as u32),
+        image.get_pixel(x + placement.left as u32, y + placement.top as u32),
         alpha,
       );
     }
@@ -516,8 +576,8 @@ pub(crate) fn overlay_image(
     });
 
     let sampled_pixel = match algorithm {
-      ImageScalingAlgorithm::Pixelated => interpolate_nearest(&*image, point.x, point.y),
-      _ => interpolate_bilinear(&*image, point.x, point.y),
+      ImageScalingAlgorithm::Pixelated => interpolate_nearest(&image, point.x, point.y),
+      _ => interpolate_bilinear(&image, point.x, point.y),
     };
 
     let Some(pixel) = sampled_pixel else {

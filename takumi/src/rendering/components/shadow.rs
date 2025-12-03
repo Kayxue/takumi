@@ -81,7 +81,7 @@ impl SizedShadow {
 
     // Fast path: if the blur radius is 0, we can just draw the spread mask
     if self.blur_radius <= 0.0 {
-      return draw_mask(canvas, mask, placement, self.color, None, constrain);
+      return draw_mask(canvas, mask, placement, self.color, constrain);
     }
 
     // Create a new image with the spread mask on, blurred by the blur radius
@@ -101,14 +101,13 @@ impl SizedShadow {
       },
       self.color,
       None,
-      None,
     );
 
     apply_fast_blur(&mut image, self.blur_radius);
 
     overlay_image(
       canvas,
-      &image,
+      image.into(),
       BorderProperties::zero(),
       Affine::translation(
         placement.left as f32 - self.blur_radius,
@@ -131,7 +130,7 @@ impl SizedShadow {
     let image = draw_inset_shadow(self, border_radius, layout.size, &mut canvas.mask_memory);
 
     canvas.overlay_image(
-      &image,
+      image.into(),
       border_radius,
       transform,
       ImageScalingAlgorithm::Auto,
@@ -178,7 +177,7 @@ fn draw_inset_shadow(
 
   let (mask, placement) = mask_memory.render(&paths, None, Some(Fill::EvenOdd.into()));
 
-  draw_mask(&mut shadow_image, mask, placement, shadow.color, None, None);
+  draw_mask(&mut shadow_image, mask, placement, shadow.color, None);
 
   apply_fast_blur(&mut shadow_image, shadow.blur_radius);
 
