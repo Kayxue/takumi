@@ -16,6 +16,22 @@ pub enum BackgroundRepeatStyle {
   Round,
 }
 
+impl<'i> FromCss<'i> for BackgroundRepeatStyle {
+  fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
+    let location = input.current_source_location();
+    let ident = input.expect_ident()?;
+
+    match_ignore_ascii_case! {
+      &ident,
+      "repeat" => Ok(BackgroundRepeatStyle::Repeat),
+      "no-repeat" => Ok(BackgroundRepeatStyle::NoRepeat),
+      "space" => Ok(BackgroundRepeatStyle::Space),
+      "round" => Ok(BackgroundRepeatStyle::Round),
+      _ => Err(location.new_basic_unexpected_token_error(Token::Ident(ident.clone())).into()),
+    }
+  }
+}
+
 /// Combined repeat for X and Y axes.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct BackgroundRepeat(pub BackgroundRepeatStyle, pub BackgroundRepeatStyle);
@@ -47,53 +63,22 @@ impl BackgroundRepeat {
 
 impl<'i> FromCss<'i> for BackgroundRepeat {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    let location = input.current_source_location();
-    let first_ident = input.expect_ident_cloned()?;
-    let second_ident = input.try_parse(Parser::expect_ident_cloned).ok();
+    let state = input.state();
+    let ident = input.expect_ident()?;
 
-    let parse_axis = |ident: &str| -> Option<BackgroundRepeatStyle> {
-      match_ignore_ascii_case! {ident,
-        "repeat" => Some(BackgroundRepeatStyle::Repeat),
-        "no-repeat" => Some(BackgroundRepeatStyle::NoRepeat),
-        "space" => Some(BackgroundRepeatStyle::Space),
-        "round" => Some(BackgroundRepeatStyle::Round),
-        _ => None,
-      }
-    };
-
-    match second_ident {
-      None => {
-        // single keyword forms
-        if first_ident.eq_ignore_ascii_case("repeat-x") {
-          return Ok(Self(
-            BackgroundRepeatStyle::Repeat,
-            BackgroundRepeatStyle::NoRepeat,
-          ));
-        }
-        if first_ident.eq_ignore_ascii_case("repeat-y") {
-          return Ok(Self(
-            BackgroundRepeatStyle::NoRepeat,
-            BackgroundRepeatStyle::Repeat,
-          ));
-        }
-        if let Some(axis) = parse_axis(&first_ident) {
-          return Ok(Self(axis, axis));
-        }
-        Err(
-          location
-            .new_basic_unexpected_token_error(Token::Ident(first_ident.clone()))
-            .into(),
-        )
-      }
-      Some(second) => {
-        let x = parse_axis(&first_ident).ok_or_else(|| {
-          location.new_basic_unexpected_token_error(Token::Ident(first_ident.clone()))
-        })?;
-        let y = parse_axis(&second)
-          .ok_or_else(|| location.new_basic_unexpected_token_error(Token::Ident(second.clone())))?;
-        Ok(Self(x, y))
-      }
+    match_ignore_ascii_case! { ident,
+      "repeat-x" => return Ok(BackgroundRepeat(BackgroundRepeatStyle::Repeat, BackgroundRepeatStyle::NoRepeat)),
+      "repeat-y" => return Ok(BackgroundRepeat(BackgroundRepeatStyle::NoRepeat, BackgroundRepeatStyle::Repeat)),
+      _ => {}
     }
+
+    input.reset(&state);
+
+    let x = BackgroundRepeatStyle::from_css(input)?;
+    let y = input
+      .try_parse(BackgroundRepeatStyle::from_css)
+      .unwrap_or(x);
+    Ok(BackgroundRepeat(x, y))
   }
 }
 

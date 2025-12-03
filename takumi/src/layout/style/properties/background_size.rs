@@ -1,4 +1,4 @@
-use cssparser::Parser;
+use cssparser::{Parser, Token, match_ignore_ascii_case};
 
 use crate::layout::style::{FromCss, LengthUnit, ParseResult, tw::TailwindPropertyParser};
 
@@ -39,32 +39,23 @@ impl Default for BackgroundSize {
 
 impl<'i> FromCss<'i> for BackgroundSize {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    if input
-      .try_parse(|input| input.expect_ident_matching("cover"))
-      .is_ok()
-    {
-      return Ok(BackgroundSize::Cover);
+    if let Ok(width) = input.try_parse(LengthUnit::from_css) {
+      let height = input
+        .try_parse(LengthUnit::from_css)
+        .unwrap_or(LengthUnit::Auto);
+
+      return Ok(BackgroundSize::Explicit { width, height });
     }
 
-    if input
-      .try_parse(|input| input.expect_ident_matching("contain"))
-      .is_ok()
-    {
-      return Ok(BackgroundSize::Contain);
+    let location = input.current_source_location();
+    let ident = input.expect_ident()?;
+
+    match_ignore_ascii_case! {
+      &ident,
+      "cover" => Ok(BackgroundSize::Cover),
+      "contain" => Ok(BackgroundSize::Contain),
+      _ => Err(location.new_basic_unexpected_token_error(Token::Ident(ident.clone())).into()),
     }
-
-    let first = LengthUnit::from_css(input)?;
-    let Ok(second) = input.try_parse(LengthUnit::from_css) else {
-      return Ok(BackgroundSize::Explicit {
-        width: first,
-        height: first,
-      });
-    };
-
-    Ok(BackgroundSize::Explicit {
-      width: first,
-      height: second,
-    })
   }
 }
 
@@ -108,7 +99,7 @@ mod tests {
       BackgroundSize::from_str("50%\t"),
       Ok(BackgroundSize::Explicit {
         width: LengthUnit::Percentage(50.0),
-        height: LengthUnit::Percentage(50.0),
+        height: LengthUnit::Auto,
       })
     );
   }
@@ -161,7 +152,7 @@ mod tests {
       Ok(BackgroundSizes(vec![
         BackgroundSize::Explicit {
           width: LengthUnit::Percentage(25.0),
-          height: LengthUnit::Percentage(25.0),
+          height: LengthUnit::Auto,
         },
         BackgroundSize::Contain
       ]))
