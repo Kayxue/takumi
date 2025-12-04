@@ -1,4 +1,4 @@
-use std::iter::successors;
+use std::{borrow::Cow, iter::successors};
 
 use image::RgbaImage;
 use smallvec::{SmallVec, smallvec};
@@ -6,12 +6,7 @@ use taffy::{Point, Size};
 
 use crate::{
   Result,
-  layout::style::{
-    Affine, BackgroundImage, BackgroundImages, BackgroundPosition, BackgroundPositions,
-    BackgroundRepeat, BackgroundRepeatStyle, BackgroundRepeats, BackgroundSize, BackgroundSizes,
-    Gradient, ImageScalingAlgorithm, LengthUnit, PositionComponent, PositionKeywordX,
-    PositionKeywordY,
-  },
+  layout::style::*,
   rendering::{BorderProperties, Canvas, MaskMemory, RenderContext, fast_resize, overlay_image},
 };
 
@@ -100,6 +95,7 @@ pub(crate) fn render_gradient_tile(
   context: &RenderContext,
 ) -> Result<RgbaImage> {
   Ok(match image {
+    BackgroundImage::None => RgbaImage::new(tile_w, tile_h),
     BackgroundImage::Linear(gradient) => gradient.to_image(tile_w, tile_h, context),
     BackgroundImage::Radial(gradient) => gradient.to_image(tile_w, tile_h, context),
     BackgroundImage::Noise(noise) => noise.to_image(tile_w, tile_h, context),
@@ -251,29 +247,21 @@ pub(crate) fn collect_stretched_tile_positions(
 }
 
 pub(crate) fn resolve_layers_tiles(
-  images: &BackgroundImages,
-  positions: Option<&BackgroundPositions>,
-  sizes: Option<&BackgroundSizes>,
-  repeats: Option<&BackgroundRepeats>,
+  images: &[BackgroundImage],
+  positions: &[BackgroundPosition],
+  sizes: &[BackgroundSize],
+  repeats: &[BackgroundRepeat],
   context: &RenderContext,
   border_box: Size<f32>,
 ) -> Result<Vec<ImageTiles>> {
-  let last_position = positions
-    .and_then(|p| p.0.last().copied())
-    .unwrap_or_default();
-  let last_size = sizes.and_then(|s| s.0.last().copied()).unwrap_or_default();
-  let last_repeat = repeats
-    .and_then(|r| r.0.last().copied())
-    .unwrap_or_default();
+  let last_position = positions.last().copied().unwrap_or_default();
+  let last_size = sizes.last().copied().unwrap_or_default();
+  let last_repeat = repeats.last().copied().unwrap_or_default();
 
   let map_fn = |(i, image)| {
-    let pos = positions
-      .and_then(|p| p.0.get(i).copied())
-      .unwrap_or(last_position);
-    let size = sizes.and_then(|s| s.0.get(i).copied()).unwrap_or(last_size);
-    let repeat = repeats
-      .and_then(|r| r.0.get(i).copied())
-      .unwrap_or(last_repeat);
+    let pos = positions.get(i).copied().unwrap_or(last_position);
+    let size = sizes.get(i).copied().unwrap_or(last_size);
+    let repeat = repeats.get(i).copied().unwrap_or(last_repeat);
 
     resolve_layer_tiles(
       image,
@@ -292,14 +280,13 @@ pub(crate) fn resolve_layers_tiles(
     use rayon::prelude::*;
 
     let results: Result<Vec<Option<ImageTiles>>> =
-      images.0.par_iter().enumerate().map(map_fn).collect();
+      images.par_iter().enumerate().map(map_fn).collect();
     Ok(results?.into_iter().flatten().collect())
   }
 
   #[cfg(not(feature = "rayon"))]
   {
-    let results: Result<Vec<Option<ImageTiles>>> =
-      images.0.iter().enumerate().map(map_fn).collect();
+    let results: Result<Vec<Option<ImageTiles>>> = images.iter().enumerate().map(map_fn).collect();
     Ok(results?.into_iter().flatten().collect())
   }
 }
@@ -309,32 +296,69 @@ pub(crate) fn create_mask(
   border_box: Size<f32>,
   mask_memory: &mut MaskMemory,
 ) -> Result<Option<Vec<u8>>> {
-  let Some(mask_image) = context
+  let mask_image = context
     .style
     .mask_image
-    .as_ref()
-    .or(context.style.mask.image.as_ref())
-  else {
-    return Ok(None);
-  };
+    .as_deref()
+    .map(Cow::Borrowed)
+    .unwrap_or_else(|| {
+      Cow::Owned(
+        context
+          .style
+          .mask
+          .iter()
+          .map(|background| background.image.clone())
+          .collect::<Vec<_>>(),
+      )
+    });
 
   let resolved_tiles = resolve_layers_tiles(
-    mask_image,
-    context
+    &mask_image,
+    &context
       .style
       .mask_position
-      .as_ref()
-      .or(context.style.mask.position.as_ref()),
-    context
+      .as_deref()
+      .map(Cow::Borrowed)
+      .unwrap_or_else(|| {
+        Cow::Owned(
+          context
+            .style
+            .mask
+            .iter()
+            .map(|background| background.position)
+            .collect::<Vec<_>>(),
+        )
+      }),
+    &context
       .style
       .mask_size
-      .as_ref()
-      .or(context.style.mask.size.as_ref()),
-    context
+      .as_deref()
+      .map(Cow::Borrowed)
+      .unwrap_or_else(|| {
+        Cow::Owned(
+          context
+            .style
+            .mask
+            .iter()
+            .map(|background| background.size)
+            .collect::<Vec<_>>(),
+        )
+      }),
+    &context
       .style
       .mask_repeat
-      .as_ref()
-      .or(context.style.mask.repeat.as_ref()),
+      .as_deref()
+      .map(Cow::Borrowed)
+      .unwrap_or_else(|| {
+        Cow::Owned(
+          context
+            .style
+            .mask
+            .iter()
+            .map(|background| background.repeat)
+            .collect::<Vec<_>>(),
+        )
+      }),
     context,
     border_box,
   )?;
@@ -365,6 +389,78 @@ pub(crate) fn create_mask(
   Ok(Some(composed.iter().skip(3).step_by(4).copied().collect()))
 }
 
+pub(crate) fn collect_background_image_tiles(
+  context: &RenderContext,
+  border_box: Size<f32>,
+) -> Result<Vec<ImageTiles>> {
+  let background_image = context
+    .style
+    .background_image
+    .as_deref()
+    .map(Cow::Borrowed)
+    .unwrap_or_else(|| {
+      Cow::Owned(
+        context
+          .style
+          .background
+          .iter()
+          .map(|background| background.image.clone())
+          .collect::<Vec<_>>(),
+      )
+    });
+
+  resolve_layers_tiles(
+    &background_image,
+    &context
+      .style
+      .background_position
+      .as_deref()
+      .map(Cow::Borrowed)
+      .unwrap_or_else(|| {
+        Cow::Owned(
+          context
+            .style
+            .background
+            .iter()
+            .map(|background| background.position)
+            .collect::<Vec<_>>(),
+        )
+      }),
+    &context
+      .style
+      .background_size
+      .as_deref()
+      .map(Cow::Borrowed)
+      .unwrap_or_else(|| {
+        Cow::Owned(
+          context
+            .style
+            .background
+            .iter()
+            .map(|background| background.size)
+            .collect::<Vec<_>>(),
+        )
+      }),
+    &context
+      .style
+      .background_repeat
+      .as_deref()
+      .map(Cow::Borrowed)
+      .unwrap_or_else(|| {
+        Cow::Owned(
+          context
+            .style
+            .background
+            .iter()
+            .map(|background| background.repeat)
+            .collect::<Vec<_>>(),
+        )
+      }),
+    context,
+    border_box,
+  )
+}
+
 pub(crate) fn create_background_image(
   context: &RenderContext,
   border_box: Size<f32>,
@@ -372,35 +468,7 @@ pub(crate) fn create_background_image(
   offset: Point<f32>,
   mask_memory: &mut MaskMemory,
 ) -> Result<Option<RgbaImage>> {
-  let Some(background_image) = context
-    .style
-    .background_image
-    .as_ref()
-    .or(context.style.background.image.as_ref())
-  else {
-    return Ok(None);
-  };
-
-  let resolved_tiles = resolve_layers_tiles(
-    background_image,
-    context
-      .style
-      .background_position
-      .as_ref()
-      .or(context.style.background.position.as_ref()),
-    context
-      .style
-      .background_size
-      .as_ref()
-      .or(context.style.background.size.as_ref()),
-    context
-      .style
-      .background_repeat
-      .as_ref()
-      .or(context.style.background.repeat.as_ref()),
-    context,
-    border_box,
-  )?;
+  let resolved_tiles = collect_background_image_tiles(context, border_box)?;
 
   if resolved_tiles.is_empty() {
     return Ok(None);

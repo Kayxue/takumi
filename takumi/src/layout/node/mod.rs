@@ -18,8 +18,8 @@ use crate::{
     style::{Affine, BackgroundClip, BackgroundImage, CssValue, InheritedStyle, Sides, Style},
   },
   rendering::{
-    BorderProperties, Canvas, RenderContext, SizedShadow, create_background_image,
-    draw_background_layers, resolve_layers_tiles,
+    BorderProperties, Canvas, RenderContext, SizedShadow, collect_background_image_tiles,
+    create_background_image, draw_background_layers,
   },
   resources::task::FetchTaskCollection,
 };
@@ -157,7 +157,7 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
   fn collect_style_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
     if let Some(style) = self.get_style() {
       if let CssValue::Value(Some(images)) = &style.background_image {
-        collection.insert_many(images.0.iter().filter_map(|image| {
+        collection.insert_many(images.iter().filter_map(|image| {
           if let BackgroundImage::Url(url) = image {
             Some(url.clone())
           } else {
@@ -166,11 +166,9 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
         }))
       };
 
-      if let CssValue::Value(background) = &style.background
-        && let Some(images) = &background.image
-      {
-        collection.insert_many(images.0.iter().filter_map(|image| {
-          if let BackgroundImage::Url(url) = image {
+      if let CssValue::Value(background) = &style.background {
+        collection.insert_many(background.iter().filter_map(|background| {
+          if let BackgroundImage::Url(url) = &background.image {
             Some(url.clone())
           } else {
             None
@@ -179,7 +177,7 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
       };
 
       if let CssValue::Value(Some(images)) = &style.mask_image {
-        collection.insert_many(images.0.iter().filter_map(|image| {
+        collection.insert_many(images.iter().filter_map(|image| {
           if let BackgroundImage::Url(url) = image {
             Some(url.clone())
           } else {
@@ -188,11 +186,9 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
         }));
       };
 
-      if let CssValue::Value(mask) = &style.mask
-        && let Some(images) = &mask.image
-      {
-        collection.insert_many(images.0.iter().filter_map(|image| {
-          if let BackgroundImage::Url(url) = image {
+      if let CssValue::Value(mask) = &style.mask {
+        collection.insert_many(mask.iter().filter_map(|background| {
+          if let BackgroundImage::Url(url) = &background.image {
             Some(url.clone())
           } else {
             None
@@ -379,39 +375,11 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
     canvas: &mut Canvas,
     layout: Layout,
   ) -> Result<()> {
-    let Some(background_image) = context
-      .style
-      .background_image
-      .as_ref()
-      .or(context.style.background.image.as_ref())
-    else {
-      return Ok(());
-    };
-
     let mut border_radius = BorderProperties::from_context(context, layout.size, layout.border);
 
     match context.style.background_clip {
       BackgroundClip::BorderBox => {
-        let tiles = resolve_layers_tiles(
-          background_image,
-          context
-            .style
-            .background_position
-            .as_ref()
-            .or(context.style.background.position.as_ref()),
-          context
-            .style
-            .background_size
-            .as_ref()
-            .or(context.style.background.size.as_ref()),
-          context
-            .style
-            .background_repeat
-            .as_ref()
-            .or(context.style.background.repeat.as_ref()),
-          context,
-          layout.size,
-        )?;
+        let tiles = collect_background_image_tiles(context, layout.size)?;
 
         draw_background_layers(tiles, border_radius, context, canvas);
       }

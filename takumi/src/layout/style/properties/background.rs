@@ -1,4 +1,5 @@
 use cssparser::Parser;
+use smallvec::SmallVec;
 
 use crate::layout::style::*;
 
@@ -12,20 +13,20 @@ use crate::layout::style::*;
 /// - clip
 ///
 /// Example: `background: red url(image.png) center/cover no-repeat border-box`
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Background {
   /// Background color.
-  pub color: Option<ColorInput<false>>,
+  pub color: ColorInput<false>,
   /// Background image.
-  pub image: Option<BackgroundImages>,
+  pub image: BackgroundImage,
   /// Background position.
-  pub position: Option<BackgroundPositions>,
+  pub position: BackgroundPosition,
   /// Background size.
-  pub size: Option<BackgroundSizes>,
+  pub size: BackgroundSize,
   /// Background repeat.
-  pub repeat: Option<BackgroundRepeats>,
+  pub repeat: BackgroundRepeat,
   /// Background clip.
-  pub clip: Option<BackgroundClip>,
+  pub clip: BackgroundClip,
 }
 
 impl<'i> FromCss<'i> for Background {
@@ -52,14 +53,14 @@ impl<'i> FromCss<'i> for Background {
 
       // Try to parse background-position (and optionally background-size with /)
       if position.is_none()
-        && let Ok(value) = input.try_parse(BackgroundPositions::from_css)
+        && let Ok(value) = input.try_parse(BackgroundPosition::from_css)
       {
         position = Some(value);
 
         size = input
           .try_parse(|input| {
             input.expect_delim('/')?;
-            BackgroundSizes::from_css(input)
+            BackgroundSize::from_css(input)
           })
           .ok();
 
@@ -68,7 +69,7 @@ impl<'i> FromCss<'i> for Background {
 
       // Try to parse background-image
       if image.is_none()
-        && let Ok(value) = input.try_parse(BackgroundImages::from_css)
+        && let Ok(value) = input.try_parse(BackgroundImage::from_css)
       {
         image = Some(value);
         continue;
@@ -76,7 +77,7 @@ impl<'i> FromCss<'i> for Background {
 
       // Try to parse background-repeat
       if repeat.is_none()
-        && let Ok(value) = input.try_parse(BackgroundRepeats::from_css)
+        && let Ok(value) = input.try_parse(BackgroundRepeat::from_css)
       {
         repeat = Some(value);
         continue;
@@ -95,20 +96,34 @@ impl<'i> FromCss<'i> for Background {
     }
 
     Ok(Background {
-      color,
-      image,
-      position,
-      size,
-      repeat,
-      clip,
+      color: color.unwrap_or_default(),
+      image: image.unwrap_or_default(),
+      position: position.unwrap_or_default(),
+      size: size.unwrap_or_default(),
+      repeat: repeat.unwrap_or_default(),
+      clip: clip.unwrap_or_default(),
     })
+  }
+}
+
+/// A list of background properties (one per layer).
+pub type Backgrounds = SmallVec<[Background; 4]>;
+
+impl<'i> FromCss<'i> for Backgrounds {
+  fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
+    let mut backgrounds = SmallVec::new();
+    backgrounds.push(Background::from_css(input)?);
+
+    while input.expect_comma().is_ok() {
+      backgrounds.push(Background::from_css(input)?);
+    }
+
+    Ok(backgrounds)
   }
 }
 
 #[cfg(test)]
 mod tests {
-  use smallvec::smallvec;
-
   use super::*;
 
   #[test]
@@ -116,12 +131,8 @@ mod tests {
     assert_eq!(
       Background::from_str("red"),
       Ok(Background {
-        color: Some(ColorInput::Value(Color([255, 0, 0, 255]))),
-        image: None,
-        position: None,
-        size: None,
-        repeat: None,
-        clip: None,
+        color: ColorInput::Value(Color([255, 0, 0, 255])),
+        ..Default::default()
       })
     );
   }
@@ -131,12 +142,9 @@ mod tests {
     assert_eq!(
       Background::from_str("red border-box"),
       Ok(Background {
-        color: Some(ColorInput::Value(Color([255, 0, 0, 255]))),
-        image: None,
-        position: None,
-        size: None,
-        repeat: None,
-        clip: Some(BackgroundClip::BorderBox),
+        color: ColorInput::Value(Color([255, 0, 0, 255])),
+        clip: BackgroundClip::BorderBox,
+        ..Default::default()
       })
     );
   }
@@ -146,12 +154,8 @@ mod tests {
     assert_eq!(
       Background::from_str("center/cover"),
       Ok(Background {
-        color: None,
-        image: None,
-        position: Some(BackgroundPositions(vec![BackgroundPosition::default()])),
-        size: Some(BackgroundSizes(vec![BackgroundSize::Cover])),
-        repeat: None,
-        clip: None,
+        size: BackgroundSize::Cover,
+        ..Default::default()
       })
     );
   }
@@ -161,17 +165,13 @@ mod tests {
     assert_eq!(
       Background::from_str("no-repeat center/80% url(../img/image.png)"),
       Ok(Background {
-        color: None,
-        image: Some(BackgroundImages(smallvec![BackgroundImage::Url(
-          "../img/image.png".into()
-        )])),
-        position: Some(BackgroundPositions(vec![BackgroundPosition::default()])),
-        size: Some(BackgroundSizes(vec![BackgroundSize::Explicit {
+        image: BackgroundImage::Url("../img/image.png".into()),
+        size: BackgroundSize::Explicit {
           width: LengthUnit::Percentage(80.0),
           height: LengthUnit::Auto,
-        }])),
-        repeat: Some(BackgroundRepeats(vec![BackgroundRepeat::no_repeat()])),
-        clip: None,
+        },
+        repeat: BackgroundRepeat::no_repeat(),
+        ..Default::default()
       })
     );
   }

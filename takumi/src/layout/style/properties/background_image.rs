@@ -8,8 +8,11 @@ use crate::layout::style::{
 };
 
 /// Background image variants supported by Takumi.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub enum BackgroundImage {
+  /// No background image.
+  #[default]
+  None,
   /// CSS linear-gradient(...)
   Linear(LinearGradient),
   /// CSS radial-gradient(...)
@@ -39,6 +42,7 @@ impl<'i> FromCss<'i> for BackgroundImage {
     input.reset(&start);
 
     match_ignore_ascii_case! {&function,
+      "none" => Ok(BackgroundImage::None),
       "linear-gradient" => Ok(BackgroundImage::Linear(LinearGradient::from_css(input)?)),
       "radial-gradient" => Ok(BackgroundImage::Radial(RadialGradient::from_css(input)?)),
       "noise-v1" => Ok(BackgroundImage::Noise(NoiseV1::from_css(input)?)),
@@ -48,8 +52,7 @@ impl<'i> FromCss<'i> for BackgroundImage {
 }
 
 /// A collection of background images.
-#[derive(Debug, Clone, PartialEq)]
-pub struct BackgroundImages(pub SmallVec<[BackgroundImage; 4]>);
+pub type BackgroundImages = SmallVec<[BackgroundImage; 4]>;
 
 impl<'i> FromCss<'i> for BackgroundImages {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
@@ -61,6 +64,6 @@ impl<'i> FromCss<'i> for BackgroundImages {
       images.push(BackgroundImage::from_css(input)?);
     }
 
-    Ok(Self(images))
+    Ok(images)
   }
 }

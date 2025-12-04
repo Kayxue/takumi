@@ -612,16 +612,16 @@ impl TailwindProperty {
         style.object_fit = object_fit.into();
       }
       TailwindProperty::BackgroundPosition(background_position) => {
-        style.background_position = Some(BackgroundPositions(vec![background_position])).into();
+        style.background_position = Some(smallvec![background_position]).into();
       }
       TailwindProperty::BackgroundSize(background_size) => {
-        style.background_size = Some(BackgroundSizes(vec![background_size])).into();
+        style.background_size = Some(smallvec![background_size]).into();
       }
       TailwindProperty::BackgroundRepeat(background_repeat) => {
-        style.background_repeat = Some(BackgroundRepeats(vec![background_repeat])).into();
+        style.background_repeat = Some(smallvec![background_repeat]).into();
       }
       TailwindProperty::BackgroundImage(ref background_image) => {
-        style.background_image = Some(BackgroundImages(smallvec![background_image.clone()])).into();
+        style.background_image = Some(smallvec![background_image.clone()]).into();
       }
       TailwindProperty::BorderWidth(tw_border_width) => {
         style.border_width = Some(Sides([tw_border_width.0; 4])).into();

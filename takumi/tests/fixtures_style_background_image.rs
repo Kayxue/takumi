@@ -3,6 +3,8 @@ use takumi::layout::{
   style::{LengthUnit::*, *},
 };
 
+use smallvec::smallvec;
+
 mod test_utils;
 use test_utils::run_style_width_test;
 
@@ -247,11 +249,10 @@ fn test_background_image_grid_pattern() {
 
   assert_eq!(
     container.style.as_ref().unwrap().background_repeat,
-    Some(BackgroundRepeats(vec![
+    CssValue::Value(Some(smallvec![
       BackgroundRepeat::repeat(),
       BackgroundRepeat::repeat()
     ]))
-    .into()
   );
 
   run_style_width_test(

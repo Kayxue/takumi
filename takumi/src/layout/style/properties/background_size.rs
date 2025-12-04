@@ -1,4 +1,5 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
+use smallvec::SmallVec;
 
 use crate::layout::style::{FromCss, LengthUnit, ParseResult, tw::TailwindPropertyParser};
 
@@ -60,25 +61,25 @@ impl<'i> FromCss<'i> for BackgroundSize {
 }
 
 /// A list of `background-size` values (one per layer).
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct BackgroundSizes(pub Vec<BackgroundSize>);
+pub type BackgroundSizes = SmallVec<[BackgroundSize; 4]>;
 
 impl<'i> FromCss<'i> for BackgroundSizes {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    let mut values = Vec::new();
+    let mut values = SmallVec::new();
     values.push(BackgroundSize::from_css(input)?);
 
     while input.expect_comma().is_ok() {
       values.push(BackgroundSize::from_css(input)?);
     }
 
-    Ok(Self(values))
+    Ok(values)
   }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
+  use smallvec::smallvec;
 
   #[test]
   fn parses_cover_keyword() {
@@ -135,13 +136,13 @@ mod tests {
   fn parses_multiple_layers_with_keywords_and_values() {
     assert_eq!(
       BackgroundSizes::from_str("cover, 50% auto"),
-      Ok(BackgroundSizes(vec![
+      Ok(smallvec![
         BackgroundSize::Cover,
         BackgroundSize::Explicit {
           width: LengthUnit::Percentage(50.0),
           height: LengthUnit::Auto,
         }
-      ]))
+      ])
     );
   }
 
@@ -149,13 +150,13 @@ mod tests {
   fn parses_multiple_layers_with_single_value_duplication() {
     assert_eq!(
       BackgroundSizes::from_str("25%, contain"),
-      Ok(BackgroundSizes(vec![
+      Ok(smallvec![
         BackgroundSize::Explicit {
           width: LengthUnit::Percentage(25.0),
           height: LengthUnit::Auto,
         },
         BackgroundSize::Contain
-      ]))
+      ])
     );
   }
 

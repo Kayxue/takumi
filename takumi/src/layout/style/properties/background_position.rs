@@ -1,4 +1,5 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
+use smallvec::SmallVec;
 use taffy::{Point, Size};
 
 use crate::{
@@ -164,18 +165,17 @@ impl<'i> FromCss<'i> for PositionComponent {
 }
 
 /// A list of `background-position` values (one per layer).
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct BackgroundPositions(pub Vec<BackgroundPosition>);
+pub type BackgroundPositions = SmallVec<[BackgroundPosition; 4]>;
 
 impl<'i> FromCss<'i> for BackgroundPositions {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    let mut values = Vec::new();
+    let mut values = SmallVec::new();
     values.push(BackgroundPosition::from_css(input)?);
 
     while input.expect_comma().is_ok() {
       values.push(BackgroundPosition::from_css(input)?);
     }
 
-    Ok(Self(values))
+    Ok(values)
   }
 }
