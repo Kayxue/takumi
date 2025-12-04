@@ -475,6 +475,26 @@ pub(crate) fn create_background_image(
     return Ok(None);
   }
 
+  // Fast path: If there is exactly one tile and is the desired size and position, we can just return the tile image
+  if offset == Point::zero()
+    && resolved_tiles.len() == 1
+    && resolved_tiles.first().is_some_and(|(tile_image, xs, ys)| {
+      tile_image.width() == size.width as u32
+        && tile_image.height() == size.height as u32
+        && xs.len() == 1
+        && ys.len() == 1
+        && xs.first().is_some_and(|x| *x == 0)
+        && ys.first().is_some_and(|y| *y == 0)
+    })
+  {
+    return Ok(
+      resolved_tiles
+        .into_iter()
+        .next()
+        .map(|(tile_image, _, _)| tile_image),
+    );
+  }
+
   let mut composed = RgbaImage::new(size.width as u32, size.height as u32);
 
   for (tile_image, xs, ys) in resolved_tiles {
