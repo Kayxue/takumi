@@ -304,3 +304,35 @@ fn test_background_image_dotted_pattern() {
     "tests/fixtures/style_background_image_dotted_pattern.webp",
   );
 }
+
+#[test]
+fn test_background_size_contain() {
+  let images = BackgroundImages::from_str("url(assets/images/yeecord.png)").unwrap();
+  let container = create_container_with(
+    images,
+    Some(BackgroundSizes::from_str("contain").unwrap()),
+    Some(BackgroundPositions::from_str("center center").unwrap()),
+    Some(BackgroundRepeats::from_str("no-repeat").unwrap()),
+  );
+
+  run_style_width_test(
+    container.into(),
+    "tests/fixtures/style_background_size_contain.webp",
+  );
+}
+
+#[test]
+fn test_background_size_cover() {
+  let images = BackgroundImages::from_str("url(assets/images/yeecord.png)").unwrap();
+  let container = create_container_with(
+    images,
+    Some(BackgroundSizes::from_str("cover").unwrap()),
+    Some(BackgroundPositions::from_str("center center").unwrap()),
+    Some(BackgroundRepeats::from_str("no-repeat").unwrap()),
+  );
+
+  run_style_width_test(
+    container.into(),
+    "tests/fixtures/style_background_size_cover.webp",
+  );
+}

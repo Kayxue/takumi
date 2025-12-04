@@ -6,7 +6,7 @@ use taffy::{Point, Size};
 
 use crate::{
   Result,
-  layout::style::*,
+  layout::{node::resolve_image, style::*},
   rendering::{BorderProperties, Canvas, MaskMemory, RenderContext, fast_resize, overlay_image},
 };
 
@@ -26,6 +26,7 @@ pub(crate) fn resolve_length_against_area(
 pub(crate) fn resolve_background_size(
   size: BackgroundSize,
   area: (u32, u32),
+  image: &BackgroundImage,
   context: &RenderContext,
 ) -> (u32, u32) {
   match size {
@@ -33,9 +34,58 @@ pub(crate) fn resolve_background_size(
       resolve_length_against_area(width, area.0, context),
       resolve_length_against_area(height, area.1, context),
     ),
-    // as we only support gradients for now, we can just use the area size
-    // if we want to support images, we need to resolve based on the image size
-    _ => area,
+    BackgroundSize::Cover => {
+      // Get intrinsic image dimensions
+      let (intrinsic_width, intrinsic_height) = if let BackgroundImage::Url(url) = image
+        && let Ok(source) = resolve_image(url, context)
+      {
+        source.size()
+      } else {
+        return (0, 0);
+      };
+
+      if intrinsic_width == 0.0 || intrinsic_height == 0.0 {
+        return (0, 0);
+      }
+
+      // Calculate scale factors for both dimensions
+      let scale_x = area.0 as f32 / intrinsic_width;
+      let scale_y = area.1 as f32 / intrinsic_height;
+
+      // Use the larger scale to ensure the image covers the entire area
+      let scale = scale_x.max(scale_y);
+
+      (
+        (intrinsic_width * scale).round() as u32,
+        (intrinsic_height * scale).round() as u32,
+      )
+    }
+    BackgroundSize::Contain => {
+      // Get intrinsic image dimensions
+      let (intrinsic_width, intrinsic_height) = if let BackgroundImage::Url(url) = image
+        && let Ok(source) = resolve_image(url, context)
+      {
+        source.size()
+      } else {
+        return (0, 0);
+      };
+
+      if intrinsic_width == 0.0 || intrinsic_height == 0.0 {
+        return (0, 0);
+      }
+
+      // Calculate scale factors for both dimensions
+      let scale_x = area.0 as f32 / intrinsic_width;
+      let scale_y = area.1 as f32 / intrinsic_height;
+
+      // Use the smaller scale to ensure the image is fully contained
+      let scale = scale_x.min(scale_y);
+
+      (
+        (intrinsic_width * scale).round() as u32,
+        (intrinsic_height * scale).round() as u32,
+      )
+    }
   }
 }
 
@@ -86,26 +136,27 @@ pub(crate) fn resolve_position_component_y(
   }
 }
 
-/// Rasterize a single background image (gradient) into a tile of the given size.
-/// resolving non-px stop units using the provided `RenderContext`.
-pub(crate) fn render_gradient_tile(
+/// Rasterize a single background image into a tile of the given size.
+pub(crate) fn render_tile(
   image: &BackgroundImage,
   tile_w: u32,
   tile_h: u32,
   context: &RenderContext,
-) -> Result<RgbaImage> {
+) -> Result<Option<RgbaImage>> {
   Ok(match image {
-    BackgroundImage::None => RgbaImage::new(tile_w, tile_h),
-    BackgroundImage::Linear(gradient) => gradient.to_image(tile_w, tile_h, context),
-    BackgroundImage::Radial(gradient) => gradient.to_image(tile_w, tile_h, context),
-    BackgroundImage::Noise(noise) => noise.to_image(tile_w, tile_h, context),
+    BackgroundImage::None => None,
+    BackgroundImage::Linear(gradient) => Some(gradient.to_image(tile_w, tile_h, context)),
+    BackgroundImage::Radial(gradient) => Some(gradient.to_image(tile_w, tile_h, context)),
+    BackgroundImage::Noise(noise) => Some(noise.to_image(tile_w, tile_h, context)),
     BackgroundImage::Url(url) => {
-      if let Some(source) = context.fetched_resources.get(url) {
-        source
-          .render_to_rgba_image(tile_w, tile_h, context.style.image_rendering)?
-          .into_owned()
+      if let Ok(source) = resolve_image(url, context) {
+        Some(
+          source
+            .render_to_rgba_image(tile_w, tile_h, context.style.image_rendering)?
+            .into_owned(),
+        )
       } else {
-        RgbaImage::new(tile_w, tile_h)
+        None
       }
     }
   })
@@ -123,16 +174,16 @@ pub(crate) fn resolve_layer_tiles(
   context: &RenderContext,
 ) -> Result<Option<ImageTiles>> {
   // Compute tile size
-  let (mut tile_w, mut tile_h) = resolve_background_size(size, (area_w, area_h), context);
+  let (mut tile_w, mut tile_h) = resolve_background_size(size, (area_w, area_h), image, context);
 
   if tile_w == 0 || tile_h == 0 {
     return Ok(None);
   }
 
-  // Build tile image (use context-aware resolver where possible)
-  let mut tile_image = render_gradient_tile(image, tile_w, tile_h, context)?;
+  let Some(mut tile_image) = render_tile(image, tile_w, tile_h, context)? else {
+    return Ok(None);
+  };
 
-  // Handle round adjustment (rescale per axis)
   let xs: SmallVec<[i32; 1]> = match repeat.0 {
     BackgroundRepeatStyle::Repeat => {
       let origin_x = resolve_position_component_x(pos, tile_w, area_w, context);

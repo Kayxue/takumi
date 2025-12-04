@@ -133,7 +133,7 @@ fn parse_data_uri_image(src: &str) -> ImageResult {
   load_image_source_from_bytes(&data)
 }
 
-fn resolve_image(src: &str, context: &RenderContext) -> ImageResult {
+pub(crate) fn resolve_image(src: &str, context: &RenderContext) -> ImageResult {
   if src.starts_with(DATA_URI_PREFIX) {
     return parse_data_uri_image(src);
   }
