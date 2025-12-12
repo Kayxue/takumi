@@ -1,4 +1,4 @@
-use clap::{Parser, command};
+use clap::Parser;
 
 /// Command line arguments for the image generator server.
 ///
