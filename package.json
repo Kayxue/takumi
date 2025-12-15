@@ -27,7 +27,7 @@
     "@biomejs/biome": "^2.3.8",
     "@changesets/cli": "^2.29.8",
     "@takumi-rs/core": "workspace:*",
-    "lefthook": "^2.0.9",
+    "lefthook": "^2.0.12",
     "typescript": "catalog:"
   }
 }

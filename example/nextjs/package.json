@@ -17,7 +17,7 @@
     "react-dom": "19.2.3"
   },
   "devDependencies": {
-    "@types/node": "^25.0.1",
+    "@types/node": "^25.0.2",
     "@types/react": "catalog:",
     "@types/react-dom": "^19.2.3",
     "typescript": "catalog:"
