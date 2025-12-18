@@ -34,8 +34,10 @@ let mut node = NodeKind::Container(ContainerNode {
       text: "Hello, world!".to_string(),
       style: None, // Construct with `StyleBuilder`
       tw: None, // Tailwind properties
+      preset: None,
     }),
   ]),
+  preset: None,
   style: None,
   tw: None, // Tailwind properties
 });
