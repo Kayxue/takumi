@@ -3,7 +3,7 @@ use taffy::{LengthPercentage, Point, Size};
 
 use crate::{
   layout::style::{FromCss, LengthUnit, Overflow, ParseResult},
-  rendering::RenderContext,
+  rendering::Sizing,
 };
 
 /// A pair of values for horizontal and vertical axes.
@@ -14,6 +14,9 @@ pub struct SpacePair<T: Copy, const Y_FIRST: bool = false> {
   /// The vertical value.
   pub y: T,
 }
+
+/// A pair of gap values which has the vertical value first.
+pub type Gap = SpacePair<LengthUnit<false>, true>;
 
 impl<T: Copy + Default, const Y_FIRST: bool> Default for SpacePair<T, Y_FIRST> {
   fn default() -> Self {
@@ -60,10 +63,10 @@ impl<T: Copy, const Y_FIRST: bool> SpacePair<T, Y_FIRST> {
 }
 
 impl<const DEFAULT_AUTO: bool, const Y_FIRST: bool> SpacePair<LengthUnit<DEFAULT_AUTO>, Y_FIRST> {
-  pub(crate) fn resolve_to_size(self, context: &RenderContext) -> Size<LengthPercentage> {
+  pub(crate) fn resolve_to_size(self, sizing: &Sizing) -> Size<LengthPercentage> {
     Size {
-      width: self.x.resolve_to_length_percentage(context),
-      height: self.y.resolve_to_length_percentage(context),
+      width: self.x.resolve_to_length_percentage(sizing),
+      height: self.y.resolve_to_length_percentage(sizing),
     }
   }
 }
@@ -87,14 +90,10 @@ impl SpacePair<Overflow> {
 pub type BorderRadiusPair = SpacePair<LengthUnit<false>>;
 
 impl BorderRadiusPair {
-  pub(crate) fn resolve_to_px(
-    self,
-    context: &RenderContext,
-    border_box: Size<f32>,
-  ) -> SpacePair<f32> {
+  pub(crate) fn to_px(self, sizing: &Sizing, border_box: Size<f32>) -> SpacePair<f32> {
     SpacePair::from_pair(
-      self.x.resolve_to_px(context, border_box.width).max(0.0),
-      self.y.resolve_to_px(context, border_box.height).max(0.0),
+      self.x.to_px(sizing, border_box.width).max(0.0),
+      self.y.to_px(sizing, border_box.height).max(0.0),
     )
   }
 }

@@ -5,12 +5,38 @@ use zeno::{Fill, PathData, Placement};
 use crate::{
   layout::style::{Affine, BoxShadow, Color, ImageScalingAlgorithm, Sides, TextShadow},
   rendering::{
-    BorderProperties, Canvas, CanvasConstrain, MaskMemory, RenderContext, draw_mask, overlay_image,
+    BorderProperties, Canvas, CanvasConstrain, MaskMemory, Sizing, draw_mask, overlay_image,
   },
 };
 
+/// Converts an image from straight alpha to premultiplied alpha.
+/// This is necessary before blurring to avoid black halo artifacts.
+fn to_premultiplied_alpha(image: &mut RgbaImage) {
+  for pixel in image.pixels_mut() {
+    let alpha = pixel.0[3] as f32 / 255.0;
+    pixel.0[0] = (pixel.0[0] as f32 * alpha).round() as u8;
+    pixel.0[1] = (pixel.0[1] as f32 * alpha).round() as u8;
+    pixel.0[2] = (pixel.0[2] as f32 * alpha).round() as u8;
+  }
+}
+
+/// Converts an image from premultiplied alpha back to straight alpha.
+fn from_premultiplied_alpha(image: &mut RgbaImage) {
+  for pixel in image.pixels_mut() {
+    let alpha = pixel.0[3] as f32;
+    if alpha > 0.0 {
+      let inv_alpha = 255.0 / alpha;
+      pixel.0[0] = (pixel.0[0] as f32 * inv_alpha).min(255.0).round() as u8;
+      pixel.0[1] = (pixel.0[1] as f32 * inv_alpha).min(255.0).round() as u8;
+      pixel.0[2] = (pixel.0[2] as f32 * inv_alpha).min(255.0).round() as u8;
+    }
+  }
+}
+
 /// Applies a fast blur to an image using image-rs's optimized implementation.
-fn apply_fast_blur(image: &mut RgbaImage, radius: f32) {
+/// Uses premultiplied alpha to avoid black halo artifacts when blurring
+/// images with transparency.
+pub(crate) fn apply_fast_blur(image: &mut RgbaImage, radius: f32) {
   if radius <= 0.0 {
     return;
   }
@@ -19,7 +45,9 @@ fn apply_fast_blur(image: &mut RgbaImage, radius: f32) {
   // CSS blur radius is roughly 3x the standard deviation (sigma)
   let sigma = radius / 3.0;
 
+  to_premultiplied_alpha(image);
   *image = fast_blur(image, sigma);
+  from_premultiplied_alpha(image);
 }
 
 /// Represents a resolved box shadow with all its properties.
@@ -39,28 +67,37 @@ pub(crate) struct SizedShadow {
 
 impl SizedShadow {
   /// Creates a new [`SizedShadow`] from a [`BoxShadow`].
-  pub fn from_box_shadow(shadow: BoxShadow, context: &RenderContext, size: Size<f32>) -> Self {
+  pub fn from_box_shadow(
+    shadow: BoxShadow,
+    sizing: &Sizing,
+    current_color: Color,
+    opacity: u8,
+    size: Size<f32>,
+  ) -> Self {
     Self {
-      offset_x: shadow.offset_x.resolve_to_px(context, size.width),
-      offset_y: shadow.offset_y.resolve_to_px(context, size.height),
-      blur_radius: shadow.blur_radius.resolve_to_px(context, size.width),
-      spread_radius: shadow
-        .spread_radius
-        .resolve_to_px(context, size.width)
-        .max(0.0),
-      color: shadow.color.resolve(context.current_color, context.opacity),
+      offset_x: shadow.offset_x.to_px(sizing, size.width),
+      offset_y: shadow.offset_y.to_px(sizing, size.height),
+      blur_radius: shadow.blur_radius.to_px(sizing, size.width),
+      spread_radius: shadow.spread_radius.to_px(sizing, size.width).max(0.0),
+      color: shadow.color.resolve(current_color, opacity),
     }
   }
 
   /// Creates a new `SizedShadow` from a `TextShadow`.
-  pub fn from_text_shadow(shadow: TextShadow, context: &RenderContext, size: Size<f32>) -> Self {
+  pub fn from_text_shadow(
+    shadow: TextShadow,
+    sizing: &Sizing,
+    current_color: Color,
+    opacity: u8,
+    size: Size<f32>,
+  ) -> Self {
     Self {
-      offset_x: shadow.offset_x.resolve_to_px(context, size.width),
-      offset_y: shadow.offset_y.resolve_to_px(context, size.height),
-      blur_radius: shadow.blur_radius.resolve_to_px(context, size.width),
+      offset_x: shadow.offset_x.to_px(sizing, size.width),
+      offset_y: shadow.offset_y.to_px(sizing, size.height),
+      blur_radius: shadow.blur_radius.to_px(sizing, size.width),
       // Text shadows do not support spread radius; set to 0.
       spread_radius: 0.0,
-      color: shadow.color.resolve(context.current_color, context.opacity),
+      color: shadow.color.resolve(current_color, opacity),
     }
   }
 
@@ -114,7 +151,6 @@ impl SizedShadow {
         placement.top as f32 - self.blur_radius,
       ),
       ImageScalingAlgorithm::Auto,
-      None,
       255,
       constrain,
       mask_memory,
@@ -135,7 +171,6 @@ impl SizedShadow {
       border_radius,
       transform,
       ImageScalingAlgorithm::Auto,
-      None,
       255,
     );
   }

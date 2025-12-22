@@ -9,10 +9,13 @@ use crate::{
   layout::{
     Viewport,
     node::Node,
-    style::{Affine, Display, InheritedStyle, SpacePair},
+    style::{Affine, Display, ImageScalingAlgorithm, InheritedStyle, SpacePair, apply_filters},
     tree::NodeTree,
   },
-  rendering::{Canvas, CanvasConstrain, CanvasConstrainResult, draw_debug_border},
+  rendering::{
+    BorderProperties, Canvas, CanvasConstrain, CanvasConstrainResult, Sizing, draw_debug_border,
+    overlay_image,
+  },
   resources::image::ImageSource,
 };
 
@@ -50,7 +53,7 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
 
   taffy.compute_layout_with_measure(
     root_node_id,
-    render_context.viewport.into(),
+    render_context.sizing.viewport.into(),
     |known_dimensions, available_space, _node_id, node_context, style| {
       if let Size {
         width: Some(width),
@@ -94,10 +97,10 @@ fn apply_transform(
   transform: &mut Affine,
   style: &InheritedStyle,
   border_box: Size<f32>,
-  context: &RenderContext,
+  sizing: &Sizing,
 ) {
   let transform_origin = style.transform_origin.unwrap_or_default();
-  let origin = transform_origin.to_point(context, border_box);
+  let origin = transform_origin.to_point(sizing, border_box);
 
   // CSS Transforms Level 2 order: T(origin) * translate * rotate * scale * transform * T(-origin)
   // Ref: https://www.w3.org/TR/css-transforms-2/#ctm
@@ -107,8 +110,8 @@ fn apply_transform(
   let translate = style.resolve_translate();
   if translate != SpacePair::default() {
     local *= Affine::translation(
-      translate.x.resolve_to_px(context, border_box.width),
-      translate.y.resolve_to_px(context, border_box.height),
+      translate.x.to_px(sizing, border_box.width),
+      translate.y.to_px(sizing, border_box.height),
     );
   }
 
@@ -122,7 +125,7 @@ fn apply_transform(
   }
 
   if let Some(node_transform) = &style.transform {
-    local *= Affine::from_transforms(node_transform.iter(), context, border_box);
+    local *= Affine::from_transforms(node_transform.iter(), sizing, border_box);
   }
 
   local *= Affine::translation(-origin.x, -origin.y);
@@ -152,7 +155,7 @@ fn render_node<'g, Nodes: Node<Nodes>>(
     &mut transform,
     &node.context.style,
     layout.size,
-    &node.context,
+    &node.context.sizing,
   );
 
   // If a transform function causes the current transformation matrix of an object to be non-invertible, the object and its content do not get displayed.
@@ -163,6 +166,7 @@ fn render_node<'g, Nodes: Node<Nodes>>(
 
   node.context.transform = transform;
 
+  // Normal rendering path (no filters requiring node-level rendering)
   let constrain = CanvasConstrain::from_node(
     &node.context,
     &node.context.style,
@@ -171,28 +175,38 @@ fn render_node<'g, Nodes: Node<Nodes>>(
     &mut canvas.mask_memory,
   )?;
 
-  let has_constrain = matches!(constrain, CanvasConstrainResult::Some(_));
+  // Skip rendering if the node is not visible
+  if matches!(constrain, CanvasConstrainResult::SkipRendering) {
+    return Ok(());
+  }
+
+  let has_constrain = constrain.is_some();
+
+  let should_create_isolated_canvas = !node.context.style.filter.is_empty();
+
+  // If isolated canvas is required, replace the current canvas with a new one.
+  // Make sure to merge the image back!
+  let original_canvas_image = if should_create_isolated_canvas {
+    Some(canvas.replace_new_image())
+  } else {
+    None
+  };
 
   match constrain {
-    CanvasConstrainResult::SkipRendering => {
-      return Ok(());
-    }
     CanvasConstrainResult::None => {
       node.draw_shell(canvas, layout)?;
     }
     CanvasConstrainResult::Some(constrain) => match constrain {
-      // Notice the order is important here.
-      // clip-path & mask-image clips everything including the border, so it should be pushed first.
       CanvasConstrain::ClipPath { .. } | CanvasConstrain::MaskImage { .. } => {
         canvas.push_constrain(constrain);
         node.draw_shell(canvas, layout)?;
       }
-      // Overflow clips only the inner children, so the shell should be drawn first.
       CanvasConstrain::Overflow { .. } => {
         node.draw_shell(canvas, layout)?;
         canvas.push_constrain(constrain);
       }
     },
+    CanvasConstrainResult::SkipRendering => unreachable!(),
   }
 
   node.draw_content(canvas, layout)?;
@@ -201,12 +215,41 @@ fn render_node<'g, Nodes: Node<Nodes>>(
     draw_debug_border(canvas, layout, transform);
   }
 
+  let filters = node.context.style.filter.clone();
+  let sizing = node.context.sizing;
+  let current_color = node.context.current_color;
+  let opacity = node.context.opacity;
+
   if node.should_create_inline_layout() {
     node.draw_inline(canvas, layout)?;
   } else {
     for child_id in taffy.children(node_id)? {
       render_node(taffy, child_id, canvas, transform)?;
     }
+  }
+
+  apply_filters(
+    &mut canvas.image,
+    &sizing,
+    current_color,
+    opacity,
+    filters.iter(),
+  );
+
+  // If there was an isolated canvas, composite the filtered image back into the original canvas
+  if let Some(mut original_canvas_image) = original_canvas_image {
+    overlay_image(
+      &mut original_canvas_image,
+      (&canvas.image).into(),
+      BorderProperties::zero(),
+      Affine::IDENTITY,
+      ImageScalingAlgorithm::Auto,
+      255,
+      None,
+      &mut canvas.mask_memory,
+    );
+
+    canvas.image = original_canvas_image;
   }
 
   if has_constrain {
