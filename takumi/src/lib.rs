@@ -93,12 +93,14 @@
 //!
 //! # Credits
 //!
-//! - [taffy](https://github.com/DioxusLabs/taffy) for the layout system.
+//! Takumi wouldn't be possible without the following works:
+//!
+//! - [taffy](https://github.com/DioxusLabs/taffy) for the flex & grid layout.
 //! - [image](https://github.com/image-rs/image) for the image processing.
-//! - [parley](https://github.com/linebender/parley) for the text layout.
+//! - [parley](https://github.com/linebender/parley) for text layout.
+//! - [swash](https://github.com/linebender/swash) for font shaping.
 //! - [wuff](https://github.com/nicoburns/wuff) for woff/woff2 decompression.
-//! - [ts-rs](https://github.com/AlephAlpha/ts-rs) for the type-safe serialization.
-//! - [resvg](https://github.com/linebender/resvg) for SVG parsing and rendering.
+//! - [resvg](https://github.com/linebender/resvg) for SVG parsing & rasterization.
 
 /// Layout related modules, including the node tree, style parsing, and layout calculation.
 pub mod layout;
