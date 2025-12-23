@@ -6,7 +6,7 @@ use taffy::{Layout, Point, Size};
 use crate::{
   Result,
   layout::{
-    inline::{InlineBrush, InlineLayout},
+    inline::{InlineBrush, InlineLayout, InlineNodeItem},
     node::Node,
     style::{Affine, BackgroundClip, SizedFontStyle, TextDecorationLine},
   },
@@ -107,21 +107,20 @@ fn draw_glyph_run(
 
 pub(crate) fn draw_inline_box<N: Node<N>>(
   inline_box: &PositionedInlineBox,
-  node: &N,
-  context: &RenderContext,
+  node: &InlineNodeItem<'_, '_, N>,
   canvas: &mut Canvas,
   transform: Affine,
 ) -> Result<()> {
-  if context.opacity == 0 {
+  if node.context.opacity == 0 {
     return Ok(());
   }
 
   let context = RenderContext {
     transform: transform * Affine::translation(inline_box.x, inline_box.y),
-    ..context.clone()
+    ..node.context.clone()
   };
 
-  node.draw_content(
+  node.node.draw_content(
     &context,
     canvas,
     Layout {

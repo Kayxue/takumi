@@ -70,7 +70,7 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for ImageNode {
     style.inherit(parent_style)
   }
 
-  fn inline_content(&self, _context: &RenderContext) -> Option<InlineContentKind> {
+  fn inline_content(&self) -> Option<InlineContentKind<'_>> {
     Some(InlineContentKind::Box)
   }
 
