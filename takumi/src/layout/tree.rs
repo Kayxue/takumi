@@ -325,11 +325,7 @@ impl<'n, 'g, N: Node<N>> Iterator for InlineItemIterator<'n, 'g, N> {
       }
 
       // Prepare the current node's content
-      if let Some(inline_content) = node
-        .node
-        .as_ref()
-        .and_then(|n| n.inline_content(&node.context))
-      {
+      if let Some(inline_content) = node.node.as_ref().and_then(Node::inline_content) {
         match inline_content {
           InlineContentKind::Box => {
             if let Some(n) = &node.node {
@@ -341,7 +337,7 @@ impl<'n, 'g, N: Node<N>> Iterator for InlineItemIterator<'n, 'g, N> {
           }
           InlineContentKind::Text(text) => {
             self.current_node_content = Some(InlineItem::Text {
-              text: text.into(),
+              text,
               context: &node.context,
             });
           }

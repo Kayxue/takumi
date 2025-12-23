@@ -14,10 +14,7 @@ use crate::{
     node::Node,
     style::{InheritedStyle, Style, tw::TailwindValues},
   },
-  rendering::{
-    Canvas, MaxHeight, RenderContext, apply_text_transform, apply_white_space_collapse,
-    inline_drawing::draw_inline_layout,
-  },
+  rendering::{Canvas, MaxHeight, RenderContext, inline_drawing::draw_inline_layout},
 };
 
 /// A node that renders text content.
@@ -63,11 +60,8 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for TextNode {
     style.inherit(parent_style)
   }
 
-  fn inline_content(&self, context: &RenderContext) -> Option<InlineContentKind> {
-    let transformed = apply_text_transform(&self.text, context.style.text_transform);
-    let collapsed = apply_white_space_collapse(&transformed, context.style.white_space_collapse());
-
-    Some(InlineContentKind::Text(collapsed.into_owned()))
+  fn inline_content(&self) -> Option<InlineContentKind<'_>> {
+    Some(InlineContentKind::Text(self.text.as_str().into()))
   }
 
   fn draw_content(

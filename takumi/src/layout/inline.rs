@@ -45,8 +45,8 @@ pub(crate) enum InlineItem<'c, 'g, N: Node<N>> {
   },
 }
 
-pub enum InlineContentKind {
-  Text(String),
+pub enum InlineContentKind<'c> {
+  Text(Cow<'c, str>),
   Box,
 }
 

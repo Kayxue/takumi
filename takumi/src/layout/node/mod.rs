@@ -46,9 +46,9 @@ macro_rules! impl_node_enum {
         }
       }
 
-      fn inline_content(&self, context: &$crate::rendering::RenderContext) -> Option<$crate::layout::inline::InlineContentKind> {
+      fn inline_content(&self) -> Option<$crate::layout::inline::InlineContentKind<'_>> {
         match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::inline_content(inner, context), )*
+          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::inline_content(inner), )*
         }
       }
 
@@ -219,7 +219,7 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
   ) -> InheritedStyle;
 
   /// Retrieve content for inline layout.
-  fn inline_content(&self, _context: &RenderContext) -> Option<InlineContentKind> {
+  fn inline_content(&self) -> Option<InlineContentKind<'_>> {
     None
   }
 
