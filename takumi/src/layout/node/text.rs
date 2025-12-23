@@ -1,3 +1,5 @@
+use std::iter::once;
+
 use serde::Deserialize;
 use taffy::{AvailableSpace, Layout, Size};
 
@@ -6,15 +8,15 @@ use crate::{
   layout::{
     Viewport,
     inline::{
-      InlineContentKind, InlineItem, InlineLayout, break_lines, create_inline_constraint,
+      InlineContentKind, InlineItem, create_inline_constraint, create_inline_layout,
       measure_inline_layout,
     },
     node::Node,
-    style::{InheritedStyle, SizedFontStyle, Style, TextWrapStyle, tw::TailwindValues},
+    style::{InheritedStyle, Style, tw::TailwindValues},
   },
   rendering::{
     Canvas, MaxHeight, RenderContext, apply_text_transform, apply_white_space_collapse,
-    inline_drawing::draw_inline_layout, make_balanced_text, make_ellipsis_text, make_pretty_text,
+    inline_drawing::draw_inline_layout,
   },
 };
 
@@ -86,16 +88,26 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for TextNode {
       None => Some(MaxHeight::Absolute(size.height)),
     };
 
-    let inline_layout = create_text_only_layout(
-      &self.text,
+    let inline_text: InlineItem<'_, '_, Nodes> = InlineItem::Text {
+      text: self.text.as_str().into(),
       context,
+    };
+
+    let (inline_layout, _, _) = create_inline_layout(
+      once(inline_text),
+      Size {
+        width: AvailableSpace::Definite(size.width),
+        height: AvailableSpace::Definite(size.height),
+      },
       size.width,
       max_height,
       &font_style,
+      context.global,
       false,
     );
 
     draw_inline_layout(context, canvas, layout, inline_layout, &font_style)?;
+
     Ok(())
   }
 
@@ -116,91 +128,20 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for TextNode {
 
     let font_style = context.style.to_sized_font_style(context);
 
-    measure_inline_layout(
-      std::iter::once(inline_content),
+    let (mut layout, _, _) = create_inline_layout(
+      once(inline_content),
       available_space,
       max_width,
       max_height,
       &font_style,
       context.global,
-    )
+      true,
+    );
+
+    measure_inline_layout(&mut layout, max_width, max_height)
   }
 
   fn get_style(&self) -> Option<&Style> {
     self.style.as_ref()
   }
-}
-
-fn create_text_only_layout(
-  text: &str,
-  context: &RenderContext,
-  max_width: f32,
-  max_height: Option<MaxHeight>,
-  font_style: &SizedFontStyle<'_>,
-  measure_only: bool,
-) -> InlineLayout {
-  let (mut inline_layout, text) = {
-    let transformed = apply_text_transform(text, context.style.text_transform);
-    let collapsed =
-      apply_white_space_collapse(&transformed, font_style.parent.white_space_collapse());
-
-    context
-      .global
-      .font_context
-      .tree_builder(font_style.into(), |builder| {
-        builder.push_text(&collapsed);
-      })
-  };
-
-  break_lines(&mut inline_layout, max_width, max_height);
-
-  if measure_only {
-    return inline_layout;
-  }
-
-  let Some(last_line) = inline_layout.lines().last() else {
-    return inline_layout;
-  };
-
-  let last_char_index = last_line.text_range().end;
-
-  let should_handle_ellipsis =
-    font_style.parent.should_handle_ellipsis() && last_char_index < text.len();
-
-  if should_handle_ellipsis {
-    let truncated = make_ellipsis_text(
-      &text,
-      last_line.text_range(),
-      font_style,
-      context.global,
-      max_width,
-      font_style.parent.ellipsis_char(),
-    );
-
-    return create_text_only_layout(
-      &truncated, context, max_width, max_height, font_style, false,
-    );
-  }
-
-  let text_wrap_style = context
-    .style
-    .text_wrap_style
-    .unwrap_or(context.style.text_wrap.style);
-  let line_count = inline_layout.lines().count();
-
-  if text_wrap_style == TextWrapStyle::Balance {
-    make_balanced_text(&mut inline_layout, max_width, line_count);
-  }
-
-  if text_wrap_style == TextWrapStyle::Pretty {
-    make_pretty_text(&mut inline_layout, max_width);
-  }
-
-  inline_layout.align(
-    Some(max_width),
-    context.style.text_align.into(),
-    Default::default(),
-  );
-
-  inline_layout
 }

@@ -7,16 +7,21 @@ use crate::{
   GlobalContext,
   layout::{
     node::Node,
-    style::{Color, SizedFontStyle},
+    style::{Color, SizedFontStyle, TextWrapStyle},
   },
-  rendering::{MaxHeight, RenderContext, apply_text_transform, apply_white_space_collapse},
+  rendering::{
+    MaxHeight, RenderContext, apply_text_transform, apply_white_space_collapse, make_balanced_text,
+    make_pretty_text,
+  },
 };
 
+pub(crate) struct InlineNodeItem<'c, 'g, N: Node<N>> {
+  pub(crate) node: &'c N,
+  pub(crate) context: &'c RenderContext<'g>,
+}
+
 pub(crate) enum InlineItem<'c, 'g, N: Node<N>> {
-  Node {
-    node: &'c N,
-    context: &'c RenderContext<'g>,
-  },
+  Node(InlineNodeItem<'c, 'g, N>),
   Text {
     text: Cow<'c, str>,
     context: &'c RenderContext<'g>,
@@ -47,64 +52,12 @@ impl Default for InlineBrush {
   }
 }
 
-pub(crate) fn measure_inline_layout<
-  'c,
-  'g: 'c,
-  N: Node<N> + 'c,
-  I: Iterator<Item = InlineItem<'c, 'g, N>>,
->(
-  items: I,
-  available_space: Size<AvailableSpace>,
+pub(crate) fn measure_inline_layout(
+  layout: &mut InlineLayout,
   max_width: f32,
   max_height: Option<MaxHeight>,
-  font_style: &SizedFontStyle,
-  global: &'g GlobalContext,
 ) -> Size<f32> {
-  let mut boxes = Vec::new();
-
-  let (mut layout, _) = global
-    .font_context
-    .tree_builder(font_style.into(), |builder| {
-      let mut idx = 0;
-      let mut index_pos = 0;
-
-      for item in items {
-        match item {
-          InlineItem::Text { text, context } => {
-            let transformed = apply_text_transform(&text, context.style.text_transform);
-            let collapsed =
-              apply_white_space_collapse(&transformed, font_style.parent.white_space_collapse());
-
-            builder.push_style_span((&context.style.to_sized_font_style(context)).into());
-            builder.push_text(&collapsed);
-            builder.pop_style_span();
-
-            index_pos += collapsed.len();
-          }
-          InlineItem::Node { node, context } => {
-            let size = node.measure(
-              context,
-              available_space,
-              Size::NONE,
-              &taffy::Style::default(),
-            );
-
-            boxes.push(size);
-
-            builder.push_inline_box(InlineBox {
-              index: index_pos,
-              id: idx,
-              width: size.width,
-              height: size.height,
-            });
-
-            idx += 1;
-          }
-        }
-      }
-    });
-
-  break_lines(&mut layout, max_width, max_height);
+  break_lines(layout, max_width, max_height);
 
   let (max_run_width, total_height) =
     layout
@@ -121,6 +74,91 @@ pub(crate) fn measure_inline_layout<
     width: max_run_width.ceil().min(max_width),
     height: total_height.ceil(),
   }
+}
+
+pub(crate) fn create_inline_layout<'c, 'g: 'c, N: Node<N> + 'c>(
+  items: impl Iterator<Item = InlineItem<'c, 'g, N>>,
+  available_space: Size<AvailableSpace>,
+  max_width: f32,
+  max_height: Option<MaxHeight>,
+  style: &SizedFontStyle,
+  global: &'_ GlobalContext,
+  measure_only: bool,
+) -> (InlineLayout, String, Vec<InlineNodeItem<'c, 'g, N>>) {
+  let mut boxes = Vec::new();
+  let mut text_spans = Vec::new();
+
+  let (mut layout, text) = global.font_context.tree_builder(style.into(), |builder| {
+    let mut idx = 0;
+    let mut index_pos = 0;
+
+    for item in items {
+      match item {
+        InlineItem::Text { text, context } => {
+          let transformed = apply_text_transform(&text, context.style.text_transform);
+          let collapsed =
+            apply_white_space_collapse(&transformed, style.parent.white_space_collapse());
+
+          builder.push_style_span((&context.style.to_sized_font_style(context)).into());
+          builder.push_text(&collapsed);
+          builder.pop_style_span();
+
+          index_pos += collapsed.len();
+
+          text_spans.push((idx, collapsed.into_owned()));
+        }
+        InlineItem::Node(item) => {
+          let size = item.node.measure(
+            item.context,
+            available_space,
+            Size::NONE,
+            &taffy::Style::default(),
+          );
+
+          let inline_box = InlineBox {
+            index: index_pos,
+            id: idx,
+            width: size.width,
+            height: size.height,
+          };
+
+          boxes.push(item);
+
+          builder.push_inline_box(inline_box);
+
+          idx += 1;
+        }
+      }
+    }
+  });
+
+  break_lines(&mut layout, max_width, max_height);
+
+  if measure_only {
+    return (layout, text, boxes);
+  }
+
+  let text_wrap_style = style
+    .parent
+    .text_wrap_style
+    .unwrap_or(style.parent.text_wrap.style);
+  let line_count = layout.lines().count();
+
+  if text_wrap_style == TextWrapStyle::Balance {
+    make_balanced_text(&mut layout, max_width, line_count);
+  }
+
+  if text_wrap_style == TextWrapStyle::Pretty {
+    make_pretty_text(&mut layout, max_width);
+  }
+
+  layout.align(
+    Some(max_width),
+    style.parent.text_align.into(),
+    Default::default(),
+  );
+
+  (layout, text, boxes)
 }
 
 pub(crate) fn create_inline_constraint(
