@@ -45,6 +45,8 @@ You can try out Takumi in [Playground](https://takumi.kane.tw/playground) withou
 
 Contributions are welcome! Please feel free to open an [issue](https://github.com/kane50613/takumi/issues) or submit a pull request.
 
+By participating in this project, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).
+
 You need to have Rust 1.88+ & Bun installed.
 
 ```bash
