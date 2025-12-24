@@ -1,0 +1,119 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out this form as completely as possible.
+
+  - type: checkboxes
+    id: existing-issues
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have searched [existing issues](https://github.com/kane50613/takumi/issues) and this bug has not been reported
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the bug
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal steps to reproduce the behavior
+      placeholder: |
+        1. Create a node with...
+        2. Set style to...
+        3. Render with...
+        4. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened? Include screenshots if applicable
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Reproduction Code
+      description: Minimal code to reproduce the issue (if applicable)
+      render: rust
+      placeholder: |
+        use takumi::*;
+        
+        let node = ContainerNode { ... };
+        let result = render(options);
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Affected Package
+      description: Which package(s) are affected?
+      multiple: true
+      options:
+        - takumi (Rust core)
+        - "@takumi-rs/core (N-API)"
+        - "@takumi-rs/wasm"
+        - "@takumi-rs/image-response"
+        - "@takumi-rs/template"
+        - "@takumi-rs/helpers"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What version of Takumi are you using?
+      placeholder: "0.60.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Details
+      description: Any additional environment information (Node.js version, browser, etc.)
+      placeholder: |
+        - Node.js: v22.0.0
+        - Runtime: Bun 1.2.0
+        - Browser: N/A
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context about the problem

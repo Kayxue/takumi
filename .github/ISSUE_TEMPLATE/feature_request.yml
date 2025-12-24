@@ -1,0 +1,84 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please fill out this form to help us understand your request.
+
+  - type: checkboxes
+    id: existing-issues
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have searched [existing issues](https://github.com/kane50613/takumi/issues) and this feature has not been requested
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Is this feature request related to a problem? Please describe.
+      placeholder: I'm always frustrated when...
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: A clear and concise description of what you want to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: api
+    attributes:
+      label: Proposed API / Usage
+      description: If applicable, show how you'd like to use this feature
+      render: rust
+      placeholder: |
+        // Example usage
+        let node = ContainerNode {
+          style: Some(StyleBuilder::default()
+            .new_feature(value)
+            .build()
+            .unwrap()),
+          ...
+        };
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or features you've considered?
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Related Package
+      description: Which package(s) would this feature affect?
+      multiple: true
+      options:
+        - takumi (Rust core)
+        - "@takumi-rs/core (N-API)"
+        - "@takumi-rs/wasm"
+        - "@takumi-rs/image-response"
+        - "@takumi-rs/template"
+        - "@takumi-rs/helpers"
+        - Documentation
+
+  - type: dropdown
+    id: willing
+    attributes:
+      label: Contribution
+      description: Are you willing to contribute this feature?
+      options:
+        - "Yes, I'd like to implement this"
+        - "Yes, I can help with guidance"
+        - "No, but I'd love to see it"
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context, mockups, or screenshots about the feature request

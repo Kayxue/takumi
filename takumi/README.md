@@ -6,14 +6,6 @@ Takumi is a library with different parts to render your React components to imag
 
 Checkout the [Quick Start](https://takumi.kane.tw/docs) if you are looking for napi-rs / WASM bindings.
 
-## Walkthrough
-
-Create a [`GlobalContext`](https://docs.rs/takumi/latest/takumi/struct.GlobalContext.html) to store image resources, font caches, the instance should be reused to speed up the rendering.
-
-Then call [`render`](https://docs.rs/takumi/latest/takumi/rendering/render/) with [`Node`](https://docs.rs/takumi/latest/takumi/layout/node/trait.Node.html) and [`Viewport`](https://docs.rs/takumi/latest/takumi/layout/viewport/struct.Viewport.html) to get [`RgbaImage`](image::RgbaImage).
-
-Theres a helper function [`write_image`](https://docs.rs/takumi/latest/takumi/rendering/write/fn.write_image.html) to write the image to a destination implements [`Write`](std::io::Write) and [`Seek`](std::io::Seek).
-
 ## Example
 
 ```rust
@@ -47,8 +39,6 @@ let mut node = NodeKind::Container(ContainerNode {
 let mut global = GlobalContext::default();
 
 // Load fonts
-// pass an optional [`FontInfoOverride`](parley::FontInfoOverride) to override the font's metadata,
-// and an optional [`GenericFamily`](parley::GenericFamily) to specify the generic family of the font.
 global.font_context.load_and_store(include_bytes!("../../assets/fonts/geist/Geist[wght].woff2"), None, None);
 
 // Create a viewport
