@@ -4,12 +4,12 @@ A collection of pre-designed templates for [Takumi](https://takumi.kane.tw). Che
 
 ## Distribution
 
-These templates are available via our [Shadcn-compatible Registry](https://takumi.kane.tw/registry.json).
+These templates are available via our [Shadcn-compatible Registry](https://takumi.kane.tw/templates/registry.json).
 
 To add a template to your project, you can use the following command:
 
 ```bash
-npx shadcn@latest add https://takumi.kane.tw/registry/docs-template.json
+npx shadcn@latest add https://takumi.kane.tw/templates/registry/docs-template.json
 ```
 
 ## Contributing
