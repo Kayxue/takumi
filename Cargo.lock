@@ -2336,6 +2336,7 @@ dependencies = [
  "png 0.18.0",
  "rayon",
  "resvg",
+ "rustc-hash",
  "serde",
  "serde_json",
  "smallvec",

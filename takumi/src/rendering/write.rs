@@ -1,4 +1,6 @@
-use std::{borrow::Cow, collections::HashMap, io::Write};
+use std::{borrow::Cow, io::Write};
+
+use rustc_hash::FxHashMap;
 
 use image::{ExtendedColorType, ImageEncoder, ImageFormat, RgbaImage, codecs::jpeg::JpegEncoder};
 use png::{BitDepth, ColorType, Compression, Filter};
@@ -103,50 +105,144 @@ struct PaletteData {
   palette: Vec<u8>,
   /// Alpha channel for palette entries, 1 byte per color.
   trns: Vec<u8>,
-  /// Indexed pixel data.
+  /// Indexed pixel data (packed according to bit_depth).
   indices: Vec<u8>,
+  /// Optimal bit depth for this palette (1, 2, 4, or 8).
+  bit_depth: BitDepth,
 }
 
 /// Try to collect a palette from the image.
 /// Returns None if there are more than MAX_PALETTE_SIZE unique colors.
 fn try_collect_palette(image: &RgbaImage) -> Option<PaletteData> {
-  let pixel_count = image.len();
+  // Pass 1: Collect unique colors with their first occurrence position
+  // This preserves spatial locality for better PNG filter compression
+  #[cfg(feature = "rayon")]
+  let color_positions: FxHashMap<[u8; 4], usize> = {
+    use rayon::prelude::*;
 
-  let mut palette = Vec::new();
-  let mut trns = Vec::new();
-  let mut color_map: HashMap<[u8; 4], u8> = HashMap::with_capacity(256);
-  let mut indices = Vec::with_capacity(pixel_count);
+    let map = image
+      .par_enumerate_pixels()
+      .with_min_len(4096)
+      .fold(
+        || FxHashMap::with_capacity_and_hasher(256, Default::default()),
+        |mut acc, (x, y, pixel)| {
+          let mut rgba: [u8; 4] = pixel.0;
+          rgba[3] = (rgba[3] / 5) * 5;
 
-  for pixel in image.pixels() {
-    let mut rgba: [u8; 4] = pixel.0;
+          // Only insert if not seen before (keeps first occurrence)
+          acc
+            .entry(rgba)
+            .or_insert_with(|| (y as usize) * (image.width() as usize) + (x as usize));
 
-    // Quantize alpha to multiples of 5 to reduce unique color count
-    rgba[3] = (rgba[3] / 5) * 5;
+          acc
+        },
+      )
+      .reduce(
+        || FxHashMap::with_capacity_and_hasher(256, Default::default()),
+        |mut a, b| {
+          // Merge keeping the minimum (first) position for each color
+          for (color, pos) in b {
+            a.entry(color)
+              .and_modify(|p| *p = (*p).min(pos))
+              .or_insert(pos);
+          }
+          a
+        },
+      );
 
-    let idx = match color_map.get(&rgba) {
-      Some(&i) => i,
-      None => {
-        if color_map.len() >= color_map.capacity() {
+    // Only check total after merge - individual chunks may have duplicates
+    if map.len() > 256 {
+      return None;
+    }
+
+    map
+  };
+
+  #[cfg(not(feature = "rayon"))]
+  let color_positions: FxHashMap<[u8; 4], usize> = {
+    let mut map = FxHashMap::with_capacity_and_hasher(256, Default::default());
+
+    for (idx, pixel) in image.pixels().enumerate() {
+      let mut rgba: [u8; 4] = pixel.0;
+      rgba[3] = (rgba[3] / 5) * 5;
+
+      if !map.contains_key(&rgba) {
+        if map.len() >= 256 {
           return None;
         }
-
-        let i = color_map.len() as u8;
-
-        color_map.insert(rgba, i);
-        palette.extend_from_slice(&rgba[..3]);
-        trns.push(rgba[3]);
-
-        i
+        map.insert(rgba, idx);
       }
-    };
+    }
 
-    indices.push(idx);
+    map
+  };
+
+  // Sort colors by first occurrence position (preserves spatial locality)
+  let mut sorted_colors: Vec<([u8; 4], usize)> = color_positions.into_iter().collect();
+  sorted_colors.sort_unstable_by_key(|(_, pos)| *pos);
+
+  // Build palette and color map
+  let mut palette = Vec::with_capacity(sorted_colors.len() * 3);
+  let mut trns = Vec::with_capacity(sorted_colors.len());
+  let mut color_map: FxHashMap<[u8; 4], u8> =
+    FxHashMap::with_capacity_and_hasher(sorted_colors.len(), Default::default());
+
+  for (rgba, _) in sorted_colors.iter() {
+    let i = color_map.len() as u8;
+
+    color_map.insert(*rgba, i);
+    palette.extend_from_slice(&rgba[..3]);
+
+    trns.push(rgba[3]);
+  }
+
+  // Determine optimal bit depth based on palette size
+  let (bit_depth, bits_per_pixel) = match sorted_colors.len() {
+    0..=2 => (BitDepth::One, 1),
+    3..=4 => (BitDepth::Two, 2),
+    5..=16 => (BitDepth::Four, 4),
+    _ => (BitDepth::Eight, 8),
+  };
+
+  // Pass 2: Build indices (packed according to bit depth)
+  let width = image.width() as usize;
+  let pixels_per_byte = 8 / bits_per_pixel;
+  let row_bytes = width.div_ceil(pixels_per_byte);
+
+  let mut indices: Vec<u8> = Vec::with_capacity(row_bytes * image.height() as usize);
+
+  for row in image.rows() {
+    let mut current_byte: u8 = 0;
+    let mut bit_offset = 8 - bits_per_pixel;
+
+    for pixel in row {
+      let mut rgba: [u8; 4] = pixel.0;
+      rgba[3] = (rgba[3] / 5) * 5;
+
+      let idx = color_map.get(&rgba).copied().unwrap_or(0);
+
+      current_byte |= idx << bit_offset;
+
+      if bit_offset == 0 {
+        indices.push(current_byte);
+        current_byte = 0;
+        bit_offset = 8 - bits_per_pixel;
+      } else {
+        bit_offset -= bits_per_pixel;
+      }
+    }
+
+    // Push remaining byte if row doesn't align to byte boundary
+    if bit_offset != 8 - bits_per_pixel {
+      indices.push(current_byte);
+    }
   }
 
   Some(PaletteData {
     palette,
     trns,
     indices,
+    bit_depth,
   })
 }
 
@@ -170,7 +266,7 @@ pub fn write_image<T: Write>(
       if let Some(palette) = try_collect_palette(image) {
         // Use color quantization when there are too many unique colors
         encoder.set_color(ColorType::Indexed);
-        encoder.set_depth(BitDepth::Eight);
+        encoder.set_depth(palette.bit_depth);
         encoder.set_palette(palette.palette);
 
         if palette.trns.iter().any(|&a| a != u8::MAX) {
@@ -178,7 +274,12 @@ pub fn write_image<T: Write>(
         }
 
         encoder.set_compression(Compression::Fast);
-        encoder.set_filter(Filter::Sub);
+
+        // For sub-byte depths, no filter works better.
+        encoder.set_filter(match palette.bit_depth {
+          BitDepth::Eight => Filter::Sub,
+          _ => Filter::Up,
+        });
 
         let mut writer = encoder.write_header()?;
         writer.write_image_data(&palette.indices)?;
