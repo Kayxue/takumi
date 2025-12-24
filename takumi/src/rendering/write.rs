@@ -275,7 +275,7 @@ pub fn write_image<T: Write>(
 
         encoder.set_compression(Compression::Fast);
 
-        // For sub-byte depths, no filter works better.
+        // For sub-byte depths, up filter works better.
         encoder.set_filter(match palette.bit_depth {
           BitDepth::Eight => Filter::Sub,
           _ => Filter::Up,
