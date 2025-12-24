@@ -57,7 +57,7 @@ fn test_style_background_image_gradient_basic() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_image_gradient.webp",
+    "tests/fixtures/style_background_image_gradient.png",
   );
 }
 
@@ -70,7 +70,7 @@ fn test_style_background_image_gradient_alt() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_image_gradient_alt.webp",
+    "tests/fixtures/style_background_image_gradient_alt.png",
   );
 }
 
@@ -83,7 +83,7 @@ fn test_style_background_image_gradient_hard_stop() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_image_gradient_hard_stop.webp",
+    "tests/fixtures/style_background_image_gradient_hard_stop.png",
   );
 }
 
@@ -95,7 +95,7 @@ fn test_style_background_image_radial_basic() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_image_radial_basic.webp",
+    "tests/fixtures/style_background_image_radial_basic.png",
   );
 }
 
@@ -107,7 +107,7 @@ fn test_style_background_image_radial_mixed() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_image_radial_mixed.webp",
+    "tests/fixtures/style_background_image_radial_mixed.png",
   );
 }
 
@@ -122,7 +122,7 @@ fn test_style_background_image_linear_radial_mixed() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_image_linear_radial_mixed.webp",
+    "tests/fixtures/style_background_image_linear_radial_mixed.png",
   );
 }
 
@@ -139,7 +139,7 @@ fn test_background_no_repeat_center_with_size_px() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_no_repeat_center_200x120.webp",
+    "tests/fixtures/style_background_no_repeat_center_200x120.png",
   );
 }
 
@@ -156,7 +156,7 @@ fn test_background_repeat_tile_from_top_left() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_repeat_tile_from_top_left.webp",
+    "tests/fixtures/style_background_repeat_tile_from_top_left.png",
   );
 }
 
@@ -175,7 +175,7 @@ fn test_background_repeat_space() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_repeat_space.webp",
+    "tests/fixtures/style_background_repeat_space.png",
   );
 }
 
@@ -193,7 +193,7 @@ fn test_background_repeat_round() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_repeat_round.webp",
+    "tests/fixtures/style_background_repeat_round.png",
   );
 }
 
@@ -211,7 +211,7 @@ fn test_background_position_percentage_with_no_repeat() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_position_percent_25_75.webp",
+    "tests/fixtures/style_background_position_percent_25_75.png",
   );
 }
 
@@ -229,7 +229,7 @@ fn test_background_size_percentage_with_repeat() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_size_percent_20_20.webp",
+    "tests/fixtures/style_background_size_percent_20_20.png",
   );
 }
 
@@ -259,7 +259,7 @@ fn test_background_image_grid_pattern() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_image_grid_pattern.webp",
+    "tests/fixtures/style_background_image_grid_pattern.png",
   );
 }
 
@@ -281,7 +281,7 @@ fn test_background_image_noise_v1_with_gradient() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_image_noise_v1_blend.webp",
+    "tests/fixtures/style_background_image_noise_v1_blend.png",
   );
 }
 
@@ -303,7 +303,7 @@ fn test_background_image_dotted_pattern() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_image_dotted_pattern.webp",
+    "tests/fixtures/style_background_image_dotted_pattern.png",
   );
 }
 
@@ -319,7 +319,7 @@ fn test_background_size_contain() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_size_contain.webp",
+    "tests/fixtures/style_background_size_contain.png",
   );
 }
 
@@ -335,6 +335,6 @@ fn test_background_size_cover() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_size_cover.webp",
+    "tests/fixtures/style_background_size_cover.png",
   );
 }

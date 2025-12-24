@@ -24,7 +24,7 @@ fn test_style_object_fit_contain() {
     src: "assets/images/yeecord.png".into(),
   };
 
-  run_style_width_test(image.into(), "tests/fixtures/style_object_fit_contain.webp");
+  run_style_width_test(image.into(), "tests/fixtures/style_object_fit_contain.png");
 }
 
 #[test]
@@ -45,7 +45,7 @@ fn test_style_object_fit_cover() {
     src: "assets/images/yeecord.png".into(),
   };
 
-  run_style_width_test(image.into(), "tests/fixtures/style_object_fit_cover.webp");
+  run_style_width_test(image.into(), "tests/fixtures/style_object_fit_cover.png");
 }
 
 #[test]
@@ -66,7 +66,7 @@ fn test_style_object_fit_fill() {
     height: None,
   };
 
-  run_style_width_test(image.into(), "tests/fixtures/style_object_fit_fill.webp");
+  run_style_width_test(image.into(), "tests/fixtures/style_object_fit_fill.png");
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn test_style_object_fit_none() {
     height: None,
   };
 
-  run_style_width_test(image.into(), "tests/fixtures/style_object_fit_none.webp");
+  run_style_width_test(image.into(), "tests/fixtures/style_object_fit_none.png");
 }
 
 #[test]
@@ -110,6 +110,6 @@ fn test_style_object_fit_scale_down() {
 
   run_style_width_test(
     image.into(),
-    "tests/fixtures/style_object_fit_scale_down.webp",
+    "tests/fixtures/style_object_fit_scale_down.png",
   );
 }

@@ -78,7 +78,7 @@ fn fixtures_text_inline() {
     children: Some(children),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/text_inline.webp");
+  run_style_width_test(container.into(), "tests/fixtures/text_inline.png");
 }
 
 #[test]
@@ -157,7 +157,7 @@ fn fixtures_inline_image() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/inline_image.webp");
+  run_style_width_test(container.into(), "tests/fixtures/inline_image.png");
 }
 
 #[test]
@@ -236,6 +236,6 @@ fn fixtures_inline_block_in_inline() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/inline_block_in_inline.webp",
+    "tests/fixtures/inline_block_in_inline.png",
   );
 }

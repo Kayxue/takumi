@@ -24,7 +24,7 @@ fn fixtures_text_basic() {
     text: "The quick brown fox jumps over the lazy dog 12345".to_string(),
   };
 
-  run_style_width_test(NodeKind::Text(text), "tests/fixtures/text_basic.webp");
+  run_style_width_test(NodeKind::Text(text), "tests/fixtures/text_basic.png");
 }
 
 #[test]
@@ -44,7 +44,7 @@ fn fixtures_text_typography_regular_24px() {
 
   run_style_width_test(
     text.into(),
-    "tests/fixtures/text_typography_regular_24px.webp",
+    "tests/fixtures/text_typography_regular_24px.png",
   );
 }
 
@@ -95,7 +95,7 @@ fn fixtures_text_typography_variable_width() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/text_typography_variable_width.webp",
+    "tests/fixtures/text_typography_variable_width.png",
   );
 }
 
@@ -137,7 +137,7 @@ fn fixtures_text_typography_variable_weight() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/text_typography_variable_weight.webp",
+    "tests/fixtures/text_typography_variable_weight.png",
   );
 }
 
@@ -159,7 +159,7 @@ fn fixtures_text_typography_medium_weight_500() {
 
   run_style_width_test(
     text.into(),
-    "tests/fixtures/text_typography_medium_weight_500.webp",
+    "tests/fixtures/text_typography_medium_weight_500.png",
   );
 }
 
@@ -181,7 +181,7 @@ fn fixtures_text_typography_line_height_40px() {
 
   run_style_width_test(
     text.into(),
-    "tests/fixtures/text_typography_line_height_40px.webp",
+    "tests/fixtures/text_typography_line_height_40px.png",
   );
 }
 
@@ -203,7 +203,7 @@ fn fixtures_text_typography_letter_spacing_2px() {
 
   run_style_width_test(
     text.into(),
-    "tests/fixtures/text_typography_letter_spacing_2px.webp",
+    "tests/fixtures/text_typography_letter_spacing_2px.png",
   );
 }
 
@@ -224,7 +224,7 @@ fn fixtures_text_align_start() {
     text: "Start aligned".to_string(),
   };
 
-  run_style_width_test(text.into(), "tests/fixtures/text_align_start.webp");
+  run_style_width_test(text.into(), "tests/fixtures/text_align_start.png");
 }
 
 #[test]
@@ -244,7 +244,7 @@ fn fixtures_text_align_center() {
     text: "Center aligned".to_string(),
   };
 
-  run_style_width_test(text.into(), "tests/fixtures/text_align_center.webp");
+  run_style_width_test(text.into(), "tests/fixtures/text_align_center.png");
 }
 
 #[test]
@@ -264,7 +264,7 @@ fn fixtures_text_align_right() {
     text: "Right aligned".to_string(),
   };
 
-  run_style_width_test(text.into(), "tests/fixtures/text_align_right.webp");
+  run_style_width_test(text.into(), "tests/fixtures/text_align_right.png");
 }
 
 #[test]
@@ -287,10 +287,7 @@ fn fixtures_text_ellipsis_line_clamp_2() {
     text: long_text.to_string(),
   };
 
-  run_style_width_test(
-    text.into(),
-    "tests/fixtures/text_ellipsis_line_clamp_2.webp",
-  );
+  run_style_width_test(text.into(), "tests/fixtures/text_ellipsis_line_clamp_2.png");
 }
 
 #[test]
@@ -366,7 +363,7 @@ fn fixtures_text_transform_all() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/text_transform_all.webp");
+  run_style_width_test(container.into(), "tests/fixtures/text_transform_all.png");
 }
 
 #[test]
@@ -413,7 +410,7 @@ fn fixtures_text_mask_image_gradient_and_emoji() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/text_mask_image_gradient_emoji.webp",
+    "tests/fixtures/text_mask_image_gradient_emoji.png",
   );
 }
 
@@ -435,7 +432,7 @@ fn fixtures_text_stroke_black_red() {
     text: "Red Stroke".to_string(),
   };
 
-  run_style_width_test(text.into(), "tests/fixtures/text_stroke_black_red.webp");
+  run_style_width_test(text.into(), "tests/fixtures/text_stroke_black_red.png");
 }
 
 // Text shadow fixture
@@ -463,7 +460,7 @@ fn fixtures_text_shadow() {
     text: "Shadowed Text".to_string(),
   };
 
-  run_style_width_test(text.into(), "tests/fixtures/text_shadow.webp");
+  run_style_width_test(text.into(), "tests/fixtures/text_shadow.png");
 }
 
 #[test]
@@ -490,10 +487,7 @@ fn fixtures_text_shadow_no_blur_radius() {
     text: "Shadowed Text".to_string(),
   };
 
-  run_style_width_test(
-    text.into(),
-    "tests/fixtures/text_shadow_no_blur_radius.webp",
-  );
+  run_style_width_test(text.into(), "tests/fixtures/text_shadow_no_blur_radius.png");
 }
 
 #[test]
@@ -545,7 +539,7 @@ fn fixtures_text_wrap_nowrap() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/text_wrap_nowrap.webp");
+  run_style_width_test(container.into(), "tests/fixtures/text_wrap_nowrap.png");
 }
 
 #[test]
@@ -620,7 +614,7 @@ fn fixtures_text_whitespace_collapse() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/text_whitespace_collapse.webp",
+    "tests/fixtures/text_whitespace_collapse.png",
   );
 }
 
@@ -663,7 +657,7 @@ fn fixtures_text_ellipsis_text_nowrap() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/text_ellipsis_text_nowrap.webp",
+    "tests/fixtures/text_ellipsis_text_nowrap.png",
   );
 }
 
@@ -728,5 +722,5 @@ fn fixtures_text_wrap_style_all() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/text_wrap_style_all.webp");
+  run_style_width_test(container.into(), "tests/fixtures/text_wrap_style_all.png");
 }

@@ -35,7 +35,7 @@ fn test_style_mask_image_linear_gradient() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_mask_image_linear_gradient.webp",
+    "tests/fixtures/style_mask_image_linear_gradient.png",
   );
 }
 
@@ -48,7 +48,7 @@ fn test_style_mask_image_radial_gradient() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_mask_image_radial_gradient.webp",
+    "tests/fixtures/style_mask_image_radial_gradient.png",
   );
 }
 
@@ -63,7 +63,7 @@ fn test_style_mask_image_radial_gradient_ellipse() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_mask_image_radial_ellipse.webp",
+    "tests/fixtures/style_mask_image_radial_ellipse.png",
   );
 }
 
@@ -78,7 +78,7 @@ fn test_style_mask_image_multiple_gradients() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_mask_image_multiple_gradients.webp",
+    "tests/fixtures/style_mask_image_multiple_gradients.png",
   );
 }
 
@@ -92,7 +92,7 @@ fn test_style_mask_image_diagonal_gradient() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_mask_image_diagonal_gradient.webp",
+    "tests/fixtures/style_mask_image_diagonal_gradient.png",
   );
 }
 
@@ -121,7 +121,7 @@ fn test_style_mask_image_with_background_image() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_mask_image_with_background.webp",
+    "tests/fixtures/style_mask_image_with_background.png",
   );
 }
 
@@ -179,7 +179,7 @@ fn test_style_mask_image_on_image_node() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_mask_image_on_image.webp",
+    "tests/fixtures/style_mask_image_on_image.png",
   );
 }
 
@@ -194,7 +194,7 @@ fn test_style_mask_image_stripes_pattern() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_mask_image_stripes.webp",
+    "tests/fixtures/style_mask_image_stripes.png",
   );
 }
 
@@ -209,6 +209,6 @@ fn test_style_mask_image_corner_fade() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_mask_image_corner_fade.webp",
+    "tests/fixtures/style_mask_image_corner_fade.png",
   );
 }

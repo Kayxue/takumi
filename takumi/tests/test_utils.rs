@@ -122,7 +122,7 @@ pub fn run_style_width_test(node: NodeKind, fixture_path: &str) {
 
   let mut file = File::create(path).unwrap();
 
-  write_image(&image, &mut file, ImageOutputFormat::WebP, None).unwrap();
+  write_image(&image, &mut file, ImageOutputFormat::Png, Some(75)).unwrap();
 }
 
 #[allow(dead_code)]

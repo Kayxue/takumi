@@ -26,7 +26,7 @@ fn test_style_background_color() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_color.webp",
+    "tests/fixtures/style_background_color.png",
   );
 }
 
@@ -47,7 +47,7 @@ fn test_style_border_radius() {
     children: None,
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_border_radius.webp");
+  run_style_width_test(container.into(), "tests/fixtures/style_border_radius.png");
 }
 
 #[test]
@@ -73,7 +73,7 @@ fn test_style_border_radius_per_corner() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_border_radius_per_corner.webp",
+    "tests/fixtures/style_border_radius_per_corner.png",
   );
 }
 
@@ -95,7 +95,7 @@ fn test_style_border_width() {
     children: None,
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_border_width.webp");
+  run_style_width_test(container.into(), "tests/fixtures/style_border_width.png");
 }
 
 #[test]
@@ -134,7 +134,7 @@ fn test_style_border_width_with_radius() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_border_width_with_radius.webp",
+    "tests/fixtures/style_border_width_with_radius.png",
   );
 }
 
@@ -177,7 +177,7 @@ fn test_style_box_shadow() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_box_shadow.webp");
+  run_style_width_test(container.into(), "tests/fixtures/style_box_shadow.png");
 }
 
 #[test]
@@ -222,7 +222,7 @@ fn test_style_box_shadow_inset() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_box_shadow_inset.webp",
+    "tests/fixtures/style_box_shadow_inset.png",
   );
 }
 
@@ -259,7 +259,7 @@ fn test_style_position() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_position.webp");
+  run_style_width_test(container.into(), "tests/fixtures/style_position.png");
 }
 
 #[test]
@@ -283,7 +283,7 @@ fn test_style_border_radius_circle() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_border_radius_circle.webp",
+    "tests/fixtures/style_border_radius_circle.png",
   );
 }
 
@@ -342,7 +342,7 @@ fn test_style_border_radius_width_offset() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_border_radius_width_offset.webp",
+    "tests/fixtures/style_border_radius_width_offset.png",
   );
 }
 
@@ -404,7 +404,7 @@ fn test_style_border_radius_circle_avatar() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_border_radius_circle_avatar.webp",
+    "tests/fixtures/style_border_radius_circle_avatar.png",
   );
 }
 
@@ -441,6 +441,6 @@ fn test_style_border_width_on_image_node() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_border_width_on_image_node.webp",
+    "tests/fixtures/style_border_width_on_image_node.png",
   );
 }

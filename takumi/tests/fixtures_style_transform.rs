@@ -44,7 +44,7 @@ fn test_rotate_image() {
     ]),
   };
 
-  run_style_width_test(image.into(), "tests/fixtures/style_rotate_image.webp");
+  run_style_width_test(image.into(), "tests/fixtures/style_rotate_image.png");
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn test_rotate() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_rotate.webp");
+  run_style_width_test(container.into(), "tests/fixtures/style_rotate.png");
 }
 
 #[test]
@@ -107,7 +107,7 @@ fn test_style_transform_origin_center() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_transform_origin_center.webp",
+    "tests/fixtures/style_transform_origin_center.png",
   );
 }
 
@@ -145,7 +145,7 @@ fn test_style_transform_origin_top_left() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_transform_origin_top_left.webp",
+    "tests/fixtures/style_transform_origin_top_left.png",
   );
 }
 
@@ -307,6 +307,6 @@ fn test_style_transform_translate_and_scale() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_transform_translate_and_scale.webp",
+    "tests/fixtures/style_transform_translate_and_scale.png",
   );
 }

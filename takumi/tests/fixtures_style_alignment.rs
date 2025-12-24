@@ -71,7 +71,7 @@ fn test_style_align_items() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_align_items.webp");
+  run_style_width_test(container.into(), "tests/fixtures/style_align_items.png");
 }
 
 #[test]
@@ -135,8 +135,5 @@ fn test_style_justify_content() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_justify_content.webp",
-  );
+  run_style_width_test(container.into(), "tests/fixtures/style_justify_content.png");
 }

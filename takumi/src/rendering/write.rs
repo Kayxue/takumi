@@ -1,7 +1,7 @@
-use std::{borrow::Cow, io::Write};
+use std::{borrow::Cow, collections::HashMap, io::Write};
 
 use image::{ExtendedColorType, ImageEncoder, ImageFormat, RgbaImage, codecs::jpeg::JpegEncoder};
-use png::{ColorType, Compression, Filter};
+use png::{BitDepth, ColorType, Compression, Filter};
 use serde::Deserialize;
 
 use image_webp::WebPEncoder;
@@ -97,6 +97,59 @@ fn has_any_alpha_pixel(image: &RgbaImage) -> bool {
   }
 }
 
+/// Palette data for indexed PNG.
+struct PaletteData {
+  /// RGB palette, 3 bytes per color.
+  palette: Vec<u8>,
+  /// Alpha channel for palette entries, 1 byte per color.
+  trns: Vec<u8>,
+  /// Indexed pixel data.
+  indices: Vec<u8>,
+}
+
+/// Try to collect a palette from the image.
+/// Returns None if there are more than MAX_PALETTE_SIZE unique colors.
+fn try_collect_palette(image: &RgbaImage) -> Option<PaletteData> {
+  let pixel_count = image.len();
+
+  let mut palette = Vec::new();
+  let mut trns = Vec::new();
+  let mut color_map: HashMap<[u8; 4], u8> = HashMap::with_capacity(256);
+  let mut indices = Vec::with_capacity(pixel_count);
+
+  for pixel in image.pixels() {
+    let mut rgba: [u8; 4] = pixel.0;
+
+    // Quantize alpha to multiples of 5 to reduce unique color count
+    rgba[3] = (rgba[3] / 5) * 5;
+
+    let idx = match color_map.get(&rgba) {
+      Some(&i) => i,
+      None => {
+        if color_map.len() >= color_map.capacity() {
+          return None;
+        }
+
+        let i = color_map.len() as u8;
+
+        color_map.insert(rgba, i);
+        palette.extend_from_slice(&rgba[..3]);
+        trns.push(rgba[3]);
+
+        i
+      }
+    };
+
+    indices.push(idx);
+  }
+
+  Some(PaletteData {
+    palette,
+    trns,
+    indices,
+  })
+}
+
 /// Writes a single rendered image to `destination` using `format`.
 pub fn write_image<T: Write>(
   image: &RgbaImage,
@@ -112,30 +165,47 @@ pub fn write_image<T: Write>(
       encoder.write_image(&rgb, image.width(), image.height(), ExtendedColorType::Rgb8)?;
     }
     ImageOutputFormat::Png => {
-      let has_alpha = has_any_alpha_pixel(image);
-
-      let image_data = if has_alpha {
-        Cow::Borrowed(image.as_raw())
-      } else {
-        Cow::Owned(strip_alpha_channel(image))
-      };
-
       let mut encoder = png::Encoder::new(destination, image.width(), image.height());
 
-      encoder.set_color(if has_alpha {
-        ColorType::Rgba
+      if let Some(palette) = try_collect_palette(image) {
+        // Use color quantization when there are too many unique colors
+        encoder.set_color(ColorType::Indexed);
+        encoder.set_depth(BitDepth::Eight);
+        encoder.set_palette(palette.palette);
+
+        if palette.trns.iter().any(|&a| a != u8::MAX) {
+          encoder.set_trns(palette.trns);
+        }
+
+        encoder.set_compression(Compression::Fast);
+        encoder.set_filter(Filter::Sub);
+
+        let mut writer = encoder.write_header()?;
+        writer.write_image_data(&palette.indices)?;
+        writer.finish()?;
       } else {
-        ColorType::Rgb
-      });
+        // Final fallback to RGB/RGBA if quantization fails
+        let has_alpha = has_any_alpha_pixel(image);
 
-      encoder.set_compression(Compression::Fast);
-      encoder.set_filter(Filter::Sub);
+        let image_data = if has_alpha {
+          Cow::Borrowed(image.as_raw())
+        } else {
+          Cow::Owned(strip_alpha_channel(image))
+        };
 
-      let mut writer = encoder.write_header()?;
+        encoder.set_color(if has_alpha {
+          ColorType::Rgba
+        } else {
+          ColorType::Rgb
+        });
 
-      writer.write_image_data(&image_data)?;
+        encoder.set_compression(Compression::Fast);
+        encoder.set_filter(Filter::Sub);
 
-      writer.finish()?;
+        let mut writer = encoder.write_header()?;
+        writer.write_image_data(&image_data)?;
+        writer.finish()?;
+      }
     }
     ImageOutputFormat::WebP => {
       let encoder = WebPEncoder::new(destination);

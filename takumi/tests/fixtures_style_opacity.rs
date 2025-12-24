@@ -62,7 +62,7 @@ fn test_style_opacity() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_opacity.webp");
+  run_style_width_test(container.into(), "tests/fixtures/style_opacity.png");
 }
 
 #[test]
@@ -133,6 +133,6 @@ fn test_style_opacity_image_with_text() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_opacity_image_with_text.webp",
+    "tests/fixtures/style_opacity_image_with_text.png",
   );
 }

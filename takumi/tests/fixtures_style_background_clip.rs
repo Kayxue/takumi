@@ -60,7 +60,7 @@ fn test_style_background_clip_border_box() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_clip_border_box.webp",
+    "tests/fixtures/style_background_clip_border_box.png",
   );
 }
 
@@ -75,7 +75,7 @@ fn test_style_background_clip_padding_box() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_clip_padding_box.webp",
+    "tests/fixtures/style_background_clip_padding_box.png",
   );
 }
 
@@ -90,7 +90,7 @@ fn test_style_background_clip_content_box() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_clip_content_box.webp",
+    "tests/fixtures/style_background_clip_content_box.png",
   );
 }
 
@@ -138,7 +138,7 @@ fn test_style_background_clip_text_gradient() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_clip_text_gradient.webp",
+    "tests/fixtures/style_background_clip_text_gradient.png",
   );
 }
 
@@ -183,7 +183,7 @@ fn test_style_background_clip_text_radial_gradient() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_clip_text_radial.webp",
+    "tests/fixtures/style_background_clip_text_radial.png",
   );
 }
 
@@ -227,7 +227,7 @@ fn test_style_background_clip_border_area() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_clip_border_area.webp",
+    "tests/fixtures/style_background_clip_border_area.png",
   );
 }
 
@@ -273,7 +273,7 @@ fn test_style_background_clip_with_gradient_background() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_clip_gradient_padding.webp",
+    "tests/fixtures/style_background_clip_gradient_padding.png",
   );
 }
 
@@ -318,7 +318,7 @@ fn test_style_background_clip_text_multiline() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_clip_text_multiline.webp",
+    "tests/fixtures/style_background_clip_text_multiline.png",
   );
 }
 
@@ -444,6 +444,6 @@ fn test_style_background_clip_comparison() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_clip_comparison.webp",
+    "tests/fixtures/style_background_clip_comparison.png",
   );
 }
