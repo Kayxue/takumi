@@ -522,6 +522,11 @@ fn draw_pixel(
   blend_pixel(pixel, color);
 }
 
+/// Removes 2 LSBs from the alpha value.
+pub(crate) fn quantize_alpha(alpha: u8) -> u8 {
+  alpha & 0b1111_1100
+}
+
 #[inline(always)]
 pub(crate) fn blend_pixel(bottom: &mut Rgba<u8>, top: Rgba<u8>) {
   match (bottom.0[3], top.0[3]) {

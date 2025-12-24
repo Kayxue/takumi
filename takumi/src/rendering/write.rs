@@ -11,7 +11,7 @@ use image_webp::WebPEncoder;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
-use crate::Error::IoError;
+use crate::{Error::IoError, rendering::quantize_alpha};
 
 /// Output format for rendered images.
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
@@ -125,7 +125,7 @@ fn try_collect_palette(image: &RgbaImage) -> Option<PaletteData> {
         || FxHashMap::with_capacity_and_hasher(256, Default::default()),
         |mut acc, (x, y, pixel)| {
           let mut rgba: [u8; 4] = pixel.0;
-          rgba[3] = (rgba[3] / 5) * 5;
+          rgba[3] = quantize_alpha(rgba[3]);
 
           // Only insert if not seen before (keeps first occurrence)
           acc
@@ -162,7 +162,7 @@ fn try_collect_palette(image: &RgbaImage) -> Option<PaletteData> {
 
     for (idx, pixel) in image.pixels().enumerate() {
       let mut rgba: [u8; 4] = pixel.0;
-      rgba[3] = (rgba[3] / 5) * 5;
+      rgba[3] = quantize_alpha(rgba[3]);
 
       if !map.contains_key(&rgba) {
         if map.len() >= 256 {
@@ -215,7 +215,7 @@ fn try_collect_palette(image: &RgbaImage) -> Option<PaletteData> {
 
     for pixel in row {
       let mut rgba: [u8; 4] = pixel.0;
-      rgba[3] = (rgba[3] / 5) * 5;
+      rgba[3] = quantize_alpha(rgba[3]);
 
       let idx = color_map.get(&rgba).copied().unwrap_or(0);
 
