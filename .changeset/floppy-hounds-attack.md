@@ -2,4 +2,4 @@
 "takumi": patch
 ---
 
-implement simd boosted stack blur, integer based alpha blending
+switch to gaussian box blur, integer based alpha blending

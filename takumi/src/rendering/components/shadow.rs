@@ -5,7 +5,7 @@ use zeno::{Fill, PathData, Placement};
 use crate::{
   layout::style::{Affine, BoxShadow, Color, ImageScalingAlgorithm, Sides, TextShadow},
   rendering::{
-    BorderProperties, Canvas, CanvasConstrain, MaskMemory, Sizing, apply_blur, draw_mask,
+    BlurType, BorderProperties, Canvas, CanvasConstrain, MaskMemory, Sizing, apply_blur, draw_mask,
     overlay_image,
   },
 };
@@ -82,17 +82,18 @@ impl SizedShadow {
     }
 
     // Create a new image with the spread mask on, blurred by the blur radius
+    let blur_padding = self.blur_radius * BlurType::Shadow.extent_multiplier();
     let mut image = RgbaImage::new(
-      placement.width + (self.blur_radius * 2.0) as u32,
-      placement.height + (self.blur_radius * 2.0) as u32,
+      placement.width + (blur_padding * 2.0) as u32,
+      placement.height + (blur_padding * 2.0) as u32,
     );
 
     draw_mask(
       &mut image,
       mask,
       Placement {
-        left: self.blur_radius as i32,
-        top: self.blur_radius as i32,
+        left: blur_padding as i32,
+        top: blur_padding as i32,
         width: placement.width,
         height: placement.height,
       },
@@ -100,15 +101,15 @@ impl SizedShadow {
       None,
     );
 
-    apply_blur(&mut image, self.blur_radius);
+    apply_blur(&mut image, self.blur_radius, BlurType::Shadow);
 
     overlay_image(
       canvas,
       image.into(),
       BorderProperties::zero(),
       Affine::translation(
-        placement.left as f32 - self.blur_radius,
-        placement.top as f32 - self.blur_radius,
+        placement.left as f32 - blur_padding,
+        placement.top as f32 - blur_padding,
       ),
       ImageScalingAlgorithm::Auto,
       255,
@@ -176,7 +177,7 @@ fn draw_inset_shadow(
 
   draw_mask(&mut shadow_image, mask, placement, shadow.color, None);
 
-  apply_blur(&mut shadow_image, shadow.blur_radius);
+  apply_blur(&mut shadow_image, shadow.blur_radius, BlurType::Shadow);
 
   shadow_image
 }
