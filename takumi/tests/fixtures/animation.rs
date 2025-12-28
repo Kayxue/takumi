@@ -5,8 +5,7 @@ use takumi::layout::{
   style::{Length::*, *},
 };
 
-mod test_utils;
-use test_utils::run_webp_animation_test;
+use crate::test_utils::run_webp_animation_test;
 
 use crate::test_utils::run_png_animation_test;
 
@@ -78,10 +77,10 @@ fn create_bouncing_text_nodes() -> Vec<(NodeKind, u32)> {
 }
 
 #[test]
-fn fixtures_animation_bouncing_text_webp() {
+fn animation_bouncing_text_webp() {
   run_webp_animation_test(
     create_bouncing_text_nodes(),
-    "tests/fixtures/animation_bouncing_text.webp",
+    "animation_bouncing_text.webp",
     true,
     false,
     None,
@@ -89,10 +88,10 @@ fn fixtures_animation_bouncing_text_webp() {
 }
 
 #[test]
-fn fixtures_animation_bouncing_text_png() {
+fn animation_bouncing_text_png() {
   run_png_animation_test(
     create_bouncing_text_nodes(),
-    "tests/fixtures/animation_bouncing_text.png",
+    "animation_bouncing_text.png",
     None,
   );
 }

@@ -3,8 +3,7 @@ use takumi::layout::{
   style::{Length::*, *},
 };
 
-mod test_utils;
-use test_utils::run_style_width_test;
+use crate::test_utils::run_style_width_test;
 
 fn create_luma_logo_container() -> ContainerNode<NodeKind> {
   ContainerNode {
@@ -47,6 +46,6 @@ fn test_svg_luma_logo_gradient_background() {
 
   run_style_width_test(
     NodeKind::Container(container),
-    "tests/fixtures/svg_luma_logo_gradient_background.png",
+    "svg_luma_logo_gradient_background.png",
   );
 }

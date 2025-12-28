@@ -5,8 +5,6 @@ use takumi::layout::{
 
 use crate::test_utils::run_style_width_test;
 
-mod test_utils;
-
 fn create_test_container(opacity: f32) -> NodeKind {
   ContainerNode {
     preset: None,
@@ -62,7 +60,7 @@ fn test_style_opacity() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_opacity.png");
+  run_style_width_test(container.into(), "style_opacity.png");
 }
 
 #[test]
@@ -131,8 +129,5 @@ fn test_style_opacity_image_with_text() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_opacity_image_with_text.png",
-  );
+  run_style_width_test(container.into(), "style_opacity_image_with_text.png");
 }

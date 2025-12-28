@@ -7,8 +7,7 @@ use takumi::layout::{
   },
 };
 
-mod test_utils;
-use test_utils::run_style_width_test;
+use crate::test_utils::run_style_width_test;
 
 #[test]
 fn test_style_align_items() {
@@ -71,7 +70,7 @@ fn test_style_align_items() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_align_items.png");
+  run_style_width_test(container.into(), "style_align_items.png");
 }
 
 #[test]
@@ -135,5 +134,5 @@ fn test_style_justify_content() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_justify_content.png");
+  run_style_width_test(container.into(), "style_justify_content.png");
 }

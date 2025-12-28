@@ -3,8 +3,7 @@ use takumi::layout::{
   style::{Length::*, *},
 };
 
-mod test_utils;
-use test_utils::run_style_width_test;
+use crate::test_utils::run_style_width_test;
 
 fn create_container_with_background_clip(
   background_clip: BackgroundClip,
@@ -58,10 +57,7 @@ fn test_style_background_clip_border_box() {
     10.0,
   );
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_clip_border_box.png",
-  );
+  run_style_width_test(container.into(), "style_background_clip_border_box.png");
 }
 
 #[test]
@@ -73,10 +69,7 @@ fn test_style_background_clip_padding_box() {
     10.0,
   );
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_clip_padding_box.png",
-  );
+  run_style_width_test(container.into(), "style_background_clip_padding_box.png");
 }
 
 #[test]
@@ -88,10 +81,7 @@ fn test_style_background_clip_content_box() {
     10.0,
   );
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_clip_content_box.png",
-  );
+  run_style_width_test(container.into(), "style_background_clip_content_box.png");
 }
 
 #[test]
@@ -136,10 +126,7 @@ fn test_style_background_clip_text_gradient() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_clip_text_gradient.png",
-  );
+  run_style_width_test(container.into(), "style_background_clip_text_gradient.png");
 }
 
 #[test]
@@ -181,10 +168,7 @@ fn test_style_background_clip_text_radial_gradient() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_clip_text_radial.png",
-  );
+  run_style_width_test(container.into(), "style_background_clip_text_radial.png");
 }
 
 #[test]
@@ -225,10 +209,7 @@ fn test_style_background_clip_border_area() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_clip_border_area.png",
-  );
+  run_style_width_test(container.into(), "style_background_clip_border_area.png");
 }
 
 #[test]
@@ -273,7 +254,7 @@ fn test_style_background_clip_with_gradient_background() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_clip_gradient_padding.png",
+    "style_background_clip_gradient_padding.png",
   );
 }
 
@@ -316,10 +297,7 @@ fn test_style_background_clip_text_multiline() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_clip_text_multiline.png",
-  );
+  run_style_width_test(container.into(), "style_background_clip_text_multiline.png");
 }
 
 #[test]
@@ -442,8 +420,5 @@ fn test_style_background_clip_comparison() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_clip_comparison.png",
-  );
+  run_style_width_test(container.into(), "style_background_clip_comparison.png");
 }

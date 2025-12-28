@@ -6,8 +6,7 @@ use takumi::layout::{
   },
 };
 
-mod test_utils;
-use test_utils::run_style_width_test;
+use crate::test_utils::run_style_width_test;
 
 const ROTATED_ANGLES: &[f32] = &[0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0];
 
@@ -44,7 +43,7 @@ fn test_rotate_image() {
     ]),
   };
 
-  run_style_width_test(image.into(), "tests/fixtures/style_rotate_image.png");
+  run_style_width_test(image.into(), "style_rotate_image.png");
 }
 
 #[test]
@@ -81,7 +80,7 @@ fn test_rotate() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_rotate.png");
+  run_style_width_test(container.into(), "style_rotate.png");
 }
 
 #[test]
@@ -105,10 +104,7 @@ fn test_style_transform_origin_center() {
     ),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_transform_origin_center.png",
-  );
+  run_style_width_test(container.into(), "style_transform_origin_center.png");
 }
 
 #[test]
@@ -143,10 +139,7 @@ fn test_style_transform_origin_top_left() {
     ),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_transform_origin_top_left.png",
-  );
+  run_style_width_test(container.into(), "style_transform_origin_top_left.png");
 }
 
 fn create_rotated_container(angle: f32, transform_origin: BackgroundPosition) -> ImageNode {
@@ -305,8 +298,5 @@ fn test_style_transform_translate_and_scale() {
     rotated.into(),
   ]);
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_transform_translate_and_scale.png",
-  );
+  run_style_width_test(container.into(), "style_transform_translate_and_scale.png");
 }

@@ -6,8 +6,7 @@ use takumi::layout::{
   },
 };
 
-mod test_utils;
-use test_utils::run_style_width_test;
+use crate::test_utils::run_style_width_test;
 
 #[test]
 fn test_style_object_position_contain_center() {
@@ -30,10 +29,7 @@ fn test_style_object_position_contain_center() {
     src: "assets/images/yeecord.png".into(),
   };
 
-  run_style_width_test(
-    image.into(),
-    "tests/fixtures/style_object_position_contain_center.png",
-  );
+  run_style_width_test(image.into(), "style_object_position_contain_center.png");
 }
 
 #[test]
@@ -58,10 +54,7 @@ fn test_style_object_position_contain_top_left() {
     src: "assets/images/yeecord.png".into(),
   };
 
-  run_style_width_test(
-    image.into(),
-    "tests/fixtures/style_object_position_contain_top_left.png",
-  );
+  run_style_width_test(image.into(), "style_object_position_contain_top_left.png");
 }
 
 #[test]
@@ -88,7 +81,7 @@ fn test_style_object_position_contain_bottom_right() {
 
   run_style_width_test(
     image.into(),
-    "tests/fixtures/style_object_position_contain_bottom_right.png",
+    "style_object_position_contain_bottom_right.png",
   );
 }
 
@@ -114,10 +107,7 @@ fn test_style_object_position_cover_center() {
     src: "assets/images/yeecord.png".into(),
   };
 
-  run_style_width_test(
-    image.into(),
-    "tests/fixtures/style_object_position_cover_center.png",
-  );
+  run_style_width_test(image.into(), "style_object_position_cover_center.png");
 }
 
 #[test]
@@ -142,10 +132,7 @@ fn test_style_object_position_cover_top_left() {
     src: "assets/images/yeecord.png".into(),
   };
 
-  run_style_width_test(
-    image.into(),
-    "tests/fixtures/style_object_position_cover_top_left.png",
-  );
+  run_style_width_test(image.into(), "style_object_position_cover_top_left.png");
 }
 
 #[test]
@@ -170,10 +157,7 @@ fn test_style_object_position_none_center() {
     src: "assets/images/yeecord.png".into(),
   };
 
-  run_style_width_test(
-    image.into(),
-    "tests/fixtures/style_object_position_none_center.png",
-  );
+  run_style_width_test(image.into(), "style_object_position_none_center.png");
 }
 
 #[test]
@@ -198,10 +182,7 @@ fn test_style_object_position_none_top_left() {
     src: "assets/images/yeecord.png".into(),
   };
 
-  run_style_width_test(
-    image.into(),
-    "tests/fixtures/style_object_position_none_top_left.png",
-  );
+  run_style_width_test(image.into(), "style_object_position_none_top_left.png");
 }
 
 #[test]
@@ -226,8 +207,5 @@ fn test_style_object_position_percentage_25_75() {
     src: "assets/images/yeecord.png".into(),
   };
 
-  run_style_width_test(
-    image.into(),
-    "tests/fixtures/style_object_position_percentage_25_75.png",
-  );
+  run_style_width_test(image.into(), "style_object_position_percentage_25_75.png");
 }

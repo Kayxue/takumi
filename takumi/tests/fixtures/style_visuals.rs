@@ -5,8 +5,7 @@ use takumi::layout::{
   style::{Length::*, *},
 };
 
-mod test_utils;
-use test_utils::run_style_width_test;
+use crate::test_utils::run_style_width_test;
 
 #[test]
 fn test_style_background_color() {
@@ -24,10 +23,7 @@ fn test_style_background_color() {
     children: None,
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_color.png",
-  );
+  run_style_width_test(container.into(), "style_background_color.png");
 }
 
 #[test]
@@ -47,7 +43,7 @@ fn test_style_border_radius() {
     children: None,
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_border_radius.png");
+  run_style_width_test(container.into(), "style_border_radius.png");
 }
 
 #[test]
@@ -71,10 +67,7 @@ fn test_style_border_radius_per_corner() {
     children: None,
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_border_radius_per_corner.png",
-  );
+  run_style_width_test(container.into(), "style_border_radius_per_corner.png");
 }
 
 #[test]
@@ -95,7 +88,7 @@ fn test_style_border_width() {
     children: None,
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_border_width.png");
+  run_style_width_test(container.into(), "style_border_width.png");
 }
 
 #[test]
@@ -132,10 +125,7 @@ fn test_style_border_width_with_radius() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_border_width_with_radius.png",
-  );
+  run_style_width_test(container.into(), "style_border_width_with_radius.png");
 }
 
 #[test]
@@ -177,7 +167,7 @@ fn test_style_box_shadow() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_box_shadow.png");
+  run_style_width_test(container.into(), "style_box_shadow.png");
 }
 
 #[test]
@@ -220,10 +210,7 @@ fn test_style_box_shadow_inset() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_box_shadow_inset.png",
-  );
+  run_style_width_test(container.into(), "style_box_shadow_inset.png");
 }
 
 #[test]
@@ -259,7 +246,7 @@ fn test_style_position() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_position.png");
+  run_style_width_test(container.into(), "style_position.png");
 }
 
 #[test]
@@ -281,10 +268,7 @@ fn test_style_border_radius_circle() {
     children: None,
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_border_radius_circle.png",
-  );
+  run_style_width_test(container.into(), "style_border_radius_circle.png");
 }
 
 // https://github.com/kane50613/takumi/issues/151
@@ -340,10 +324,7 @@ fn test_style_border_radius_width_offset() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_border_radius_width_offset.png",
-  );
+  run_style_width_test(container.into(), "style_border_radius_width_offset.png");
 }
 
 #[test]
@@ -402,10 +383,7 @@ fn test_style_border_radius_circle_avatar() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_border_radius_circle_avatar.png",
-  );
+  run_style_width_test(container.into(), "style_border_radius_circle_avatar.png");
 }
 
 #[test]
@@ -439,8 +417,5 @@ fn test_style_border_width_on_image_node() {
     children: Some(vec![from_value(avatar).unwrap()]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_border_width_on_image_node.png",
-  );
+  run_style_width_test(container.into(), "style_border_width_on_image_node.png");
 }

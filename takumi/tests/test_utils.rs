@@ -104,7 +104,7 @@ pub fn create_test_viewport() -> Viewport {
 
 /// Helper function to run style width tests
 #[allow(dead_code)]
-pub fn run_style_width_test(node: NodeKind, fixture_path: &str) {
+pub fn run_style_width_test(node: NodeKind, fixture_name: &str) {
   let context = create_test_context();
   let viewport = create_test_viewport();
 
@@ -118,7 +118,8 @@ pub fn run_style_width_test(node: NodeKind, fixture_path: &str) {
   )
   .unwrap();
 
-  let path = Path::new(fixture_path);
+  let fixture_path = format!("tests/fixtures-generated/{}", fixture_name);
+  let path = Path::new(&fixture_path);
 
   let mut file = File::create(path).unwrap();
 
@@ -128,7 +129,7 @@ pub fn run_style_width_test(node: NodeKind, fixture_path: &str) {
 #[allow(dead_code)]
 pub fn run_webp_animation_test(
   nodes: Vec<(NodeKind, u32)>,
-  fixture_path: &str,
+  fixture_name: &str,
   blend: bool,
   dispose: bool,
   loop_count: Option<u16>,
@@ -156,6 +157,7 @@ pub fn run_webp_animation_test(
     })
     .collect();
 
+  let fixture_path = format!("tests/fixtures-generated/{}", fixture_name);
   let mut out = File::create(fixture_path).unwrap();
   encode_animated_webp(&frames, &mut out, blend, dispose, loop_count).unwrap();
 }
@@ -163,7 +165,7 @@ pub fn run_webp_animation_test(
 #[allow(dead_code)]
 pub fn run_png_animation_test(
   nodes: Vec<(NodeKind, u32)>,
-  fixture_path: &str,
+  fixture_name: &str,
   loop_count: Option<u16>,
 ) {
   assert_ne!(nodes.len(), 0);
@@ -189,6 +191,7 @@ pub fn run_png_animation_test(
     })
     .collect();
 
+  let fixture_path = format!("tests/fixtures-generated/{}", fixture_name);
   let mut out = File::create(fixture_path).unwrap();
   encode_animated_png(&frames, &mut out, loop_count).unwrap();
 }

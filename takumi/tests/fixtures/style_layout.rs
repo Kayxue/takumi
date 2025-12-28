@@ -6,8 +6,7 @@ use takumi::layout::{
   },
 };
 
-mod test_utils;
-use test_utils::run_style_width_test;
+use crate::test_utils::run_style_width_test;
 
 #[test]
 fn test_style_flex_basis() {
@@ -70,7 +69,7 @@ fn test_style_flex_basis() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_flex_basis.png");
+  run_style_width_test(container.into(), "style_flex_basis.png");
 }
 
 #[test]
@@ -134,7 +133,7 @@ fn test_style_flex_direction() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_flex_direction.png");
+  run_style_width_test(container.into(), "style_flex_direction.png");
 }
 
 #[test]
@@ -201,7 +200,7 @@ fn test_style_gap() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_gap.png");
+  run_style_width_test(container.into(), "style_gap.png");
 }
 
 #[test]
@@ -250,10 +249,7 @@ fn test_style_grid_template_columns() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_grid_template_columns.png",
-  );
+  run_style_width_test(container.into(), "style_grid_template_columns.png");
 }
 
 #[test]
@@ -302,8 +298,5 @@ fn test_style_grid_template_rows() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_grid_template_rows.png",
-  );
+  run_style_width_test(container.into(), "style_grid_template_rows.png");
 }

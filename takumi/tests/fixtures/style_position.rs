@@ -7,8 +7,7 @@ use takumi::layout::{
   },
 };
 
-mod test_utils;
-use test_utils::run_style_width_test;
+use crate::test_utils::run_style_width_test;
 
 #[test]
 fn test_style_position() {
@@ -43,5 +42,5 @@ fn test_style_position() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_position.png");
+  run_style_width_test(container.into(), "style_position.png");
 }

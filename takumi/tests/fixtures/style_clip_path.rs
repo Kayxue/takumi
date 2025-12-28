@@ -3,11 +3,10 @@ use takumi::layout::{
   style::{Length::*, *},
 };
 
-mod test_utils;
-use test_utils::run_style_width_test;
+use crate::test_utils::run_style_width_test;
 
 #[test]
-fn fixtures_clip_path_text_stroke_filled() {
+fn clip_path_text_stroke_filled() {
   let text = "clip-path works in Takumi";
 
   let container = ContainerNode {
@@ -68,15 +67,12 @@ fn fixtures_clip_path_text_stroke_filled() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/clip_path_text_stroke_filled.png",
-  );
+  run_style_width_test(container.into(), "clip_path_text_stroke_filled.png");
 }
 
 // Triangle clip-path similar to Vercel logo using polygon
 #[test]
-fn fixtures_clip_path_triangle_vercel() {
+fn clip_path_triangle_vercel() {
   let container = ContainerNode {
     preset: None,
     tw: None,
@@ -114,15 +110,12 @@ fn fixtures_clip_path_triangle_vercel() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/clip_path_triangle_vercel.png",
-  );
+  run_style_width_test(container.into(), "clip_path_triangle_vercel.png");
 }
 
 // Alternative triangle with gradient background to show clipping more clearly
 #[test]
-fn fixtures_clip_path_triangle_gradient() {
+fn clip_path_triangle_gradient() {
   let container = ContainerNode {
     preset: None,
     tw: None,
@@ -165,15 +158,12 @@ fn fixtures_clip_path_triangle_gradient() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/clip_path_triangle_gradient.png",
-  );
+  run_style_width_test(container.into(), "clip_path_triangle_gradient.png");
 }
 
 // Circle clip-path test
 #[test]
-fn fixtures_clip_path_circle() {
+fn clip_path_circle() {
   let container = ContainerNode {
     preset: None,
     tw: None,
@@ -209,12 +199,12 @@ fn fixtures_clip_path_circle() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/clip_path_circle.png");
+  run_style_width_test(container.into(), "clip_path_circle.png");
 }
 
 // Inset with border radius clip-path test
 #[test]
-fn fixtures_clip_path_inset_rounded() {
+fn clip_path_inset_rounded() {
   let container = ContainerNode {
     preset: None,
     tw: None,
@@ -252,8 +242,5 @@ fn fixtures_clip_path_inset_rounded() {
     ]),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/clip_path_inset_rounded.png",
-  );
+  run_style_width_test(container.into(), "clip_path_inset_rounded.png");
 }

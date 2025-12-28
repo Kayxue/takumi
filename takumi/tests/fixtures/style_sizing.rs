@@ -7,8 +7,7 @@ use takumi::layout::{
   },
 };
 
-mod test_utils;
-use test_utils::run_style_width_test;
+use crate::test_utils::run_style_width_test;
 
 #[test]
 fn test_style_width() {
@@ -26,7 +25,7 @@ fn test_style_width() {
     children: None,
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_width.png");
+  run_style_width_test(container.into(), "style_width.png");
 }
 
 #[test]
@@ -45,7 +44,7 @@ fn test_style_height() {
     children: None,
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_height.png");
+  run_style_width_test(container.into(), "style_height.png");
 }
 
 #[test]
@@ -65,7 +64,7 @@ fn test_style_min_width() {
     children: None,
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_min_width.png");
+  run_style_width_test(container.into(), "style_min_width.png");
 }
 
 #[test]
@@ -85,7 +84,7 @@ fn test_style_min_height() {
     children: None,
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_min_height.png");
+  run_style_width_test(container.into(), "style_min_height.png");
 }
 
 #[test]
@@ -105,7 +104,7 @@ fn test_style_max_width() {
     children: None,
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_max_width.png");
+  run_style_width_test(container.into(), "style_max_width.png");
 }
 
 #[test]
@@ -125,5 +124,5 @@ fn test_style_max_height() {
     children: None,
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/style_max_height.png");
+  run_style_width_test(container.into(), "style_max_height.png");
 }

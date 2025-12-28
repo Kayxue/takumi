@@ -7,11 +7,10 @@ use takumi::layout::{
   },
 };
 
-mod test_utils;
-use test_utils::run_style_width_test;
+use crate::test_utils::run_style_width_test;
 
 #[test]
-fn fixtures_text_inline() {
+fn text_inline() {
   let texts = &[
     (
       "The quick brown fox jumps over the lazy dog.",
@@ -78,11 +77,11 @@ fn fixtures_text_inline() {
     children: Some(children),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/text_inline.png");
+  run_style_width_test(container.into(), "text_inline.png");
 }
 
 #[test]
-fn fixtures_inline_image() {
+fn inline_image() {
   // Inline image should behave as inline-level box content
   let children = vec![
     TextNode {
@@ -157,11 +156,11 @@ fn fixtures_inline_image() {
     ]),
   };
 
-  run_style_width_test(container.into(), "tests/fixtures/inline_image.png");
+  run_style_width_test(container.into(), "inline_image.png");
 }
 
 #[test]
-fn fixtures_inline_block_in_inline() {
+fn inline_block_in_inline() {
   // A block-level container inside inline content: should create anonymous block formatting context
   let children = vec![
     TextNode {
@@ -234,8 +233,5 @@ fn fixtures_inline_block_in_inline() {
     children: Some(children),
   };
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/inline_block_in_inline.png",
-  );
+  run_style_width_test(container.into(), "inline_block_in_inline.png");
 }

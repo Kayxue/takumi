@@ -5,8 +5,7 @@ use takumi::layout::{
 
 use smallvec::smallvec;
 
-mod test_utils;
-use test_utils::run_style_width_test;
+use crate::test_utils::run_style_width_test;
 
 fn create_container(background_images: BackgroundImages) -> ContainerNode<NodeKind> {
   ContainerNode {
@@ -55,10 +54,7 @@ fn test_style_background_image_gradient_basic() {
 
   let container = create_container(background_images);
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_image_gradient.png",
-  );
+  run_style_width_test(container.into(), "style_background_image_gradient.png");
 }
 
 #[test]
@@ -68,10 +64,7 @@ fn test_style_background_image_gradient_alt() {
 
   let container = create_container(background_images);
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_image_gradient_alt.png",
-  );
+  run_style_width_test(container.into(), "style_background_image_gradient_alt.png");
 }
 
 #[test]
@@ -83,7 +76,7 @@ fn test_style_background_image_gradient_hard_stop() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_image_gradient_hard_stop.png",
+    "style_background_image_gradient_hard_stop.png",
   );
 }
 
@@ -93,10 +86,7 @@ fn test_style_background_image_radial_basic() {
 
   let container = create_container(background_images);
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_image_radial_basic.png",
-  );
+  run_style_width_test(container.into(), "style_background_image_radial_basic.png");
 }
 
 #[test]
@@ -105,10 +95,7 @@ fn test_style_background_image_radial_mixed() {
 
   let container = create_container(background_images);
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_image_radial_mixed.png",
-  );
+  run_style_width_test(container.into(), "style_background_image_radial_mixed.png");
 }
 
 #[test]
@@ -122,7 +109,7 @@ fn test_style_background_image_linear_radial_mixed() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_image_linear_radial_mixed.png",
+    "style_background_image_linear_radial_mixed.png",
   );
 }
 
@@ -139,7 +126,7 @@ fn test_background_no_repeat_center_with_size_px() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_no_repeat_center_200x120.png",
+    "style_background_no_repeat_center_200x120.png",
   );
 }
 
@@ -156,7 +143,7 @@ fn test_background_repeat_tile_from_top_left() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_repeat_tile_from_top_left.png",
+    "style_background_repeat_tile_from_top_left.png",
   );
 }
 
@@ -173,10 +160,7 @@ fn test_background_repeat_space() {
     Some(BackgroundRepeats::from_str("space").unwrap()),
   );
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_repeat_space.png",
-  );
+  run_style_width_test(container.into(), "style_background_repeat_space.png");
 }
 
 #[test]
@@ -191,10 +175,7 @@ fn test_background_repeat_round() {
     Some(BackgroundRepeats::from_str("round").unwrap()),
   );
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_repeat_round.png",
-  );
+  run_style_width_test(container.into(), "style_background_repeat_round.png");
 }
 
 #[test]
@@ -211,7 +192,7 @@ fn test_background_position_percentage_with_no_repeat() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_position_percent_25_75.png",
+    "style_background_position_percent_25_75.png",
   );
 }
 
@@ -227,10 +208,7 @@ fn test_background_size_percentage_with_repeat() {
     Some(BackgroundRepeats::from_str("repeat").unwrap()),
   );
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_size_percent_20_20.png",
-  );
+  run_style_width_test(container.into(), "style_background_size_percent_20_20.png");
 }
 
 #[test]
@@ -257,10 +235,7 @@ fn test_background_image_grid_pattern() {
     ]))
   );
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_image_grid_pattern.png",
-  );
+  run_style_width_test(container.into(), "style_background_image_grid_pattern.png");
 }
 
 #[test]
@@ -281,7 +256,7 @@ fn test_background_image_noise_v1_with_gradient() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_image_noise_v1_blend.png",
+    "style_background_image_noise_v1_blend.png",
   );
 }
 
@@ -303,7 +278,7 @@ fn test_background_image_dotted_pattern() {
 
   run_style_width_test(
     container.into(),
-    "tests/fixtures/style_background_image_dotted_pattern.png",
+    "style_background_image_dotted_pattern.png",
   );
 }
 
@@ -317,10 +292,7 @@ fn test_background_size_contain() {
     Some(BackgroundRepeats::from_str("no-repeat").unwrap()),
   );
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_size_contain.png",
-  );
+  run_style_width_test(container.into(), "style_background_size_contain.png");
 }
 
 #[test]
@@ -333,8 +305,5 @@ fn test_background_size_cover() {
     Some(BackgroundRepeats::from_str("no-repeat").unwrap()),
   );
 
-  run_style_width_test(
-    container.into(),
-    "tests/fixtures/style_background_size_cover.png",
-  );
+  run_style_width_test(container.into(), "style_background_size_cover.png");
 }
