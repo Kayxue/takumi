@@ -222,11 +222,29 @@ pub(crate) fn apply_blur(image: &mut RgbaImage, radius: f32, blur_type: BlurType
 
   match simd_impl {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    SimdBestFit::U32x16 => apply_blur_impl::<u32x16>(image, radius, blur_type),
+    SimdBestFit::U32x16 => unsafe {
+      apply_blur_avx512(image, radius, blur_type);
+    },
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    SimdBestFit::U32x8 => apply_blur_impl::<u32x8>(image, radius, blur_type),
+    SimdBestFit::U32x8 => unsafe {
+      apply_blur_avx2(image, radius, blur_type);
+    },
     SimdBestFit::U32x4 => apply_blur_impl::<u32x4>(image, radius, blur_type),
   }
+}
+
+/// AVX-512 implementation wrapper with target feature enabled
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx512f")]
+unsafe fn apply_blur_avx512(image: &mut RgbaImage, radius: f32, blur_type: BlurType) {
+  apply_blur_impl::<u32x16>(image, radius, blur_type);
+}
+
+/// AVX2 implementation wrapper with target feature enabled
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[target_feature(enable = "avx2")]
+unsafe fn apply_blur_avx2(image: &mut RgbaImage, radius: f32, blur_type: BlurType) {
+  apply_blur_impl::<u32x8>(image, radius, blur_type);
 }
 
 #[inline(always)]
