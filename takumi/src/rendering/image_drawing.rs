@@ -1,6 +1,5 @@
-use fast_image_resize::images::TypedImageRef;
-use fast_image_resize::{ImageView, PixelTrait, ResizeOptions};
-use fast_image_resize::{IntoImageView, PixelType, Resizer, images::Image};
+use fast_image_resize::ResizeOptions;
+use fast_image_resize::{PixelType, Resizer, images::Image};
 use image::RgbaImage;
 use taffy::{Layout, Point, Size};
 
@@ -273,35 +272,11 @@ pub(crate) fn fast_resize(
   let mut dest = Image::new(width, height, PixelType::U8x4);
 
   resizer.resize(
-    &RgbaImageView(image),
+    image,
     &mut dest,
     Some(&ResizeOptions::default().resize_alg(algorithm.into())),
   )?;
 
   RgbaImage::from_raw(dest.width(), dest.height(), dest.into_vec())
     .ok_or(ImageResourceError::MismatchedBufferSize)
-}
-
-struct RgbaImageView<'a>(&'a RgbaImage);
-
-impl<'a> IntoImageView for RgbaImageView<'a> {
-  fn pixel_type(&self) -> Option<PixelType> {
-    Some(PixelType::U8x4)
-  }
-
-  fn width(&self) -> u32 {
-    self.0.width()
-  }
-
-  fn height(&self) -> u32 {
-    self.0.height()
-  }
-
-  fn image_view<P: PixelTrait>(&self) -> Option<impl ImageView<Pixel = P>> {
-    if P::pixel_type() == PixelType::U8x4 {
-      Some(TypedImageRef::<P>::from_buffer(self.0.width(), self.0.height(), self.0.as_raw()).ok()?)
-    } else {
-      None
-    }
-  }
 }
