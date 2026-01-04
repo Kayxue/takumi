@@ -337,44 +337,49 @@ pub(crate) fn apply_backdrop_filter(
   let mask_offset_x = (region_x as i32 - placement.left) as u32;
   let mask_offset_y = (region_y as i32 - placement.top) as u32;
 
+  let canvas_width = canvas.image.width();
+  let canvas_raw = canvas.image.as_mut();
+  let backdrop_raw = backdrop_image.as_raw();
+
   for y in 0..region_height {
+    let mask_y = mask_offset_y + y;
+    if mask_y >= placement.height {
+      continue;
+    }
+
+    let canvas_y = region_y + y;
+    let canvas_y_offset = (canvas_y * canvas_width + region_x) as usize * 4;
+    let backdrop_y_offset = (y * region_width) as usize * 4;
+    let mask_y_offset = (mask_y * placement.width + mask_offset_x) as usize;
+
     for x in 0..region_width {
-      let mask_x = mask_offset_x + x;
-      let mask_y = mask_offset_y + y;
-
-      // Check if within mask bounds
-      if mask_x >= placement.width || mask_y >= placement.height {
-        continue;
-      }
-
-      let mask_idx = (mask_y * placement.width + mask_x) as usize;
+      let mask_idx = mask_y_offset + x as usize;
       let alpha = mask[mask_idx];
 
       if alpha == 0 {
         continue;
       }
 
-      let canvas_x = region_x + x;
-      let canvas_y = region_y + y;
-
-      let filtered_pixel = backdrop_image.get_pixel(x, y);
-      let canvas_pixel = canvas.image.get_pixel_mut(canvas_x, canvas_y);
+      let c_idx = canvas_y_offset + x as usize * 4;
+      let b_idx = backdrop_y_offset + x as usize * 4;
 
       if alpha == 255 {
-        // Full coverage: replace with filtered pixel
-        *canvas_pixel = *filtered_pixel;
+        canvas_raw[c_idx] = backdrop_raw[b_idx];
+        canvas_raw[c_idx + 1] = backdrop_raw[b_idx + 1];
+        canvas_raw[c_idx + 2] = backdrop_raw[b_idx + 2];
+        canvas_raw[c_idx + 3] = backdrop_raw[b_idx + 3];
       } else {
-        // Partial coverage: blend based on mask alpha
         let src_a = alpha as u16;
         let inv_a = 255 - src_a;
 
-        canvas_pixel.0[0] =
-          fast_div_255(filtered_pixel.0[0] as u16 * src_a + canvas_pixel.0[0] as u16 * inv_a);
-        canvas_pixel.0[1] =
-          fast_div_255(filtered_pixel.0[1] as u16 * src_a + canvas_pixel.0[1] as u16 * inv_a);
-        canvas_pixel.0[2] =
-          fast_div_255(filtered_pixel.0[2] as u16 * src_a + canvas_pixel.0[2] as u16 * inv_a);
-        // Alpha stays the same since we're modifying the existing backdrop
+        canvas_raw[c_idx] =
+          fast_div_255(backdrop_raw[b_idx] as u16 * src_a + canvas_raw[c_idx] as u16 * inv_a);
+        canvas_raw[c_idx + 1] = fast_div_255(
+          backdrop_raw[b_idx + 1] as u16 * src_a + canvas_raw[c_idx + 1] as u16 * inv_a,
+        );
+        canvas_raw[c_idx + 2] = fast_div_255(
+          backdrop_raw[b_idx + 2] as u16 * src_a + canvas_raw[c_idx + 2] as u16 * inv_a,
+        );
       }
     }
   }
