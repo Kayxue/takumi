@@ -47,6 +47,7 @@ pub struct RenderOptions<'env> {
   pub draw_debug_border: Option<bool>,
   /// The fetch function to use to fetch resources.
   /// @default global fetch function
+  #[napi(ts_type = "typeof fetch")]
   pub fetch: Option<FetchFn<'env>>,
   /// The device pixel ratio.
   /// @default 1.0
