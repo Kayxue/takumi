@@ -22,7 +22,7 @@ default-features = false
 [dependencies.napi]
 version = "3"
 default-features = false
-features = ["napi10", "serde-json"]
+features = ["napi4", "serde-json"]
 
 [dependencies.napi-derive]
 version = "3"
