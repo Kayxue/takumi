@@ -38,8 +38,8 @@ impl GenericImageView for LinearGradientTile {
     }
 
     // Calculate position along gradient axis
-    let dx = x as f32 - self.cx as f32;
-    let dy = y as f32 - self.cy as f32;
+    let dx = x as f32 - self.cx;
+    let dy = y as f32 - self.cy;
     let projection = dx * self.dir_x + dy * self.dir_y;
     let position_px = (projection + self.max_extent).clamp(0.0, self.axis_length);
 
@@ -65,9 +65,9 @@ pub struct LinearGradientTile {
   /// Direction vector Y component derived from angle.
   pub dir_y: f32,
   /// Center X coordinate.
-  pub cx: u32,
+  pub cx: f32,
   /// Center Y coordinate.
-  pub cy: u32,
+  pub cy: f32,
   /// Half of axis length along gradient direction in pixels.
   pub max_extent: f32,
   /// Full axis length along gradient direction in pixels.
@@ -85,8 +85,8 @@ impl LinearGradientTile {
     let rad = gradient.angle.0.to_radians();
     let (dir_x, dir_y) = (rad.sin(), -rad.cos());
 
-    let cx = width / 2;
-    let cy = height / 2;
+    let cx = width as f32 / 2.0;
+    let cy = height as f32 / 2.0;
     let max_extent = ((width as f32 * dir_x.abs()) + (height as f32 * dir_y.abs())) / 2.0;
     let axis_length = 2.0 * max_extent;
 
