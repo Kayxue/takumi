@@ -4,21 +4,31 @@ import { LayoutTemplate, Type, Zap } from "lucide-react";
 // Add your showcase projects here!
 export const showcaseProjects: Project[] = [
   {
-    title: "Dcard",
     image: "https://fbthumb.dcard.tw/post/260376394",
     url: "https://dcard.tw",
     width: 1200,
     height: 630,
   },
   {
-    title: "fuma-nama/fumadocs",
     image: "https://www.fumadocs.dev/og/image.webp",
     url: "https://github.com/fuma-nama/fumadocs",
     width: 1200,
     height: 630,
   },
   {
-    title: "kane50613/image-bench",
+    image:
+      "https://raw.githubusercontent.com/pi0/shiki-image/main/test/.snapshot/image.webp",
+    url: "https://github.com/pi0/shiki-image",
+    width: 1200,
+    height: 630,
+  },
+  {
+    url: "https://who-to-bother-at.com",
+    image: "https://who-to-bother-at.com/og/vercel",
+    width: 1200,
+    height: 630,
+  },
+  {
     image:
       "https://image-bench.kane.tw/render?provider=takumi-webp&template=docs&width=800&height=400",
     url: "https://github.com/kane50613/image-bench",
@@ -70,7 +80,7 @@ export const showcaseFeatures: Feature[] = [
 ];
 
 export interface Project {
-  title: string;
+  title?: string;
   image: string;
   url: string;
   width: number;

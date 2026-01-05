@@ -10,6 +10,22 @@ import {
 } from "../data/showcase";
 
 function Card({ project }: { project: Project }) {
+  const title = useMemo(() => {
+    if (!project.title) {
+      const { hostname, pathname } = new URL(project.url);
+
+      if (hostname === "github.com") {
+        const [owner, repo] = pathname.split("/").filter(Boolean);
+
+        return `${owner}/${repo}`;
+      }
+
+      return hostname;
+    }
+
+    return project.title;
+  }, [project.title, project.url]);
+
   const icon = useMemo(() => {
     if (project.url.includes("github.com")) {
       return <SiGithub size={18} />;
@@ -23,18 +39,25 @@ function Card({ project }: { project: Project }) {
       href={project.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="border rounded-lg overflow-hidden group"
+      className="border rounded-lg overflow-hidden group bg-muted/10"
     >
-      <img
-        src={project.image}
-        alt={project.title}
-        className="object-cover aspect-1200/630"
-        width={project.width}
-        height={project.height}
-      />
+      <div className="relative aspect-1200/630 overflow-hidden bg-muted/30">
+        <img
+          src={project.image}
+          alt="Blur background"
+          className="absolute inset-0 w-full h-full object-cover blur-xs scale-110 opacity-75 select-none pointer-events-none"
+        />
+        <img
+          src={project.image}
+          alt={title}
+          className="relative w-full h-full object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+          width={project.width}
+          height={project.height}
+        />
+      </div>
       <div className="px-4 py-2 border-t flex items-center gap-2 text-foreground/80 group-hover:text-foreground transition-colors duration-300">
         {icon}
-        <span className="font-medium">{project.title}</span>
+        <span className="text-sm font-medium">{title}</span>
       </div>
     </a>
   );
@@ -82,13 +105,20 @@ export default function Showcase() {
                 href={item.href}
                 className="group flex flex-col space-y-4"
               >
-                <img
-                  src={item.image}
-                  alt={`${item.title} layout example`}
-                  width={1200}
-                  height={630}
-                  className="w-full h-full object-contain rounded-lg group-hover:scale-105 transition-transform duration-700"
-                />
+                <div className="relative aspect-1200/630 overflow-hidden rounded-lg bg-muted/30 border">
+                  <img
+                    src={item.image}
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-50 select-none pointer-events-none"
+                  />
+                  <img
+                    src={item.image}
+                    alt={`${item.title} layout example`}
+                    width={1200}
+                    height={630}
+                    className="relative w-full h-full object-contain transition-transform duration-700 group-hover:scale-105"
+                  />
+                </div>
                 <h3 className="font-bold text-lg inline-flex items-center gap-2">
                   {item.title} Template
                   <span className="text-primary group-hover:translate-x-1 transition-transform">
