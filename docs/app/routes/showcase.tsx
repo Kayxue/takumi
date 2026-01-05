@@ -69,7 +69,7 @@ export default function Showcase() {
       <title>Showcase - Takumi</title>
       <meta
         name="description"
-        content="See what's possible with Takumi - The high-performance image rendering engine."
+        content="Discover how developers are using Takumi to power their dynamic image generation."
       />
 
       <div className="container py-24 px-4 mx-auto max-w-8xl">
