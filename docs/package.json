@@ -29,6 +29,7 @@
     "fumadocs-twoslash": "^3.1.10",
     "fumadocs-ui": "^16.3.2",
     "isbot": "^5.1.32",
+    "js-confetti": "^0.13.1",
     "lucide-react": "catalog:",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

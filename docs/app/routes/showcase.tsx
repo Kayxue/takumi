@@ -1,7 +1,8 @@
 import { SiGithub } from "@icons-pack/react-simple-icons";
 import { HomeLayout } from "fumadocs-ui/layouts/home";
+import JSConfetti from "js-confetti";
 import { Heart, LayoutTemplate, Link2Icon } from "lucide-react";
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { baseOptions } from "~/layout-config";
 import {
   type Project,
@@ -64,19 +65,43 @@ function Card({ project }: { project: Project }) {
 }
 
 export default function Showcase() {
+  const confettiRef = useRef<JSConfetti | null>(null);
+
+  const onConfetti = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!confettiRef.current) {
+      confettiRef.current = new JSConfetti();
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+
+    confettiRef.current.addConfettiAtPosition({
+      emojis: ["❤️", "🪓"],
+      emojiSize: 50,
+      confettiNumber: 25,
+      confettiDispatchPosition: { x, y },
+    });
+  }, []);
+
   return (
     <HomeLayout {...baseOptions}>
-      <title>Showcase - Takumi</title>
+      <title>Showcase</title>
       <meta
         name="description"
         content="Discover how developers are using Takumi to power their dynamic image generation."
       />
-
       <div className="container py-24 px-4 mx-auto max-w-8xl">
         <div className="flex flex-col items-center text-center mb-16">
           <div className="relative mb-6">
             <div className="absolute -inset-4 bg-primary/20 blur-2xl rounded-full animate-pulse duration-300" />
-            <Heart className="relative w-16 h-16 text-primary fill-primary drop-shadow-[0_0_15px_rgba(239,68,68,0.5)] transition-transform hover:scale-110 duration-300" />
+            <button
+              type="button"
+              onClick={onConfetti}
+              className="relative group transition-transform active:scale-95 cursor-pointer outline-none"
+            >
+              <Heart className="w-16 h-16 text-primary fill-primary drop-shadow-[0_0_15px_rgba(239,68,68,0.5)] transition-transform group-hover:scale-110 duration-300" />
+            </button>
           </div>
           <h1 className="text-4xl md:text-6xl font-bold mb-6 tracking-tight">
             Built with <span className="text-primary">Takumi</span>
