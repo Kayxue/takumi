@@ -64,6 +64,7 @@ npm i @takumi-rs/core
 Then, configure Nitro to externalize the dependencies and include the optional dependencies in the trace.
 
 ```ts title="vite.config.ts"
+import { defineConfig } from "vite";
 import takumiPackageJson from "@takumi-rs/core/package.json" with {
   type: "json",
 };
@@ -74,7 +75,11 @@ export default defineConfig({
       external: ["@takumi-rs/core"], // [!code highlight]
       traceInclude: Object.keys(takumiPackageJson.optionalDependencies), // [!code highlight]
     }
-  }
+  },
+  optimizeDeps: {
+    // [!code highlight]
+    exclude: ["@takumi-rs/core"],
+  },
 });
 ```
   </Accordion>
