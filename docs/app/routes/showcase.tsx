@@ -1,0 +1,128 @@
+import { SiGithub } from "@icons-pack/react-simple-icons";
+import { HomeLayout } from "fumadocs-ui/layouts/home";
+import { Heart, LayoutTemplate, Link2Icon } from "lucide-react";
+import { useMemo } from "react";
+import { baseOptions } from "~/layout-config";
+import { cn } from "~/lib/utils";
+import { showcaseProjects, showcaseTemplates } from "../data/showcase";
+
+function Card({
+  title,
+  image,
+  url,
+  className = "",
+}: {
+  title: string;
+  image?: string;
+  url: string;
+  className?: string;
+}) {
+  const icon = useMemo(() => {
+    if (url.includes("github.com")) {
+      return <SiGithub size={18} />;
+    }
+
+    return <Link2Icon size={18} />;
+  }, [url]);
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn("border rounded-lg overflow-hidden group", className)}
+    >
+      <img src={image} alt={title} className="object-cover aspect-1200/630" />
+      <div className="px-4 py-2 border-t flex items-center gap-2 text-foreground/80 group-hover:text-foreground transition-colors duration-300">
+        {icon}
+        <span className="font-medium">{title}</span>
+      </div>
+    </a>
+  );
+}
+
+export default function Showcase() {
+  return (
+    <HomeLayout {...baseOptions}>
+      <title>Showcase - Takumi</title>
+      <meta
+        name="description"
+        content="See what's possible with Takumi - The high-performance image rendering engine."
+      />
+
+      <div className="container py-24 px-4 mx-auto max-w-7xl">
+        <div className="flex flex-col items-center text-center mb-16">
+          <div className="relative mb-6">
+            <div className="absolute -inset-4 bg-primary/20 blur-2xl rounded-full animate-pulse duration-300" />
+            <Heart className="relative w-16 h-16 text-primary fill-primary drop-shadow-[0_0_15px_rgba(239,68,68,0.5)] transition-transform hover:scale-110 duration-300" />
+          </div>
+          <h1 className="text-4xl md:text-6xl font-bold mb-6 tracking-tight">
+            Built with <span className="text-primary">Takumi</span>
+          </h1>
+          <p className="text-muted-foreground text-lg md:text-xl max-w-2xl mx-auto text-pretty">
+            Discover how developers are using Takumi to power their dynamic
+            image generation.
+          </p>
+        </div>
+
+        <section className="mb-24 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {showcaseProjects.map((project) => (
+            <Card key={project.url} {...project} />
+          ))}
+        </section>
+
+        <section className="mb-24">
+          <h2 className="text-2xl font-semibold mb-8 flex items-center gap-2">
+            <LayoutTemplate className="w-6 h-6 text-blue-500" />
+            Ready-to-use Templates
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {showcaseTemplates.map((item) => (
+              <a
+                key={item.title}
+                href={item.href}
+                className="group flex flex-col space-y-4"
+              >
+                <img
+                  src={item.image}
+                  alt={`${item.title} layout example`}
+                  className="w-full h-full object-contain rounded-lg group-hover:scale-105 transition-transform duration-700"
+                />
+                <h3 className="font-bold text-lg inline-flex items-center gap-2">
+                  {item.title} Template
+                  <span className="text-primary group-hover:translate-x-1 transition-transform">
+                    &rarr;
+                  </span>
+                </h3>
+              </a>
+            ))}
+          </div>
+        </section>
+
+        <div className="rounded-3xl bg-primary/80 p-8 md:p-16 text-primary-foreground text-center relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.1),transparent)]" />
+          <div className="relative z-10">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Want to be featured?
+            </h2>
+            <p className="text-primary-foreground/80 mb-8 max-w-xl mx-auto">
+              Built something cool with Takumi? We&apos;d love to show it off!
+              <br />
+              Submit your project to our GitHub repository.
+            </p>
+            <div className="flex flex-wrap justify-center gap-4">
+              <a
+                href="https://github.com/kane50613/takumi/edit/master/docs/app/data/showcase.ts"
+                target="_blank"
+                rel="noreferrer"
+                className="bg-white text-primary px-8 py-3 rounded-full font-medium hover:shadow-lg transition-transform hover:-translate-y-1"
+              >
+                Make a Pull Request
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </HomeLayout>
+  );
+}
