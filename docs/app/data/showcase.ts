@@ -38,7 +38,7 @@ export const showcaseProjects: Project[] = [
   },
   {
     image:
-      "https://image-bench.kane.tw/render?provider=takumi-webp&template=docs&width=800&height=400",
+      "https://image-bench.kane.tw/render?provider=takumi-webp&template=gradients&width=800&height=400",
     url: "https://image-bench.kane.tw",
     width: 800,
     height: 400,
