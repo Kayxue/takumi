@@ -40,8 +40,13 @@ Opt-out from the bundling by setting the `ssr.external` and `optimizeDeps.exclud
 
 ```ts title="vite.config.ts"
 export default defineConfig({
+  optimizeDeps: {
+    // [!code highlight]
+    exclude: ["@takumi-rs/core"],
+  },
   ssr: {
-    external: ["@takumi-rs/image-response"],
+    // [!code highlight]
+    noExternal: ["@takumi-rs/image-response", "@takumi-rs/core"],
   },
 });
 ```
@@ -73,7 +78,30 @@ export default defineConfig({
 });
 ```
   </Accordion>
+  <Accordion title="Netlify Functions">
+```toml title="netlify.toml"
+[build]
+  command = "vite build"
+  publish = "dist/client"
+
+[functions]
+  // [!code highlight]
+  node_bundler = "esbuild"
+  directory = "netlify/functions"
+  // [!code highlight]
+  included_files = ["node_modules/@takumi-rs/core-linux-x64-gnu/**/*.*"]
+```
+    
+  </Accordion>
 </Accordions>
+
+<Callout type="warning">
+If you are using package manager with virtual store such as `pnpm` or `yarn`, add the following to your `.npmrc` file and re-run `pnpm i` to allow hoisting of the native binary.
+
+```text title=".npmrc"
+public-hoist-pattern=@takumi-rs/core-*
+```
+</Callout>
 
 #### Edge Runtime / Browser
 
