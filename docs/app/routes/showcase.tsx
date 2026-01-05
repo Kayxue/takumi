@@ -49,6 +49,8 @@ function Card({ project }: { project: Project }) {
           className="absolute inset-0 w-full h-full object-cover blur-xs scale-110 opacity-75 select-none pointer-events-none"
           width={project.width}
           height={project.height}
+          loading="lazy"
+          decoding="async"
         />
         <img
           src={project.image}
@@ -56,6 +58,8 @@ function Card({ project }: { project: Project }) {
           className="relative w-full h-full object-contain transition-transform duration-500 group-hover:scale-[1.02]"
           width={project.width}
           height={project.height}
+          loading="lazy"
+          decoding="async"
         />
       </div>
       <div className="px-4 py-2 border-t flex items-center gap-2 text-foreground/80 group-hover:text-foreground transition-colors duration-300">
