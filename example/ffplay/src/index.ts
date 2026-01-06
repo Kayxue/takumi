@@ -18,10 +18,6 @@ const ffplay = spawn(
     "rgba",
     "-video_size",
     `${width}x${height}`,
-    "-x",
-    `${width / 1.5}`,
-    "-y",
-    `${height / 1.5}`,
     "-framerate",
     `${fps}`,
     "-i",
@@ -68,7 +64,31 @@ function cleanup() {
 process.on("SIGINT", cleanup);
 process.on("SIGTERM", cleanup);
 
+// DVD logo bouncing position and velocity
+let posX = width / 2;
+let posY = height / 2;
+let velocityX = 3;
+let velocityY = 2;
+
+// Approximate text dimensions (you can adjust these based on actual rendering)
+const textWidth = 520; // Approximate width of the time display
+const textHeight = 72; // Approximate height of the text
+
 function createFrame(time = Date.now()): AnyNode {
+  // Update position
+  posX += velocityX;
+  posY += velocityY;
+
+  // Bounce off edges
+  if (posX <= 0 || posX + textWidth >= width) {
+    velocityX *= -1;
+    posX = Math.max(0, Math.min(posX, width - textWidth));
+  }
+  if (posY <= 0 || posY + textHeight >= height) {
+    velocityY *= -1;
+    posY = Math.max(0, Math.min(posY, height - textHeight));
+  }
+
   // Calculate hue rotation based on time for visible smooth color animation
   const hue = ((time / 1000) * 36) % 360; // Rotate through full color spectrum every 10 seconds
   const angle = ((time / 1000) * 10) % 360; // Rotate gradient angle every 36 seconds
@@ -84,15 +104,14 @@ function createFrame(time = Date.now()): AnyNode {
       backgroundImage: `linear-gradient(${angle}deg, ${color1} 0%, ${color2} 50%, ${color3} 100%)`,
     },
     children: [
-      // Text content
-      container({
-        tw: "relative w-full h-full flex items-center justify-center backdrop-blur-xl",
-        children: [
-          text({
-            tw: "text-white text-7xl font-semibold font-mono text-shadow-lg",
-            text: formatTime(time),
-          }),
-        ],
+      text({
+        tw: "text-white text-7xl font-semibold font-mono",
+        style: {
+          left: `${posX}px`,
+          top: `${posY}px`,
+          textShadow: "0 0 10px rgb(0 0 0 / 0.5)",
+        },
+        text: formatTime(time),
       }),
     ],
   });
