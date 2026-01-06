@@ -20,6 +20,7 @@ You can try out Takumi in [Playground](https://takumi.kane.tw/playground) withou
 - WOFF2 font format support.
 - PNG, JPEG, WebP output support.
 - WebP, APNG animation rendering support.
+- Low latency video rendering with [FFmpeg](https://ffmpeg.org/) ([example](./example/ffplay)).
 
 ## Goals
 
