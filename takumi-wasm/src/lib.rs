@@ -6,7 +6,7 @@
   clippy::must_use_candidate
 )]
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, fmt::Display, sync::Arc};
 
 use base64::{Engine, prelude::BASE64_STANDARD};
 use serde::Deserialize;
@@ -186,11 +186,7 @@ impl From<FontStyle> for takumi::parley::FontStyle {
   }
 }
 
-fn map_error<E: Into<takumi::Error>>(err: E) -> js_sys::Error {
-  js_sys::Error::new(&err.into().to_string())
-}
-
-fn serde_error(err: serde_wasm_bindgen::Error) -> js_sys::Error {
+fn map_error<E: Display>(err: E) -> js_sys::Error {
   js_sys::Error::new(&err.to_string())
 }
 
@@ -217,7 +213,7 @@ impl Renderer {
 
   #[wasm_bindgen(js_name = loadFont)]
   pub fn load_font(&mut self, font: FontType) -> JsResult<()> {
-    let input: Font = from_value(font.into()).map_err(serde_error)?;
+    let input: Font = from_value(font.into()).map_err(map_error)?;
 
     match input {
       Font::Buffer(buffer) => {
@@ -269,9 +265,9 @@ impl Renderer {
     node: AnyNode,
     options: Option<RenderOptionsType>,
   ) -> Result<Vec<u8>, JsValue> {
-    let node: NodeKind = from_value(node.into()).map_err(serde_error)?;
+    let node: NodeKind = from_value(node.into()).map_err(map_error)?;
     let options: RenderOptions = options
-      .map(|options| from_value(options.into()).map_err(serde_error))
+      .map(|options| from_value(options.into()).map_err(map_error))
       .transpose()?
       .unwrap_or_default();
 
@@ -326,8 +322,8 @@ impl Renderer {
 
   #[wasm_bindgen(js_name = "renderAsDataUrl")]
   pub fn render_as_data_url(&self, node: AnyNode, options: RenderOptionsType) -> JsResult<String> {
-    let node: NodeKind = from_value(node.into()).map_err(serde_error)?;
-    let options: RenderOptions = from_value(options.into()).map_err(serde_error)?;
+    let node: NodeKind = from_value(node.into()).map_err(map_error)?;
+    let options: RenderOptions = from_value(options.into()).map_err(map_error)?;
 
     let format = options.format.unwrap_or(ImageOutputFormat::Png);
     let buffer = self.render_internal(node, options)?;
@@ -348,12 +344,12 @@ impl Renderer {
     frames: Vec<AnimationFrameSource>,
     options: RenderAnimationOptionsType,
   ) -> Result<Vec<u8>, JsValue> {
-    let options: RenderAnimationOptions = from_value(options.into()).map_err(serde_error)?;
+    let options: RenderAnimationOptions = from_value(options.into()).map_err(map_error)?;
 
     let rendered_frames: Vec<AnimationFrame> = frames
       .into_iter()
       .map(|frame| -> Result<AnimationFrame, JsValue> {
-        let node: NodeKind = from_value(frame.node.into()).map_err(serde_error)?;
+        let node: NodeKind = from_value(frame.node.into()).map_err(map_error)?;
         let duration_ms = frame.duration_ms;
 
         let render_options = RenderOptionsBuilder::default()
@@ -388,7 +384,7 @@ impl Renderer {
 /// Collects the fetch task urls from the node.
 #[wasm_bindgen(js_name = collectNodeFetchTasks)]
 pub fn collect_node_fetch_tasks(node: AnyNode) -> JsResult<Vec<String>> {
-  let node: NodeKind = from_value(node.into()).map_err(serde_error)?;
+  let node: NodeKind = from_value(node.into()).map_err(map_error)?;
 
   let mut collection = FetchTaskCollection::default();
 
