@@ -56,7 +56,7 @@ export type RenderOptions = {
    */
   quality?: number,
   /**
-   * The resources fetched externally. You should collect the fetch tasks first using `collectNodeFetchTasks` and then pass the resources here.
+   * The resources fetched externally. You should collect the fetch tasks first using `extractResourceUrls` and then pass the resources here.
    */
   fetchedResources?: Map<string, ByteBuf>,
   /**
@@ -382,8 +382,8 @@ impl Renderer {
 }
 
 /// Collects the fetch task urls from the node.
-#[wasm_bindgen(js_name = collectNodeFetchTasks)]
-pub fn collect_node_fetch_tasks(node: AnyNode) -> JsResult<Vec<String>> {
+#[wasm_bindgen(js_name = extractResourceUrls)]
+pub fn extract_resource_urls(node: AnyNode) -> JsResult<Vec<String>> {
   let node: NodeKind = from_value(node.into()).map_err(map_error)?;
 
   let mut collection = FetchTaskCollection::default();
@@ -398,4 +398,11 @@ pub fn collect_node_fetch_tasks(node: AnyNode) -> JsResult<Vec<String>> {
       .map(|task| task.to_string())
       .collect(),
   )
+}
+
+/// Collects the fetch task urls from the node.
+/// @deprecated Use `extractResourceUrls` instead.
+#[wasm_bindgen(js_name = collectNodeFetchTasks)]
+pub fn collect_node_fetch_tasks(node: AnyNode) -> JsResult<Vec<String>> {
+  extract_resource_urls(node)
 }

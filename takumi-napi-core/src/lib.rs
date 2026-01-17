@@ -90,7 +90,7 @@ pub(crate) fn map_error<E: Display>(err: E) -> napi::Error {
 
 /// Collects the fetch task urls from the node.
 #[napi(ts_args_type = "node: AnyNode")]
-pub fn collect_node_fetch_tasks(node: Object) -> Result<Vec<String>> {
+pub fn extract_resource_urls(node: Object) -> Result<Vec<String>> {
   let node: NodeKind = deserialize_with_tracing(node)?;
 
   let mut collection = FetchTaskCollection::default();

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { container, image, text } from "@takumi-rs/helpers";
 import { Glob } from "bun";
-import { collectNodeFetchTasks, Renderer, type RenderOptions } from "../index";
+import { extractResourceUrls, Renderer, type RenderOptions } from "../index";
 
 const glob = new Glob("../assets/fonts/**/*.{woff2,ttf}");
 const files = await Array.fromAsync(glob.scan());
@@ -102,9 +102,9 @@ describe("setup", () => {
   });
 });
 
-describe("collectNodeFetchTasks", () => {
-  test("collectNodeFetchTasks", () => {
-    const tasks = collectNodeFetchTasks(node);
+describe("extractResourceUrls", () => {
+  test("extractResourceUrls", () => {
+    const tasks = extractResourceUrls(node);
     expect(tasks).toEqual([remoteUrl]);
   });
 });

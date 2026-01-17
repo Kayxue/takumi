@@ -1,6 +1,6 @@
 import {
   type ConstructRendererOptions,
-  collectNodeFetchTasks,
+  extractResourceUrls,
   type Font,
   type PersistentImage,
   Renderer,
@@ -114,7 +114,7 @@ function createStream(component: ReactNode, options: ImageResponseOptions) {
         const node = await fromJsx(component, options?.jsx);
 
         if (!options.fetchedResources) {
-          const urls = collectNodeFetchTasks(node);
+          const urls = extractResourceUrls(node);
 
           if (urls.length > 0) {
             options.fetchedResources = await fetchResources(urls);

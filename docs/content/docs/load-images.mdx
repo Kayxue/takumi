@@ -14,7 +14,7 @@ If you are using `@takumi-rs/image-response`, it will handle fetching for you, o
 /** @jsxImportSource react */
 // ---cut-before---
 import { fromJsx } from "@takumi-rs/helpers/jsx";
-import { Renderer, collectNodeFetchTasks } from "@takumi-rs/core";
+import { Renderer, extractResourceUrls } from "@takumi-rs/core";
 import { fetchResources } from "@takumi-rs/helpers";
 
 const renderer = new Renderer();
@@ -22,7 +22,7 @@ const renderer = new Renderer();
 const node = await fromJsx(<img src="https://example.com/image.png" />);
 
 // [!code ++:2]
-const urls = collectNodeFetchTasks(node);
+const urls = extractResourceUrls(node);
 const fetchedResources = await fetchResources(urls);
 
 const image = await renderer.render(node, {
@@ -35,7 +35,7 @@ const image = await renderer.render(node, {
 /** @jsxImportSource react */
 // ---cut-before---
 import { fromJsx } from "@takumi-rs/helpers/jsx";
-import { Renderer, collectNodeFetchTasks } from "@takumi-rs/wasm";
+import { Renderer, extractResourceUrls } from "@takumi-rs/wasm";
 import { fetchResources } from "@takumi-rs/helpers";
 
 const renderer = new Renderer();
@@ -43,7 +43,7 @@ const renderer = new Renderer();
 const node = await fromJsx(<img src="https://example.com/image.png" />);
 
 // [!code ++:2]
-const urls = collectNodeFetchTasks(node);
+const urls = extractResourceUrls(node);
 const fetchedResources = await fetchResources(urls);
 
 const image = await renderer.render(node, {
