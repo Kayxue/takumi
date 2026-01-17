@@ -1,4 +1,3 @@
-use lru::LruCache;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use takumi::{
@@ -6,10 +5,7 @@ use takumi::{
   layout::node::NodeKind,
   parley::{FontWeight, GenericFamily, fontique::FontInfoOverride},
   rendering::ImageOutputFormat,
-  resources::{
-    image::{ImageSource, load_image_source_from_bytes},
-    task::FetchTask,
-  },
+  resources::image::load_image_source_from_bytes,
 };
 
 use crate::{
@@ -17,18 +13,11 @@ use crate::{
   load_font_task::LoadFontTask, map_error, put_persistent_image_task::PutPersistentImageTask,
   render_animation_task::RenderAnimationTask, render_task::RenderTask,
 };
-use std::{
-  collections::HashMap,
-  num::NonZeroUsize,
-  sync::{Arc, Mutex},
-};
-
-pub(crate) type ResourceCache = Option<Arc<Mutex<LruCache<FetchTask, Arc<ImageSource>>>>>;
+use std::{collections::HashMap, sync::Arc};
 
 #[napi]
 pub struct Renderer {
   global: GlobalContext,
-  resources_cache: ResourceCache,
 }
 
 #[napi(object)]
@@ -113,11 +102,14 @@ pub struct PersistentImage<'ctx> {
 #[napi(object)]
 #[derive(Default)]
 pub struct ConstructRendererOptions<'ctx> {
+  /// The images that needs to be prelodaed into the renderer.
   pub persistent_images: Option<Vec<PersistentImage<'ctx>>>,
+  /// The fonts being used.
   #[napi(ts_type = "Font[] | undefined")]
   pub fonts: Option<Vec<Object<'ctx>>>,
+  /// Whether to load the default fonts.
+  /// If `fonts` are provided, this will be `false` by default.
   pub load_default_fonts: Option<bool>,
-  pub resource_cache_capacity: Option<u32>,
 }
 
 const EMBEDDED_FONTS: &[(&[u8], &str, GenericFamily)] = &[
@@ -133,8 +125,6 @@ const EMBEDDED_FONTS: &[(&[u8], &str, GenericFamily)] = &[
   ),
 ];
 
-const DEFAULT_RESOURCE_CACHE_CAPACITY: u32 = 8;
-
 #[napi]
 impl Renderer {
   #[napi(constructor)]
@@ -144,10 +134,6 @@ impl Renderer {
     let load_default_fonts = options
       .load_default_fonts
       .unwrap_or_else(|| options.fonts.is_none());
-
-    let resource_cache_capacity = options
-      .resource_cache_capacity
-      .unwrap_or(DEFAULT_RESOURCE_CACHE_CAPACITY);
 
     let mut global = GlobalContext::default();
 
@@ -198,18 +184,7 @@ impl Renderer {
       }
     }
 
-    let renderer = Self {
-      global,
-      resources_cache: if resource_cache_capacity > 0 {
-        Some(Arc::new(Mutex::new(LruCache::new(
-          NonZeroUsize::new(resource_cache_capacity as usize).ok_or(Error::from_reason(
-            "Resource cache capacity must be greater than 0",
-          ))?,
-        ))))
-      } else {
-        None
-      },
-    };
+    let renderer = Self { global };
 
     if let Some(images) = options.persistent_images {
       for image in images {
@@ -226,16 +201,9 @@ impl Renderer {
     Ok(renderer)
   }
 
+  /// @deprecated This function does nothing.
   #[napi]
-  pub fn purge_resources_cache(&self) -> Result<()> {
-    if let Some(resource_cache) = self.resources_cache.as_ref() {
-      let mut lock = resource_cache.lock().map_err(map_error)?;
-
-      lock.clear();
-    }
-
-    Ok(())
-  }
+  pub fn purge_resources_cache(&self) {}
 
   /// @deprecated This function does nothing.
   #[napi]
