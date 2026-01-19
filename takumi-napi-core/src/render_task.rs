@@ -1,7 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use napi::bindgen_prelude::*;
-use std::sync::Arc;
 use takumi::{
   GlobalContext,
   layout::{DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport, node::NodeKind},
@@ -50,7 +49,7 @@ impl<'g> RenderTask<'g> {
         .fetched_resources
         .unwrap_or_default()
         .into_iter()
-        .map(|(k, v)| Ok((k, buffer_from_object(env, v)?)))
+        .map(|image| Ok((Arc::from(image.src), buffer_from_object(env, image.data)?)))
         .collect::<Result<_>>()?,
     })
   }

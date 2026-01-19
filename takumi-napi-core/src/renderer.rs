@@ -13,7 +13,6 @@ use crate::{
   load_font_task::LoadFontTask, map_error, put_persistent_image_task::PutPersistentImageTask,
   render_animation_task::RenderAnimationTask, render_task::RenderTask,
 };
-use std::{collections::HashMap, sync::Arc};
 
 #[napi]
 pub struct Renderer {
@@ -34,8 +33,7 @@ pub struct RenderOptions<'env> {
   /// Whether to draw debug borders.
   pub draw_debug_border: Option<bool>,
   /// The fetched resources to use.
-  #[napi(ts_type = "Map<string, Uint8Array | ArrayBuffer>")]
-  pub fetched_resources: Option<HashMap<Arc<str>, Object<'env>>>,
+  pub fetched_resources: Option<Vec<ImageSource<'env>>>,
   /// The device pixel ratio.
   /// @default 1.0
   pub device_pixel_ratio: Option<f64>,
@@ -93,7 +91,7 @@ impl From<OutputFormat> for ImageOutputFormat {
 }
 
 #[napi(object)]
-pub struct PersistentImage<'ctx> {
+pub struct ImageSource<'ctx> {
   pub src: String,
   #[napi(ts_type = "Uint8Array | ArrayBuffer")]
   pub data: Object<'ctx>,
@@ -102,8 +100,8 @@ pub struct PersistentImage<'ctx> {
 #[napi(object)]
 #[derive(Default)]
 pub struct ConstructRendererOptions<'ctx> {
-  /// The images that needs to be prelodaed into the renderer.
-  pub persistent_images: Option<Vec<PersistentImage<'ctx>>>,
+  /// The images that needs to be preloaded into the renderer.
+  pub persistent_images: Option<Vec<ImageSource<'ctx>>>,
   /// The fonts being used.
   #[napi(ts_type = "Font[] | undefined")]
   pub fonts: Option<Vec<Object<'ctx>>>,

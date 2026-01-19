@@ -19,12 +19,12 @@ export type FetchResourcesOptions = {
 };
 
 /**
- * Fetches multiple resources concurrently and returns them as a Map.
+ * Fetches multiple resources concurrently.
  * Validates HTTP status codes and automatically deduplicates URLs.
  *
  * @param urls - URLs to fetch
  * @param options - Fetch options
- * @returns Map of URL to ArrayBuffer
+ * @returns Array of { src: string, data: ArrayBuffer }
  */
 export async function fetchResources(
   urls: string[],
@@ -48,23 +48,20 @@ export async function fetchResources(
     }
 
     const buffer = await response.arrayBuffer();
-    return [url, buffer] as const;
+    return { src: url, data: buffer };
   });
 
   if (throwOnError) {
     // Original behavior: throw on any error
-    const resources = await Promise.all(promises);
-    return new Map(resources);
+    return Promise.all(promises);
   }
 
   // Graceful error handling: return successful fetches only
   const results = await Promise.allSettled(promises);
-  const successful = results
+  return results
     .filter(
-      (r): r is PromiseFulfilledResult<readonly [string, ArrayBuffer]> =>
+      (r): r is PromiseFulfilledResult<{ src: string; data: ArrayBuffer }> =>
         r.status === "fulfilled",
     )
     .map((r) => r.value);
-
-  return new Map(successful);
 }

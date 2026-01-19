@@ -17,14 +17,14 @@ describe("fetchResources", () => {
     const result = await fetchResources(urls, { fetch: mockFetch });
 
     expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(result.size).toBe(2);
+    expect(result.length).toBe(2);
   });
 
   test("handles empty URL array", async () => {
     const mockFetch = mock(() => Promise.resolve(new Response()));
     const result = await fetchResources([], { fetch: mockFetch });
 
-    expect(result.size).toBe(0);
+    expect(result.length).toBe(0);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
@@ -128,11 +128,9 @@ describe("fetchResources", () => {
       { fetch: mockFetch, throwOnError: false },
     );
 
-    // Only successful fetches are returned
-    expect(result.size).toBe(2);
-    expect(result.has("https://example.com/good1")).toBe(true);
-    expect(result.has("https://example.com/good2")).toBe(true);
-    expect(result.has("https://example.com/bad")).toBe(false);
+    expect(result.length).toBe(2);
+    expect(result[0]?.src).toBe("https://example.com/good1");
+    expect(result[1]?.src).toBe("https://example.com/good2");
   });
 
   test("handles binary data correctly", async () => {
@@ -145,10 +143,11 @@ describe("fetchResources", () => {
       fetch: mockFetch,
     });
 
-    const buffer = result.get("https://example.com/binary");
-    expect(buffer).toBeDefined();
-    const data = new Uint8Array(buffer as ArrayBuffer);
-    expect(data).toEqual(new Uint8Array([0xff, 0x00, 0xaa, 0x55]));
+    const item = result[0];
+    expect(item).toEqual({
+      src: "https://example.com/binary",
+      data: new Uint8Array([0xff, 0x00, 0xaa, 0x55]).buffer,
+    });
   });
 
   test("all requests share the same AbortSignal", async () => {
@@ -184,6 +183,6 @@ describe("fetchResources", () => {
 
     // Only unique URLs are fetched
     expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(result.size).toBe(2);
+    expect(result.length).toBe(2);
   });
 });
