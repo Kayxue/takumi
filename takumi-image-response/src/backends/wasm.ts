@@ -1,9 +1,9 @@
 import { fetchResources } from "@takumi-rs/helpers";
 import { type FromJsxOptions, fromJsx } from "@takumi-rs/helpers/jsx";
 import init, {
-  type ByteBuf,
   extractResourceUrls,
   type Font,
+  type ImageSource,
   type InitInput,
   Renderer,
   type RenderOptions,
@@ -12,13 +12,8 @@ import type { ReactNode } from "react";
 
 let renderer: Renderer;
 
-type PersistentImage = {
-  src: string;
-  data: ByteBuf;
-};
-
 const fontLoadMarker = new WeakSet<Font>();
-const persistentImageLoadMarker = new WeakSet<PersistentImage>();
+const persistentImageLoadMarker = new WeakSet<ImageSource>();
 
 declare module "react" {
   // biome-ignore lint/correctness/noUnusedVariables: used for type inference
@@ -68,7 +63,7 @@ type ImageResponseOptionsWithoutRenderer = ResponseInit &
   RenderOptions &
   ModuleOptions & {
     fonts?: Font[];
-    persistentImages?: PersistentImage[];
+    persistentImages?: ImageSource[];
     jsx?: FromJsxOptions;
   };
 
@@ -104,10 +99,10 @@ function loadFont(font: Font, renderer: Renderer) {
   renderer.loadFont(font);
 }
 
-function putPersistentImage(image: PersistentImage, renderer: Renderer) {
+function putPersistentImage(image: ImageSource, renderer: Renderer) {
   if (persistentImageLoadMarker.has(image)) return;
 
-  renderer.putPersistentImage(image.src, new Uint8Array(image.data));
+  renderer.putPersistentImage(image);
 }
 
 function createStream(component: ReactNode, options: ImageResponseOptions) {
