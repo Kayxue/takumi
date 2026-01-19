@@ -2,7 +2,7 @@ import {
   type ConstructRendererOptions,
   extractResourceUrls,
   type Font,
-  type PersistentImage,
+  type ImageSource,
   Renderer,
   type RenderOptions,
 } from "@takumi-rs/core";
@@ -13,7 +13,7 @@ import type { ReactNode } from "react";
 let renderer: Renderer | undefined;
 
 const fontLoadMarker = new WeakSet<Font>();
-const persistentImageLoadMarker = new WeakSet<PersistentImage>();
+const persistentImageLoadMarker = new WeakSet<ImageSource>();
 
 declare module "react" {
   // biome-ignore lint/correctness/noUnusedVariables: used for type inference
@@ -95,7 +95,7 @@ function loadFonts(renderer: Renderer, fonts: Font[]) {
   return renderer.loadFonts(fontsToLoad);
 }
 
-function putPersistentImage(renderer: Renderer, image: PersistentImage) {
+function putPersistentImage(renderer: Renderer, image: ImageSource) {
   if (persistentImageLoadMarker.has(image)) {
     return;
   }
