@@ -77,10 +77,6 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
     .size
     .map(|size| size.round() as u32);
 
-  if root_size.width == 0 || root_size.height == 0 {
-    return Err(crate::Error::InvalidViewport);
-  }
-
   let root_size = root_size.zip_map(options.viewport.into(), |size, viewport| {
     if let AvailableSpace::Definite(defined) = viewport {
       defined as u32
@@ -88,6 +84,10 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
       size
     }
   });
+
+  if root_size.width == 0 || root_size.height == 0 {
+    return Err(crate::Error::InvalidViewport);
+  }
 
   let mut canvas = Canvas::new(root_size);
 
