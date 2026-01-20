@@ -8,7 +8,7 @@ use takumi::{
   },
 };
 
-use crate::{map_error, renderer::AnimationOutputFormat};
+use crate::{ExternalMemoryAccountable, map_error, renderer::AnimationOutputFormat};
 
 pub struct RenderAnimationTask<'g> {
   pub nodes: Option<Vec<(NodeKind, u32)>>,
@@ -62,7 +62,10 @@ impl Task for RenderAnimationTask<'_> {
     Ok(buffer)
   }
 
-  fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
+  fn resolve(&mut self, mut env: Env, output: Self::Output) -> Result<Self::JsValue> {
+    // Account external memory to V8's garbage collector
+    // This enables V8 to collect memory based on actual memory pressure
+    output.account_external_memory(&mut env)?;
     Ok(output.into())
   }
 }

@@ -88,6 +88,30 @@ pub(crate) fn map_error<E: Display>(err: E) -> napi::Error {
   napi::Error::from_reason(err.to_string())
 }
 
+/// Trait for accounting external memory to V8's garbage collector.
+///
+/// Similar to the optimization in resvg-js PR #393:
+/// https://github.com/thx/resvg-js/pull/393
+///
+/// This allows V8 to be aware of memory allocated in Rust, enabling
+/// the garbage collector to trigger based on actual memory pressure.
+pub(crate) trait ExternalMemoryAccountable {
+  /// Account external memory to V8 by calling adjust_external_memory.
+  fn account_external_memory(&self, env: &mut Env) -> Result<()>;
+}
+
+impl ExternalMemoryAccountable for Vec<u8> {
+  fn account_external_memory(&self, env: &mut Env) -> Result<()> {
+    let bytes = self.len() as i64;
+
+    if bytes != 0 {
+      env.adjust_external_memory(bytes)?;
+    }
+
+    Ok(())
+  }
+}
+
 /// Collects the fetch task urls from the node.
 #[napi(ts_args_type = "node: AnyNode")]
 pub fn extract_resource_urls(node: Object) -> Result<Vec<String>> {

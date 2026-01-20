@@ -9,7 +9,7 @@ use takumi::{
 };
 
 use crate::{
-  buffer_from_object, map_error,
+  ExternalMemoryAccountable, buffer_from_object, map_error,
   renderer::{OutputFormat, RenderOptions},
 };
 
@@ -98,7 +98,10 @@ impl Task for RenderTask<'_> {
     Ok(buffer)
   }
 
-  fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
+  fn resolve(&mut self, mut env: Env, output: Self::Output) -> Result<Self::JsValue> {
+    // Account external memory to V8's garbage collector
+    // This enables V8 to collect memory based on actual memory pressure
+    output.account_external_memory(&mut env)?;
     Ok(output.into())
   }
 }
