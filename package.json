@@ -18,7 +18,8 @@
     "lint": "biome ci .",
     "lint:fix": "biome check --write --unsafe .",
     "version": "changeset version && bun --filter '*' version",
-    "release": "changeset publish && bun --filter '*' release"
+    "release": "changeset publish && bun --filter '*' release",
+    "postinstall": "lefthook install"
   },
   "workspaces": [
     "takumi",
