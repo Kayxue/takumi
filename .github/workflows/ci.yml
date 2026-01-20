@@ -46,12 +46,15 @@ jobs:
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
         with:
-          binstall: cargo-audit,cargo-llvm-cov,cargo-rdme
+          binstall: cargo-audit,cargo-llvm-cov,cargo-rdme,cargo-machete
           components: rustfmt,clippy
           stage: test
 
       - name: Check formatting
         run: cargo fmt --all -- --check
+
+      - name: Check unused dependencies
+        run: cargo machete
 
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
