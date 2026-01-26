@@ -70,9 +70,26 @@ fn create_test_context() -> GlobalContext {
     )),
   );
 
+  let mut luma_cover_image_data = Vec::new();
+  File::open(assets_path(
+    "images/luma-cover-0dfbf65d-0f58-4941-947c-d84a5b131dc0.jpeg",
+  ))
+  .unwrap()
+  .read_to_end(&mut luma_cover_image_data)
+  .unwrap();
+
   context.persistent_image_store.insert(
     "assets/images/luma.svg".to_string(),
     parse_svg_str(&luma_image_data).unwrap(),
+  );
+
+  context.persistent_image_store.insert(
+    "assets/images/luma-cover-0dfbf65d-0f58-4941-947c-d84a5b131dc0.jpeg".to_string(),
+    Arc::new(ImageSource::Bitmap(
+      load_from_memory(&luma_cover_image_data)
+        .unwrap()
+        .into_rgba8(),
+    )),
   );
 
   for (font, name, generic) in TEST_FONTS {

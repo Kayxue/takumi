@@ -2,6 +2,8 @@ mod test_utils;
 
 #[path = "fixtures/animation.rs"]
 pub mod animation;
+#[path = "fixtures/color_artifacts.rs"]
+pub mod color_artifacts;
 #[path = "fixtures/inline.rs"]
 pub mod inline;
 #[path = "fixtures/style_alignment.rs"]
