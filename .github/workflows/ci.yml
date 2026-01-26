@@ -365,7 +365,7 @@ jobs:
             target: aarch64-apple-darwin
           - host: ubuntu-slim
             target: x86_64-unknown-linux-gnu
-          - host: ubuntu-slim
+          - host: ubuntu-latest # ubuntu-slim doesn't run docker daemon
             target: x86_64-unknown-linux-musl
           - host: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
@@ -395,10 +395,6 @@ jobs:
         with:
           name: bindings-${{ matrix.settings.target }}
           path: takumi-napi-core
-
-      - name: List packages
-        run: ls -R .
-        working-directory: takumi-napi-core
 
       - name: Test bindings
         if: ${{ !contains(matrix.settings.target, 'musl') }}
