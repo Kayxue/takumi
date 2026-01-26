@@ -14,7 +14,6 @@ use serde_bytes::ByteBuf;
 use serde_wasm_bindgen::{from_value, to_value};
 use takumi::{
   GlobalContext,
-  image::load_from_memory,
   layout::{
     DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport,
     node::{Node, NodeKind},
@@ -279,14 +278,11 @@ impl Renderer {
   pub fn put_persistent_image(&self, data: ImageSourceType) -> JsResult<()> {
     let data: ImageSource = from_value(data.into()).map_err(map_error)?;
 
-    let image = load_from_memory(&data.data)
-      .map_err(map_error)?
-      .into_rgba8();
-
-    self.context.persistent_image_store.insert(
-      data.src.to_string(),
-      Arc::new(takumi::resources::image::ImageSource::Bitmap(image)),
-    );
+    let image = load_image_source_from_bytes(&data.data).map_err(map_error)?;
+    self
+      .context
+      .persistent_image_store
+      .insert(data.src.to_string(), image);
     Ok(())
   }
 
