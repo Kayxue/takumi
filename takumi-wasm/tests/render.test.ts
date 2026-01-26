@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { container, image, text } from "@takumi-rs/helpers";
 import { Glob } from "bun";
-import init, { AnimationFrameSource, Renderer } from "../pkg/takumi_wasm";
+import init, { Renderer } from "../pkg/takumi_wasm";
 
 await init({
   module_or_path: readFile("./pkg/takumi_wasm_bg.wasm"),
@@ -247,8 +247,12 @@ describe("renderAsDataUrl", () => {
   });
 
   describe("renderAnimation", () => {
+    const frame = {
+      node,
+      durationMs: 1000,
+    };
+
     test("webp", () => {
-      const frame = new AnimationFrameSource(node, 1000);
       const result = renderer.renderAnimation([frame], {
         width: 1200,
         height: 630,
@@ -259,7 +263,6 @@ describe("renderAsDataUrl", () => {
     });
 
     test("apng", () => {
-      const frame = new AnimationFrameSource(node, 1000);
       const result = renderer.renderAnimation([frame], {
         width: 1200,
         height: 630,
