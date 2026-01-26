@@ -11,6 +11,8 @@ import {
   type RenderMessageInput,
 } from "./schema";
 
+const fetchCache = new Map<string, ArrayBuffer>();
+
 function postMessage(message: RenderMessageInput) {
   return self.postMessage(message);
 }
@@ -81,7 +83,9 @@ self.onmessage = async (event: MessageEvent) => {
 
         const resourceUrls = extractResourceUrls(node);
 
-        const fetchedResources = await fetchResources(resourceUrls);
+        const fetchedResources = await fetchResources(resourceUrls, {
+          cache: fetchCache,
+        });
 
         const start = performance.now();
         const dataUrl = renderer.renderAsDataUrl(node, {

@@ -16,6 +16,11 @@ export type FetchResourcesOptions = {
    * @default true
    */
   throwOnError?: boolean;
+  /**
+   * Cache for fetched resources.
+   * Custom features (like LRU, TTL, etc.) can be implemented by providing an extended `Map<string, ArrayBuffer>`.
+   */
+  cache?: Map<string, ArrayBuffer>;
 };
 
 /**
@@ -38,6 +43,14 @@ export async function fetchResources(
   const uniqueUrls = [...new Set(urls)];
 
   const promises = uniqueUrls.map(async (url) => {
+    // Check cache first if provided
+    if (options?.cache?.has(url)) {
+      const cached = options.cache.get(url);
+      if (cached) {
+        return { src: url, data: cached };
+      }
+    }
+
     const response = await fetch(url, { signal });
 
     // Validate HTTP status
@@ -48,6 +61,10 @@ export async function fetchResources(
     }
 
     const buffer = await response.arrayBuffer();
+
+    // Store in cache if provided
+    options?.cache?.set(url, buffer);
+
     return { src: url, data: buffer };
   });
 

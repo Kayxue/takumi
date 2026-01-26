@@ -185,4 +185,37 @@ describe("fetchResources", () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(result.length).toBe(2);
   });
+
+  test("uses data from cache if available", async () => {
+    const cachedData = new TextEncoder().encode("Cached Data").buffer;
+    const cache = new Map<string, ArrayBuffer>([
+      ["https://example.com/cached", cachedData],
+    ]);
+    const mockFetch = mock(() => Promise.resolve(new Response()));
+
+    const result = await fetchResources(["https://example.com/cached"], {
+      cache,
+      fetch: mockFetch,
+    });
+
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(result.length).toBe(1);
+    expect(result[0]?.data).toBe(cachedData);
+  });
+
+  test("populates cache after fetching", async () => {
+    const cache = new Map<string, ArrayBuffer>();
+    const mockFetch = mock((url: string) =>
+      Promise.resolve(
+        new Response(new TextEncoder().encode(`Data for ${url}`).buffer),
+      ),
+    );
+
+    const url = "https://example.com/new";
+    await fetchResources([url], { cache, fetch: mockFetch });
+
+    expect(cache.has(url)).toBe(true);
+    const cached = cache.get(url);
+    expect(new TextDecoder().decode(cached)).toBe(`Data for ${url}`);
+  });
 });
