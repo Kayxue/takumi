@@ -112,6 +112,12 @@ impl<'i> FromCss<'i> for TextShadow {
   }
 }
 
+impl crate::layout::style::tw::TailwindPropertyParser for TextShadow {
+  fn parse_tw(token: &str) -> Option<Self> {
+    Self::from_str(token).ok()
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use crate::layout::style::{Color, Length::Px};

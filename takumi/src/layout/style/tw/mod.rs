@@ -444,6 +444,8 @@ pub enum TailwindProperty {
   BackdropSepia(PercentageNumber),
   /// `backdrop-filter` property.
   BackdropFilter(Filters),
+  /// `text-shadow` property.
+  TextShadow(TextShadow),
 }
 
 /// A trait for parsing tailwind properties.
@@ -959,7 +961,9 @@ impl TailwindProperty {
         append_filter!(style, filter, Filter::Sepia(percentage_number));
       }
       TailwindProperty::Filter(ref filters) => {
-        style.filter = filters.clone().into();
+        for f in filters {
+          append_filter!(style, filter, *f);
+        }
       }
       TailwindProperty::BackdropBlur(tw_blur) => {
         append_filter!(style, backdrop_filter, Filter::Blur(tw_blur.0));
@@ -993,7 +997,12 @@ impl TailwindProperty {
         append_filter!(style, backdrop_filter, Filter::Sepia(percentage_number));
       }
       TailwindProperty::BackdropFilter(ref filters) => {
-        style.backdrop_filter = filters.clone().into();
+        for f in filters {
+          append_filter!(style, backdrop_filter, *f);
+        }
+      }
+      TailwindProperty::TextShadow(text_shadow) => {
+        style.text_shadow = Some([text_shadow].into()).into();
       }
     }
   }
