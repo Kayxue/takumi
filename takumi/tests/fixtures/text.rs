@@ -419,6 +419,50 @@ fn text_stroke_black_red() {
   run_fixture_test(text.into(), "text_stroke_black_red.png");
 }
 
+#[test]
+fn text_stroke_background_clip() {
+  let gradient_images = BackgroundImages::from_str(
+    "linear-gradient(90deg, #ff3b30, #ffcc00, #34c759, #007aff, #5856d6)",
+  )
+  .unwrap();
+
+  let text = TextNode {
+    preset: None,
+    tw: None,
+    style: Some(
+      StyleBuilder::default()
+        .background_image(Some(gradient_images))
+        .background_clip(BackgroundClip::Text)
+        .color(ColorInput::Value(Color::white()))
+        .font_size(Some(Px(96.0)))
+        .font_weight(FontWeight::from(700.0))
+        .webkit_text_stroke_width(Some(Px(4.0)))
+        .webkit_text_stroke_color(Some(ColorInput::Value(Color::transparent())))
+        .build()
+        .unwrap(),
+    ),
+    text: "Gradient Stroke".to_string(),
+  };
+
+  let container = ContainerNode {
+    preset: None,
+    tw: None,
+    style: Some(
+      StyleBuilder::default()
+        .background_color(ColorInput::Value(Color::white()))
+        .width(Percentage(100.0))
+        .height(Percentage(100.0))
+        .align_items(AlignItems::Center)
+        .justify_content(JustifyContent::Center)
+        .build()
+        .unwrap(),
+    ),
+    children: Some([text.into()].into()),
+  };
+
+  run_fixture_test(container.into(), "text_stroke_background_clip.png");
+}
+
 // Text shadow fixture
 #[test]
 fn text_shadow() {

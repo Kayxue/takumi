@@ -603,6 +603,31 @@ pub(crate) fn draw_mask<C: Into<Rgba<u8>>>(
   });
 }
 
+/// Samples a pixel from an image given a transform and canvas coordinates.
+///
+/// This function handles the inverse transform and the scaling algorithm.
+/// It also optimizes for translate-only transforms by skipping bilinear interpolation.
+#[inline(always)]
+pub(crate) fn sample_transformed_pixel<I: GenericImageView<Pixel = Rgba<u8>>>(
+  image: &I,
+  inverse_transform: &Affine,
+  algorithm: ImageScalingAlgorithm,
+  canvas_x: f32,
+  canvas_y: f32,
+  offset: Point<f32>,
+) -> Option<Rgba<u8>> {
+  let sampled_point = inverse_transform.transform_point(Point {
+    x: canvas_x,
+    y: canvas_y,
+  }) + offset;
+
+  if inverse_transform.only_translation() || matches!(algorithm, ImageScalingAlgorithm::Pixelated) {
+    interpolate_nearest(image, sampled_point.x, sampled_point.y)
+  } else {
+    interpolate_bilinear(image, sampled_point.x, sampled_point.y)
+  }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn overlay_image<I: GenericImageView<Pixel = Rgba<u8>>>(
   canvas: &mut RgbaImage,
@@ -625,10 +650,6 @@ pub(crate) fn overlay_image<I: GenericImageView<Pixel = Rgba<u8>>>(
     });
   }
 
-  let Some(inverse) = transform.invert() else {
-    return;
-  };
-
   let mut paths = Vec::new();
 
   border.append_mask_commands(&mut paths, size.map(|size| size as f32), Point::ZERO);
@@ -636,6 +657,7 @@ pub(crate) fn overlay_image<I: GenericImageView<Pixel = Rgba<u8>>>(
   let (mask, placement) = mask_memory.render(&paths, Some(transform), None);
 
   let is_identity = transform.is_identity();
+  let inverse = transform.invert();
 
   let get_original_pixel = |x, y| {
     let alpha = mask[mask_index_from_coord(x, y, placement.width)];
@@ -653,17 +675,16 @@ pub(crate) fn overlay_image<I: GenericImageView<Pixel = Rgba<u8>>>(
       return pixel;
     }
 
-    let point = inverse.transform_point(Point {
-      x: (x as f32 + placement.left as f32).round(),
-      y: (y as f32 + placement.top as f32).round(),
-    });
-
-    let sampled_pixel = match algorithm {
-      ImageScalingAlgorithm::Pixelated => interpolate_nearest(image, point.x, point.y),
-      _ => interpolate_bilinear(image, point.x, point.y),
-    };
-
-    let Some(mut pixel) = sampled_pixel else {
+    let Some(mut pixel) = inverse.and_then(|inverse| {
+      sample_transformed_pixel(
+        image,
+        &inverse,
+        algorithm,
+        (x as f32 + placement.left as f32).round(),
+        (y as f32 + placement.top as f32).round(),
+        Point::ZERO,
+      )
+    }) else {
       return Color::transparent().into();
     };
 

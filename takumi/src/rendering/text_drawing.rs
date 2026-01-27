@@ -3,7 +3,6 @@ use std::{borrow::Cow, convert::Into};
 use image::{
   GenericImageView, ImageError, Rgba, RgbaImage,
   error::{DecodingError, ImageFormatHint},
-  imageops::{interpolate_bilinear, interpolate_nearest},
 };
 use parley::{Glyph, GlyphRun};
 use swash::{ColorPalette, scale::outline::Outline};
@@ -20,7 +19,7 @@ use crate::{
   },
   rendering::{
     BorderProperties, Canvas, CanvasConstrain, MaskMemory, apply_mask_alpha_to_pixel, blend_pixel,
-    draw_mask, mask_index_from_coord, overlay_area,
+    draw_mask, mask_index_from_coord, overlay_area, sample_transformed_pixel,
   },
   resources::font::ResolvedGlyph,
 };
@@ -176,21 +175,17 @@ pub(crate) fn draw_glyph<I: GenericImageView<Pixel = Rgba<u8>>>(
             return Color::transparent().into();
           }
 
-          let point = inverse.transform_point(Point {
-            x: (x as f32 + placement.left as f32).round(),
-            y: (y as f32 + placement.top as f32).round(),
-          });
-
-          let point = point
-            + Point {
+          let sampled_pixel = sample_transformed_pixel(
+            fill_image,
+            &inverse,
+            style.parent.image_rendering,
+            (x as f32 + placement.left as f32).round(),
+            (y as f32 + placement.top as f32).round(),
+            Point {
               x: glyph.x,
               y: glyph.y,
-            };
-
-          let sampled_pixel = match style.parent.image_rendering {
-            ImageScalingAlgorithm::Pixelated => interpolate_nearest(fill_image, point.x, point.y),
-            _ => interpolate_bilinear(fill_image, point.x, point.y),
-          };
+            },
+          );
 
           let Some(mut pixel) = sampled_pixel else {
             return Color::transparent().into();
@@ -203,7 +198,15 @@ pub(crate) fn draw_glyph<I: GenericImageView<Pixel = Rgba<u8>>>(
         },
       );
 
-      maybe_draw_text_stroke(canvas, style, transform, &paths);
+      maybe_draw_text_stroke(
+        canvas,
+        style,
+        glyph,
+        transform,
+        &paths,
+        Some(fill_image),
+        Some(inverse),
+      );
     }
     (ResolvedGlyph::Outline(outline), None) => {
       let paths = collect_outline_paths(outline);
@@ -233,18 +236,21 @@ pub(crate) fn draw_glyph<I: GenericImageView<Pixel = Rgba<u8>>>(
         );
       }
 
-      maybe_draw_text_stroke(canvas, style, transform, &paths);
+      maybe_draw_text_stroke::<RgbaImage>(canvas, style, glyph, transform, &paths, None, None);
     }
   }
 
   Ok(())
 }
 
-fn maybe_draw_text_stroke(
+fn maybe_draw_text_stroke<I: GenericImageView<Pixel = Rgba<u8>>>(
   canvas: &mut Canvas,
   style: &SizedFontStyle,
+  glyph: Glyph,
   transform: Affine,
   paths: &[Command],
+  fill_image: Option<&I>,
+  inverse: Option<Affine>,
 ) {
   if style.stroke_width <= 0.0 {
     return;
@@ -259,13 +265,60 @@ fn maybe_draw_text_stroke(
       .mask_memory
       .render(paths, Some(transform), Some(stroke.into()));
 
-  draw_mask(
-    &mut canvas.image,
-    stroke_mask,
-    stroke_placement,
-    style.text_stroke_color,
-    canvas.constrains.last(),
-  );
+  if let Some(fill_image) = fill_image {
+    let inverse = inverse.or_else(|| transform.invert());
+
+    if let Some(inverse) = inverse {
+      overlay_area(
+        &mut canvas.image,
+        Point {
+          x: stroke_placement.left as f32,
+          y: stroke_placement.top as f32,
+        },
+        Size {
+          width: stroke_placement.width,
+          height: stroke_placement.height,
+        },
+        canvas.constrains.last(),
+        |x, y| {
+          let alpha = stroke_mask[mask_index_from_coord(x, y, stroke_placement.width)];
+
+          if alpha == 0 {
+            return Color::transparent().into();
+          }
+
+          let sampled_pixel = sample_transformed_pixel(
+            fill_image,
+            &inverse,
+            style.parent.image_rendering,
+            (x as f32 + stroke_placement.left as f32).round(),
+            (y as f32 + stroke_placement.top as f32).round(),
+            Point {
+              x: glyph.x,
+              y: glyph.y,
+            },
+          );
+
+          let Some(mut pixel) = sampled_pixel else {
+            return Color::transparent().into();
+          };
+
+          blend_pixel(&mut pixel, style.text_stroke_color.into());
+          apply_mask_alpha_to_pixel(&mut pixel, alpha);
+
+          pixel
+        },
+      );
+    }
+  } else {
+    draw_mask(
+      &mut canvas.image,
+      stroke_mask,
+      stroke_placement,
+      style.text_stroke_color,
+      canvas.constrains.last(),
+    );
+  }
 }
 
 fn maybe_draw_text_shadow(
