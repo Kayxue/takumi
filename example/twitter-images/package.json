@@ -6,14 +6,14 @@
   "devDependencies": {
     "@types/bun": "catalog:",
     "@types/react": "catalog:",
-    "@types/react-dom": "^19.2.3",
+    "@types/react-dom": "catalog:",
     "typescript": "catalog:"
   },
   "dependencies": {
     "@takumi-rs/core": "workspace:*",
     "@takumi-rs/helpers": "workspace:*",
     "lucide-react": "catalog:",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "react": "catalog:",
+    "react-dom": "catalog:"
   }
 }
