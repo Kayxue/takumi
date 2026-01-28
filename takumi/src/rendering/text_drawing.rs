@@ -157,8 +157,8 @@ pub(crate) fn draw_glyph_clip_image<I: GenericImageView<Pixel = Rgba<u8>>>(
             clip_image,
             &inverse,
             style.parent.image_rendering,
-            (x as f32 + placement.left as f32).round(),
-            (y as f32 + placement.top as f32).round(),
+            (x as i32 + placement.left) as f32,
+            (y as i32 + placement.top) as f32,
             inline_offset,
           );
 

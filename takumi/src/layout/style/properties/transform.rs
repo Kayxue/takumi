@@ -91,7 +91,12 @@ impl Affine {
 
   /// Returns true if the transform is the identity transform
   pub fn is_identity(self) -> bool {
-    self == Self::IDENTITY
+    (self.a - 1.0).abs() < 1e-6
+      && self.b.abs() < 1e-6
+      && self.c.abs() < 1e-6
+      && (self.d - 1.0).abs() < 1e-6
+      && self.x.abs() < 1e-6
+      && self.y.abs() < 1e-6
   }
 
   /// Decomposes the translation part of the transform
@@ -104,10 +109,10 @@ impl Affine {
 
   /// Returns true if the transform is only a translation
   pub(crate) fn only_translation(self) -> bool {
-    self.a == Self::IDENTITY.a
-      && self.b == Self::IDENTITY.b
-      && self.c == Self::IDENTITY.c
-      && self.d == Self::IDENTITY.d
+    (self.a - 1.0).abs() < 1e-6
+      && self.b.abs() < 1e-6
+      && self.c.abs() < 1e-6
+      && (self.d - 1.0).abs() < 1e-6
   }
 
   /// Creates a new rotation transform
@@ -239,7 +244,13 @@ impl Affine {
 
 impl From<Affine> for zeno::Transform {
   fn from(affine: Affine) -> Self {
-    zeno::Transform::new(affine.a, affine.b, affine.c, affine.d, affine.x, affine.y)
+    if affine.is_identity() {
+      zeno::Transform::IDENTITY
+    } else if affine.only_translation() {
+      zeno::Transform::translation(affine.x, affine.y)
+    } else {
+      zeno::Transform::new(affine.a, affine.b, affine.c, affine.d, affine.x, affine.y)
+    }
   }
 }
 

@@ -656,7 +656,6 @@ pub(crate) fn overlay_image<I: GenericImageView<Pixel = Rgba<u8>>>(
 
   let (mask, placement) = mask_memory.render(&paths, Some(transform), None);
 
-  let is_identity = transform.is_identity();
   let inverse = transform.invert();
 
   let get_original_pixel = |x, y| {
@@ -667,7 +666,7 @@ pub(crate) fn overlay_image<I: GenericImageView<Pixel = Rgba<u8>>>(
     }
 
     // Fast path: If only border radius is applied, we can just map the pixel directly
-    if is_identity && placement.left >= 0 && placement.top >= 0 {
+    if transform.is_identity() && placement.left >= 0 && placement.top >= 0 {
       let mut pixel = image.get_pixel(x + placement.left as u32, y + placement.top as u32);
 
       apply_mask_alpha_to_pixel(&mut pixel, alpha);
@@ -680,8 +679,8 @@ pub(crate) fn overlay_image<I: GenericImageView<Pixel = Rgba<u8>>>(
         image,
         &inverse,
         algorithm,
-        (x as f32 + placement.left as f32).round(),
-        (y as f32 + placement.top as f32).round(),
+        (x as i32 + placement.left) as f32,
+        (y as i32 + placement.top) as f32,
         Point::ZERO,
       )
     }) else {
