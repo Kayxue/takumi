@@ -249,13 +249,13 @@ fn draw_text_stroke_clip_image<I: GenericImageView<Pixel = Rgba<u8>>>(
   clip_image: &I,
   inline_offset: Point<f32>,
 ) {
-  let Some(inverse) = transform.invert() else {
-    return;
-  };
-
   if style.stroke_width <= 0.0 {
     return;
   }
+
+  let Some(inverse) = transform.invert() else {
+    return;
+  };
 
   let mut stroke = Stroke::new(style.stroke_width);
   stroke.scale = true;
@@ -284,8 +284,8 @@ fn draw_text_stroke_clip_image<I: GenericImageView<Pixel = Rgba<u8>>>(
         return Color::transparent().into();
       }
 
-      let inline_x = x as f32 + stroke_placement.left as f32;
-      let inline_y = y as f32 + stroke_placement.top as f32;
+      let inline_x = (x as i32 + stroke_placement.left) as f32;
+      let inline_y = (y as i32 + stroke_placement.top) as f32;
 
       let sampled_pixel = sample_transformed_pixel(
         clip_image,
