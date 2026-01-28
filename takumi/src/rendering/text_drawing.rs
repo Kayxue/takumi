@@ -101,8 +101,8 @@ pub(crate) fn draw_glyph_clip_image<I: GenericImageView<Pixel = Rgba<u8>>>(
         |x, y| {
           let alpha = mask[mask_index_from_coord(x, y, bitmap.placement.width)];
 
-          let source_x = x + inline_offset.x as u32;
-          let source_y = y + inline_offset.y as u32 - bitmap.placement.top as u32;
+          let source_x = (x as i32 + inline_offset.x as i32 + bitmap.placement.left) as u32;
+          let source_y = (y as i32 + inline_offset.y as i32 - bitmap.placement.top) as u32;
 
           if source_x >= fill_dimensions.0 || source_y >= fill_dimensions.1 {
             return Color::transparent().into();
