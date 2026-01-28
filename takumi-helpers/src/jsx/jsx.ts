@@ -22,7 +22,6 @@ import {
 export * from "./style-presets";
 
 declare module "react" {
-  // biome-ignore lint/correctness/noUnusedVariables: used for type inference
   interface DOMAttributes<T> {
     tw?: string;
   }

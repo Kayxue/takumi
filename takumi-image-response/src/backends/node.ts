@@ -16,7 +16,6 @@ const fontLoadMarker = new WeakSet<Font>();
 const persistentImageLoadMarker = new WeakSet<ImageSource>();
 
 declare module "react" {
-  // biome-ignore lint/correctness/noUnusedVariables: used for type inference
   interface DOMAttributes<T> {
     tw?: string;
   }
