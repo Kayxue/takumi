@@ -1,4 +1,7 @@
+//! Node.js N-API bindings for Takumi.
+
 #![deny(clippy::unwrap_used, clippy::expect_used)]
+#![deny(missing_docs)]
 #![allow(
   clippy::module_name_repetitions,
   clippy::missing_errors_doc,
@@ -33,7 +36,7 @@ pub(crate) struct FontInput {
 }
 
 #[derive(Clone, Copy)]
-pub struct FontStyleInput(pub FontStyle);
+pub(crate) struct FontStyleInput(pub FontStyle);
 
 impl<'de> Deserialize<'de> for FontStyleInput {
   fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>

@@ -1,4 +1,7 @@
+//! WebAssembly bindings for Takumi.
+
 #![deny(clippy::unwrap_used, clippy::expect_used)]
+#![deny(missing_docs)]
 #![allow(
   clippy::module_name_repetitions,
   clippy::missing_errors_doc,
@@ -46,7 +49,7 @@ export type RenderOptions = {
    * The format of the image.
    * @default "png"
    */
-  format?: "png" | "jpeg" | "webp",
+  format?: "png" | "jpeg" | "webp" | "raw",
   /**
    * The quality of JPEG format (0-100).
    */
@@ -111,95 +114,162 @@ export type AnimationFrameSource = {
 
 #[wasm_bindgen]
 extern "C" {
+  /// JavaScript object representing a layout node.
   #[wasm_bindgen(typescript_type = "AnyNode")]
   #[derive(Debug)]
   pub type AnyNode;
 
+  /// JavaScript object representing render options.
   #[wasm_bindgen(typescript_type = "RenderOptions")]
   pub type RenderOptionsType;
 
+  /// JavaScript object representing animation render options.
   #[wasm_bindgen(typescript_type = "RenderAnimationOptions")]
   pub type RenderAnimationOptionsType;
 
+  /// JavaScript object representing font details.
   #[wasm_bindgen(typescript_type = "FontDetails")]
   pub type FontDetailsType;
 
+  /// JavaScript type for font input (FontDetails or ByteBuf).
   #[wasm_bindgen(typescript_type = "Font")]
   pub type FontType;
 
+  /// JavaScript object representing an image source.
   #[wasm_bindgen(typescript_type = "ImageSource")]
   pub type ImageSourceType;
 
+  /// JavaScript object representing a measured node tree.
   #[wasm_bindgen(typescript_type = "MeasuredNode")]
   pub type MeasuredNodeType;
 
+  /// JavaScript object representing an animation frame source.
   #[wasm_bindgen(typescript_type = "AnimationFrameSource")]
   pub type AnimationFrameSourceType;
 }
 
+/// Options for rendering an image.
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 struct RenderOptions {
+  /// The width of the image in pixels.
   width: Option<u32>,
+  /// The height of the image in pixels.
   height: Option<u32>,
-  format: Option<ImageOutputFormat>,
+  /// The output image format (PNG, JPEG, or WebP).
+  format: Option<OutputFormat>,
+  /// The JPEG quality (0-100), if applicable.
   quality: Option<u8>,
+  /// Pre-fetched image resources to use during rendering.
   fetched_resources: Option<Vec<ImageSource>>,
+  /// Whether to draw debug borders around layout elements.
   draw_debug_border: Option<bool>,
+  /// The device pixel ratio for scaling.
   device_pixel_ratio: Option<f32>,
 }
 
+/// Options for rendering an animated image.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RenderAnimationOptions {
+  /// The width of each frame in pixels.
   width: u32,
+  /// The height of each frame in pixels.
   height: u32,
+  /// The output animation format (WebP or APNG).
   format: Option<AnimationOutputFormat>,
+  /// Whether to draw debug borders around layout elements.
   draw_debug_border: Option<bool>,
 }
 
+/// Details for loading a custom font.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FontDetails {
+  /// The name of the font family.
   name: Option<String>,
+  /// The raw font data bytes.
   data: ByteBuf,
+  /// The font weight (e.g., 400 for normal, 700 for bold).
   weight: Option<f64>,
+  /// The font style (normal, italic, or oblique).
   style: Option<FontStyle>,
 }
 
+/// Font input, either as detailed object or raw buffer.
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum Font {
+  /// Font loaded with detailed configuration.
   Object(FontDetails),
+  /// Raw font buffer.
   Buffer(ByteBuf),
 }
 
+/// An image source with its URL and raw data.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ImageSource {
+  /// The source URL of the image.
   src: Arc<str>,
+  /// The raw image data bytes.
   data: ByteBuf,
 }
 
+/// Output format for static images.
+#[derive(Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum OutputFormat {
+  /// PNG format.
+  Png,
+  /// JPEG format.
+  Jpeg,
+  /// WebP format.
+  WebP,
+  /// Raw pixels format.
+  Raw,
+}
+
+impl From<OutputFormat> for ImageOutputFormat {
+  fn from(format: OutputFormat) -> Self {
+    match format {
+      OutputFormat::Png => ImageOutputFormat::Png,
+      OutputFormat::Jpeg => ImageOutputFormat::Jpeg,
+      OutputFormat::WebP => ImageOutputFormat::WebP,
+      OutputFormat::Raw => unreachable!("Raw format should be handled separately"),
+    }
+  }
+}
+
+/// Output format for animated images.
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum AnimationOutputFormat {
+  /// Animated PNG format.
   APng,
+  /// Animated WebP format.
   WebP,
 }
 
+/// Font style variants.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum FontStyle {
+  /// Normal font style.
   Normal,
+  /// Italic font style.
   Italic,
+  /// Oblique font style.
   Oblique,
 }
 
+/// A single frame in an animation sequence.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AnimationFrameSource {
+  /// The node tree to render for this frame.
   node: NodeKind,
+  /// The duration of this frame in milliseconds.
   duration_ms: u32,
 }
 
@@ -219,6 +289,7 @@ fn map_error<E: Display>(err: E) -> js_sys::Error {
 
 type JsResult<T> = Result<T, js_sys::Error>;
 
+/// The main renderer for Takumi image rendering engine.
 #[wasm_bindgen]
 #[derive(Default)]
 pub struct Renderer {
@@ -227,6 +298,7 @@ pub struct Renderer {
 
 #[wasm_bindgen]
 impl Renderer {
+  /// Creates a new Renderer instance.
   #[wasm_bindgen(constructor)]
   pub fn new() -> Renderer {
     Renderer::default()
@@ -238,6 +310,7 @@ impl Renderer {
     self.load_font(font)
   }
 
+  /// Loads a font into the renderer.
   #[wasm_bindgen(js_name = loadFont)]
   pub fn load_font(&mut self, font: FontType) -> JsResult<()> {
     let input: Font = from_value(font.into()).map_err(map_error)?;
@@ -271,6 +344,7 @@ impl Renderer {
     Ok(())
   }
 
+  /// Puts a persistent image into the renderer's internal store.
   #[wasm_bindgen(js_name = putPersistentImage)]
   pub fn put_persistent_image(&self, data: ImageSourceType) -> JsResult<()> {
     let data: ImageSource = from_value(data.into()).map_err(map_error)?;
@@ -283,11 +357,13 @@ impl Renderer {
     Ok(())
   }
 
+  /// Clears the renderer's internal image store.
   #[wasm_bindgen(js_name = clearImageStore)]
   pub fn clear_image_store(&self) {
     self.context.persistent_image_store.clear();
   }
 
+  /// Renders a node tree into an image buffer.
   #[wasm_bindgen]
   pub fn render(
     &self,
@@ -336,19 +412,20 @@ impl Renderer {
 
     let image = render(render_options).map_err(map_error)?;
 
+    let format = options.format.unwrap_or(OutputFormat::Png);
+
+    if format == OutputFormat::Raw {
+      return Ok(image.into_raw());
+    }
+
     let mut buffer = Vec::new();
 
-    write_image(
-      &image,
-      &mut buffer,
-      options.format.unwrap_or(ImageOutputFormat::Png),
-      options.quality,
-    )
-    .map_err(map_error)?;
+    write_image(&image, &mut buffer, format.into(), options.quality).map_err(map_error)?;
 
     Ok(buffer)
   }
 
+  /// Measures a node tree and returns layout information.
   #[wasm_bindgen(js_name = measure)]
   pub fn measure(
     &self,
@@ -396,24 +473,35 @@ impl Renderer {
     Ok(to_value(&layout).map_err(map_error)?.into())
   }
 
+  /// Renders a node tree into a data URL.
+  ///
+  /// `raw` format is not supported for data URL.
   #[wasm_bindgen(js_name = "renderAsDataUrl")]
   pub fn render_as_data_url(&self, node: AnyNode, options: RenderOptionsType) -> JsResult<String> {
     let node: NodeKind = from_value(node.into()).map_err(map_error)?;
     let options: RenderOptions = from_value(options.into()).map_err(map_error)?;
 
-    let format = options.format.unwrap_or(ImageOutputFormat::Png);
+    let format = options.format.unwrap_or(OutputFormat::Png);
+
+    if format == OutputFormat::Raw {
+      return Err(js_sys::Error::new(
+        "Raw format is not supported for data URL",
+      ));
+    }
+
     let buffer = self.render_internal(node, options)?;
 
     let mut data_uri = String::new();
 
     data_uri.push_str("data:");
-    data_uri.push_str(format.content_type());
+    data_uri.push_str(ImageOutputFormat::from(format).content_type());
     data_uri.push_str(";base64,");
     data_uri.push_str(&BASE64_STANDARD.encode(buffer));
 
     Ok(data_uri)
   }
 
+  /// Renders an animation sequence into a buffer.
   #[wasm_bindgen(js_name = renderAnimation)]
   pub fn render_animation(
     &self,

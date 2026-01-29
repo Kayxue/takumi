@@ -15,12 +15,18 @@ use crate::{
   render_task::RenderTask,
 };
 
+/// Represents a single run of text in a measured node.
 #[napi(object)]
 pub struct MeasuredTextRun {
+  /// The text content of the run.
   pub text: String,
+  /// The inline x-coordinate of the run.
   pub x: f64,
+  /// The inline y-coordinate of the run.
   pub y: f64,
+  /// The width of the run.
   pub width: f64,
+  /// The height of the run.
   pub height: f64,
 }
 
@@ -36,13 +42,19 @@ impl From<takumi::rendering::MeasuredTextRun> for MeasuredTextRun {
   }
 }
 
+/// Represents a node that has been measured, including its layout information.
 #[napi(object)]
 pub struct MeasuredNode {
+  /// The measured width of the node.
   pub width: f64,
+  /// The measured height of the node.
   pub height: f64,
+  /// The transformation matrix of the node.
   #[napi(ts_type = "[number, number, number, number, number, number]")]
   pub transform: Vec<f64>,
+  /// The children of the node.
   pub children: Vec<MeasuredNode>,
+  /// The text runs within the node.
   pub runs: Vec<MeasuredTextRun>,
 }
 
@@ -58,11 +70,13 @@ impl From<takumi::rendering::MeasuredNode> for MeasuredNode {
   }
 }
 
+/// The main renderer for Takumi image rendering engine (Node.js version).
 #[napi]
 pub struct Renderer {
   global: GlobalContext,
 }
 
+/// Options for rendering an image.
 #[napi(object)]
 #[derive(Default)]
 pub struct RenderOptions<'env> {
@@ -83,35 +97,50 @@ pub struct RenderOptions<'env> {
   pub device_pixel_ratio: Option<f64>,
 }
 
+/// Represents a single frame in an animation sequence.
 #[napi(object)]
 pub struct AnimationFrameSource<'ctx> {
+  /// The node tree to render for this frame.
   #[napi(ts_type = "AnyNode")]
   pub node: Object<'ctx>,
+  /// The duration of this frame in milliseconds.
   pub duration_ms: u32,
 }
 
+/// Options for rendering an animated image.
 #[napi(object)]
 pub struct RenderAnimationOptions {
+  /// Whether to draw debug borders around layout elements.
   pub draw_debug_border: Option<bool>,
+  /// The width of each frame in pixels.
   pub width: u32,
+  /// The height of each frame in pixels.
   pub height: u32,
+  /// The output animation format (WebP or APNG).
   pub format: Option<AnimationOutputFormat>,
 }
 
+/// Output format for animated images.
 #[napi(string_enum)]
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum AnimationOutputFormat {
+  /// Animated WebP format.
   webp,
+  /// Animated PNG format.
   apng,
 }
 
+/// Output format for static images.
 #[napi(string_enum)]
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum OutputFormat {
+  /// WebP format.
   webp,
+  /// PNG format.
   png,
+  /// JPEG format.
   jpeg,
   /// @deprecated Use lowercase `webp` instead, may be removed in the future
   WebP,
@@ -119,6 +148,7 @@ pub enum OutputFormat {
   Jpeg,
   /// @deprecated Use lowercase `png` instead, may be removed in the future
   Png,
+  /// Raw pixels format.
   raw,
 }
 
@@ -134,13 +164,17 @@ impl From<OutputFormat> for ImageOutputFormat {
   }
 }
 
+/// An image source with its URL and raw data.
 #[napi(object)]
 pub struct ImageSource<'ctx> {
+  /// The source URL of the image.
   pub src: String,
+  /// The raw image data (Uint8Array or ArrayBuffer).
   #[napi(ts_type = "Uint8Array | ArrayBuffer")]
   pub data: Object<'ctx>,
 }
 
+/// Options for constructing a Renderer instance.
 #[napi(object)]
 #[derive(Default)]
 pub struct ConstructRendererOptions<'ctx> {
@@ -169,6 +203,7 @@ const EMBEDDED_FONTS: &[(&[u8], &str, GenericFamily)] = &[
 
 #[napi]
 impl Renderer {
+  /// Creates a new Renderer instance.
   #[napi(constructor)]
   pub fn new(env: Env, options: Option<ConstructRendererOptions>) -> Result<Self> {
     let options = options.unwrap_or_default();
@@ -266,6 +301,7 @@ impl Renderer {
     self.put_persistent_image(env, src, data, signal)
   }
 
+  /// Puts a persistent image into the renderer's internal store asynchronously.
   #[napi(
     ts_args_type = "src: string, data: Uint8Array | ArrayBuffer, signal?: AbortSignal",
     ts_return_type = "Promise<void>"
@@ -303,6 +339,7 @@ impl Renderer {
     self.load_fonts(env, vec![data], signal)
   }
 
+  /// Loads a font into the renderer asynchronously.
   #[napi(
     ts_args_type = "data: Font, signal?: AbortSignal",
     ts_return_type = "Promise<number>"
@@ -330,6 +367,7 @@ impl Renderer {
     self.load_fonts(env, fonts, signal)
   }
 
+  /// Loads multiple fonts into the renderer asynchronously.
   #[napi(
     ts_args_type = "fonts: Font[], signal?: AbortSignal",
     ts_return_type = "Promise<number>"
@@ -365,11 +403,13 @@ impl Renderer {
     ))
   }
 
+  /// Clears the renderer's internal image store.
   #[napi]
   pub fn clear_image_store(&self) {
     self.global.persistent_image_store.clear();
   }
 
+  /// Renders a node tree into an image buffer asynchronously.
   #[napi(
     ts_args_type = "source: AnyNode, options?: RenderOptions, signal?: AbortSignal",
     ts_return_type = "Promise<Buffer>"
@@ -404,6 +444,7 @@ impl Renderer {
     self.render(env, source, options, signal)
   }
 
+  /// Measures a node tree and returns layout information asynchronously.
   #[napi(
     ts_args_type = "source: AnyNode, options?: RenderOptions, signal?: AbortSignal",
     ts_return_type = "Promise<MeasuredNode>"
@@ -423,6 +464,7 @@ impl Renderer {
     ))
   }
 
+  /// Renders an animation sequence into a buffer asynchronously.
   #[napi(
     ts_args_type = "source: AnimationFrameSource[], options: RenderAnimationOptions, signal?: AbortSignal",
     ts_return_type = "Promise<Buffer>"
