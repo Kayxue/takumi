@@ -56,5 +56,10 @@
     "bench": "bun tests/bench/index.tsx"
   },
   "type": "module",
-  "types": "index.d.ts"
+  "types": "index.d.ts",
+  "files": [
+    "index.d.ts",
+    "index.js",
+    "README.md"
+  ]
 }
