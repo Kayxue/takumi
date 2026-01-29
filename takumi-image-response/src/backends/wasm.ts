@@ -105,8 +105,6 @@ function putPersistentImage(image: ImageSource, renderer: Renderer) {
 }
 
 function createStream(component: ReactNode, options: ImageResponseOptions) {
-  options.format ??= "webp";
-
   return new ReadableStream({
     async start(controller) {
       try {
@@ -149,20 +147,27 @@ const contentTypeMapping = {
   webp: "image/webp",
 };
 
+const defaultOptions = {
+  format: "webp",
+} as const satisfies Partial<ImageResponseOptions>;
+
 export class ImageResponse extends Response {
   constructor(component: ReactNode, options: ImageResponseOptions) {
-    options.format ??= "webp";
+    const mergedOptions = {
+      ...defaultOptions,
+      ...options,
+    };
 
-    const stream = createStream(component, options);
-    const headers = new Headers(options.headers);
+    const stream = createStream(component, mergedOptions);
+    const headers = new Headers(mergedOptions.headers);
 
     if (!headers.get("content-type")) {
-      headers.set("content-type", contentTypeMapping[options.format]);
+      headers.set("content-type", contentTypeMapping[mergedOptions.format]);
     }
 
     super(stream, {
-      status: options.status,
-      statusText: options.statusText,
+      status: mergedOptions.status,
+      statusText: mergedOptions.statusText,
       headers,
     });
   }
