@@ -18,8 +18,8 @@ use crate::{
     },
   },
   rendering::{
-    BorderProperties, Canvas, CanvasConstrain, MaskMemory, apply_mask_alpha_to_pixel, blend_pixel,
-    draw_mask, mask_index_from_coord, overlay_area, sample_transformed_pixel,
+    BorderProperties, Canvas, CanvasConstrain, ColorTile, MaskMemory, apply_mask_alpha_to_pixel,
+    blend_pixel, draw_mask, mask_index_from_coord, overlay_area, sample_transformed_pixel,
   },
   resources::font::ResolvedGlyph,
 };
@@ -49,18 +49,21 @@ pub(crate) fn draw_decoration(
   layout: Layout,
   transform: Affine,
 ) {
-  canvas.fill_color(
-    Size {
-      width: glyph_run.advance(),
-      height: size,
-    },
-    color,
+  let tile = ColorTile {
+    color: color.into(),
+    width: glyph_run.advance() as u32,
+    height: size as u32,
+  };
+
+  canvas.overlay_image(
+    &tile,
     BorderProperties::default(),
     transform
       * Affine::translation(
         layout.border.left + layout.padding.left + glyph_run.offset(),
         layout.border.top + layout.padding.top + offset,
       ),
+    ImageScalingAlgorithm::Auto,
   );
 }
 

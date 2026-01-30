@@ -11,7 +11,7 @@ use crate::{
     style::{Affine, BackgroundClip, SizedFontStyle, TextDecorationLine},
   },
   rendering::{
-    BorderProperties, Canvas, RenderContext, collect_background_image_layers, draw_decoration,
+    BorderProperties, Canvas, RenderContext, collect_background_layers, draw_decoration,
     draw_glyph, draw_glyph_clip_image, rasterize_layers,
   },
   resources::font::FontError,
@@ -33,25 +33,6 @@ fn draw_glyph_run<I: GenericImageView<Pixel = Rgba<u8>>>(
 
   let run = glyph_run.run();
   let metrics = run.metrics();
-
-  if glyph_run.style().brush.background_color.0[3] > 0 {
-    let bg_height = metrics.ascent + metrics.descent;
-    let bg_y = glyph_run.baseline() - metrics.ascent;
-
-    canvas.fill_color(
-      Size {
-        width: glyph_run.advance(),
-        height: bg_height,
-      },
-      glyph_run.style().brush.background_color,
-      BorderProperties::default(),
-      context.transform
-        * Affine::translation(
-          layout.border.left + layout.padding.left + glyph_run.offset(),
-          layout.border.top + layout.padding.top + bg_y,
-        ),
-    );
-  }
 
   // decoration underline should not overlap with the glyph descent part,
   // as a temporary workaround, we draw the decoration under the glyph.
@@ -188,7 +169,7 @@ pub(crate) fn draw_inline_layout(
   font_style: &SizedFontStyle,
 ) -> Result<Vec<PositionedInlineBox>> {
   let clip_image = if context.style.background_clip == BackgroundClip::Text {
-    let layers = collect_background_image_layers(context, layout.size)?;
+    let layers = collect_background_layers(context, layout.size)?;
 
     rasterize_layers(
       layers,

@@ -206,7 +206,6 @@ pub(crate) struct SizedFontStyle<'s> {
   pub color: Color,
   pub text_stroke_color: Color,
   pub text_decoration_color: Color,
-  pub background_color: Color,
 }
 
 impl<'s> From<&'s SizedFontStyle<'s>> for TextStyle<'s, InlineBrush> {
@@ -246,7 +245,6 @@ impl<'s> From<&'s SizedFontStyle<'s>> for TextStyle<'s, InlineBrush> {
         color: style.color,
         decoration_color: style.text_decoration_color,
         stroke_color: style.text_stroke_color,
-        background_color: style.background_color,
       },
       text_wrap_mode: style.parent.text_wrap_mode_and_line_clamp().0.into(),
 
@@ -582,7 +580,6 @@ impl InheritedStyle {
         .or(self.text_decoration.color)
         .unwrap_or(ColorInput::CurrentColor)
         .resolve(context.current_color),
-      background_color: self.background_color().resolve(context.current_color),
     }
   }
 

@@ -18,7 +18,7 @@ use crate::{
     style::{Affine, BackgroundClip, BackgroundImage, CssValue, InheritedStyle, Sides, Style},
   },
   rendering::{
-    BorderProperties, Canvas, RenderContext, SizedShadow, collect_background_image_layers,
+    BorderProperties, Canvas, RenderContext, SizedShadow, collect_background_layers,
     rasterize_layers,
   },
   resources::task::FetchTaskCollection,
@@ -64,12 +64,6 @@ macro_rules! impl_node_enum {
         }
       }
 
-      fn draw_background_color(&self, context: &$crate::rendering::RenderContext, canvas: &mut $crate::rendering::Canvas, layout: $crate::taffy::Layout) -> $crate::Result<()> {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::draw_background_color(inner, context, canvas, layout), )*
-        }
-      }
-
       fn draw_content(&self, context: &$crate::rendering::RenderContext, canvas: &mut $crate::rendering::Canvas, layout: $crate::taffy::Layout) -> $crate::Result<()> {
         match self {
           $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::draw_content(inner, context, canvas, layout), )*
@@ -112,9 +106,9 @@ macro_rules! impl_node_enum {
         }
       }
 
-      fn draw_background_image(&self, context: &$crate::rendering::RenderContext, canvas: &mut $crate::rendering::Canvas, layout: $crate::taffy::Layout) -> $crate::Result<()> {
+      fn draw_background(&self, context: &$crate::rendering::RenderContext, canvas: &mut $crate::rendering::Canvas, layout: $crate::taffy::Layout) -> $crate::Result<()> {
         match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::draw_background_image(inner, context, canvas, layout), )*
+          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::draw_background(inner, context, canvas, layout), )*
         }
       }
     }
@@ -314,68 +308,8 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
     Ok(())
   }
 
-  /// Draws the background color of the node.
-  fn draw_background_color(
-    &self,
-    context: &RenderContext,
-    canvas: &mut Canvas,
-    layout: Layout,
-  ) -> Result<()> {
-    let mut radius = BorderProperties::from_context(context, layout.size, layout.border);
-
-    match context.style.background_clip {
-      BackgroundClip::BorderBox => {
-        canvas.fill_color(
-          layout.size,
-          context
-            .style
-            .background_color()
-            .resolve(context.current_color),
-          radius,
-          context.transform,
-        );
-      }
-      BackgroundClip::PaddingBox => {
-        radius.inset_by_border_width();
-
-        canvas.fill_color(
-          Size {
-            width: layout.size.width - layout.border.left - layout.border.right,
-            height: layout.size.height - layout.border.top - layout.border.bottom,
-          },
-          context
-            .style
-            .background_color()
-            .resolve(context.current_color),
-          radius,
-          Affine::translation(layout.border.left, layout.border.top) * context.transform,
-        );
-      }
-      BackgroundClip::ContentBox => {
-        radius.inset_by_border_width();
-        radius.expand_by(layout.padding.map(|size| -size));
-
-        canvas.fill_color(
-          layout.content_box_size(),
-          context
-            .style
-            .background_color()
-            .resolve(context.current_color),
-          radius,
-          Affine::translation(
-            layout.padding.left + layout.border.left,
-            layout.padding.top + layout.border.top,
-          ) * context.transform,
-        );
-      }
-      _ => {}
-    }
-
-    Ok(())
-  }
-
   /// Draws the background image(s) of the node.
-  fn draw_background_image(
+  fn draw_background(
     &self,
     context: &RenderContext,
     canvas: &mut Canvas,
@@ -385,7 +319,7 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
 
     match context.style.background_clip {
       BackgroundClip::BorderBox => {
-        let tiles = collect_background_image_layers(context, layout.size)?;
+        let tiles = collect_background_layers(context, layout.size)?;
 
         for tile in tiles {
           for y in &tile.ys {
@@ -403,7 +337,7 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
       BackgroundClip::PaddingBox => {
         border_radius.inset_by_border_width();
 
-        let layers = collect_background_image_layers(context, layout.size)?;
+        let layers = collect_background_layers(context, layout.size)?;
 
         let Some(rasterized) = rasterize_layers(
           layers,
@@ -430,7 +364,7 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
         border_radius.inset_by_border_width();
         border_radius.expand_by(layout.padding.map(|size| -size));
 
-        let layers = collect_background_image_layers(context, layout.size)?;
+        let layers = collect_background_layers(context, layout.size)?;
 
         let Some(rasterized) = rasterize_layers(
           layers,
@@ -482,7 +416,7 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
     layout: Layout,
   ) -> Result<()> {
     let clip_image = if context.style.background_clip == BackgroundClip::BorderArea {
-      let layers = collect_background_image_layers(context, layout.size)?;
+      let layers = collect_background_layers(context, layout.size)?;
 
       rasterize_layers(
         layers,

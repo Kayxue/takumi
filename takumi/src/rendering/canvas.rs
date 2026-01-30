@@ -400,66 +400,6 @@ impl Canvas {
       &mut self.mask_memory,
     );
   }
-
-  /// Fills a rectangular area with the specified color and optional border radius.
-  pub(crate) fn fill_color(
-    &mut self,
-    size: Size<f32>,
-    color: Color,
-    border: BorderProperties,
-    transform: Affine,
-  ) {
-    if color.0[3] == 0 {
-      return;
-    }
-
-    // Fast path: if drawing on the entire canvas, we can just replace the entire canvas with the color
-    if transform.is_identity()
-      && border.is_zero()
-      && self.constrains.last().is_none()
-      && color.0[3] == 255
-      && size.width as u32 == self.image.width()
-      && size.height as u32 == self.image.height()
-    {
-      let image_mut = self.image.as_mut();
-
-      for chunk in image_mut.chunks_exact_mut(4) {
-        chunk.copy_from_slice(&color.0);
-      }
-
-      return;
-    }
-
-    let can_direct_draw = transform.only_translation() && border.is_zero();
-
-    // Fast path: if no sub-pixel interpolation is needed, we can just draw the color directly
-    if can_direct_draw {
-      let translation = transform.decompose_translation();
-
-      let color: Rgba<u8> = color.into();
-      return overlay_area(
-        &mut self.image,
-        translation,
-        size.map(|size| size as u32),
-        self.constrains.last(),
-        |_, _| color,
-      );
-    }
-
-    let mut paths = Vec::new();
-
-    border.append_mask_commands(&mut paths, size, Point::ZERO);
-
-    let (mask, placement) = self.mask_memory.render(&paths, Some(transform), None);
-
-    draw_mask(
-      &mut self.image,
-      mask,
-      placement,
-      color,
-      self.constrains.last(),
-    );
-  }
 }
 
 /// Draws a single pixel on the canvas with alpha blending.

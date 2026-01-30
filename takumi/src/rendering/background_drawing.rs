@@ -51,11 +51,30 @@ pub(crate) fn rasterize_layers(
   Some(BackgroundTile::Image(composed))
 }
 
+pub(crate) struct ColorTile {
+  pub color: Rgba<u8>,
+  pub width: u32,
+  pub height: u32,
+}
+
+impl GenericImageView for ColorTile {
+  type Pixel = Rgba<u8>;
+
+  fn dimensions(&self) -> (u32, u32) {
+    (self.width, self.height)
+  }
+
+  fn get_pixel(&self, _x: u32, _y: u32) -> Self::Pixel {
+    self.color
+  }
+}
+
 pub(crate) enum BackgroundTile {
   Linear(LinearGradientTile),
   Radial(RadialGradientTile),
   Noise(NoiseV1Tile),
   Image(RgbaImage),
+  Color(ColorTile),
 }
 
 impl GenericImageView for BackgroundTile {
@@ -67,6 +86,7 @@ impl GenericImageView for BackgroundTile {
       Self::Radial(t) => t.dimensions(),
       Self::Noise(t) => t.dimensions(),
       Self::Image(t) => t.dimensions(),
+      Self::Color(t) => t.dimensions(),
     }
   }
 
@@ -76,6 +96,7 @@ impl GenericImageView for BackgroundTile {
       Self::Radial(t) => t.get_pixel(x, y),
       Self::Noise(t) => t.get_pixel(x, y),
       Self::Image(t) => *t.get_pixel(x, y),
+      Self::Color(t) => t.color,
     }
   }
 }
@@ -506,7 +527,7 @@ pub(crate) fn create_mask(
   )
 }
 
-pub(crate) fn collect_background_image_layers(
+pub(crate) fn collect_background_layers(
   context: &RenderContext,
   border_box: Size<f32>,
 ) -> Result<TileLayers> {
@@ -526,7 +547,7 @@ pub(crate) fn collect_background_image_layers(
       )
     });
 
-  resolve_tile_layers(
+  let mut layers = resolve_tile_layers(
     &background_image,
     &context
       .style
@@ -575,5 +596,27 @@ pub(crate) fn collect_background_image_layers(
       }),
     context,
     border_box.map(|x| x as u32),
-  )
+  )?;
+
+  let background_color = context
+    .style
+    .background_color()
+    .resolve(context.current_color);
+
+  if background_color.0[3] > 0 {
+    layers.insert(
+      0,
+      TileLayer {
+        tile: BackgroundTile::Color(ColorTile {
+          color: background_color.into(),
+          width: border_box.width as u32,
+          height: border_box.height as u32,
+        }),
+        xs: [0].into(),
+        ys: [0].into(),
+      },
+    );
+  }
+
+  Ok(layers)
 }
