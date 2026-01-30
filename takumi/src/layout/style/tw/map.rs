@@ -1,34 +1,9 @@
 use phf::phf_map;
-use std::borrow::Cow;
 
 use crate::layout::style::{
   tw::{TailwindProperty, TailwindPropertyParser, parser::*},
   *,
 };
-
-fn extract_arbitrary_value(suffix: &str) -> Option<Cow<'_, str>> {
-  if suffix.starts_with('[') && suffix.ends_with(']') {
-    let value = &suffix[1..suffix.len() - 1];
-    if value.contains('_') {
-      Some(Cow::Owned(value.replace('_', " ")))
-    } else {
-      Some(Cow::Borrowed(value))
-    }
-  } else {
-    None
-  }
-}
-
-fn parse_property<T>(suffix: &str, f: fn(T) -> TailwindProperty) -> Option<TailwindProperty>
-where
-  T: TailwindPropertyParser,
-{
-  if let Some(value) = extract_arbitrary_value(suffix) {
-    return T::from_str(&value).ok().map(f);
-  }
-
-  T::parse_tw(suffix).map(f)
-}
 
 /// Enum for data-driven property parsing
 #[derive(Clone, Copy)]
@@ -76,44 +51,44 @@ pub enum PropertyParser {
 impl PropertyParser {
   pub fn parse(&self, suffix: &str) -> Option<TailwindProperty> {
     match self {
-      Self::BackgroundClip(f) => parse_property(suffix, *f),
-      Self::ObjectFit(f) => parse_property(suffix, *f),
-      Self::BgPosition(f) => parse_property(suffix, *f),
-      Self::BgSize(f) => parse_property(suffix, *f),
-      Self::BgImage(f) => parse_property(suffix, *f),
-      Self::LengthAuto(f) => parse_property(suffix, *f),
-      Self::LengthZero(f) => parse_property(suffix, *f),
-      Self::FontWeight(f) => parse_property(suffix, *f),
-      Self::Justify(f) => parse_property(suffix, *f),
-      Self::Align(f) => parse_property(suffix, *f),
-      Self::Overflow(f) => parse_property(suffix, *f),
-      Self::BorderWidth(f) => parse_property(suffix, *f),
-      Self::Rounded(f) => parse_property(suffix, *f),
-      Self::GridTemplate(f) => parse_property(suffix, *f),
-      Self::GridAuto(f) => parse_property(suffix, *f),
-      Self::GridPlacement(f) => parse_property(suffix, *f),
-      Self::GridLine(f) => parse_property(suffix, *f),
-      Self::GridSpan(f) => parse_property(suffix, *f),
-      Self::LetterSpacing(f) => parse_property(suffix, *f),
-      Self::FlexGrow(f) => parse_property(suffix, *f),
-      Self::Aspect(f) => parse_property(suffix, *f),
-      Self::TextAlign(f) => parse_property(suffix, *f),
-      Self::TextWrap(f) => parse_property(suffix, *f),
-      Self::ColorCurrent(f) => parse_property(suffix, *f),
-      Self::ColorTransparent(f) => parse_property(suffix, *f),
-      Self::Percentage(f) => parse_property(suffix, *f),
-      Self::FontFamily(f) => parse_property(suffix, *f),
-      Self::LineClamp(f) => parse_property(suffix, *f),
-      Self::WhiteSpace(f) => parse_property(suffix, *f),
-      Self::OverflowWrap(f) => parse_property(suffix, *f),
-      Self::FontSize(f) => parse_property(suffix, *f),
-      Self::LineHeight(f) => parse_property(suffix, *f),
-      Self::Flex(f) => parse_property(suffix, *f),
-      Self::Angle(f) => parse_property(suffix, *f),
-      Self::Blur(f) => parse_property(suffix, *f),
-      Self::Filter(f) => parse_property(suffix, *f),
-      Self::DropShadow(f) => parse_property(suffix, *f),
-      Self::TextShadow(f) => parse_property(suffix, *f),
+      Self::BackgroundClip(f) => BackgroundClip::parse_tw_with_arbitrary(suffix).map(f),
+      Self::ObjectFit(f) => ObjectFit::parse_tw_with_arbitrary(suffix).map(f),
+      Self::BgPosition(f) => BackgroundPosition::parse_tw_with_arbitrary(suffix).map(f),
+      Self::BgSize(f) => BackgroundSize::parse_tw_with_arbitrary(suffix).map(f),
+      Self::BgImage(f) => BackgroundImage::parse_tw_with_arbitrary(suffix).map(f),
+      Self::LengthAuto(f) => Length::parse_tw_with_arbitrary(suffix).map(f),
+      Self::LengthZero(f) => Length::parse_tw_with_arbitrary(suffix).map(f),
+      Self::FontWeight(f) => FontWeight::parse_tw_with_arbitrary(suffix).map(f),
+      Self::Justify(f) => JustifyContent::parse_tw_with_arbitrary(suffix).map(f),
+      Self::Align(f) => AlignItems::parse_tw_with_arbitrary(suffix).map(f),
+      Self::Overflow(f) => Overflow::parse_tw_with_arbitrary(suffix).map(f),
+      Self::BorderWidth(f) => TwBorderWidth::parse_tw_with_arbitrary(suffix).map(f),
+      Self::Rounded(f) => TwRounded::parse_tw_with_arbitrary(suffix).map(f),
+      Self::GridTemplate(f) => TwGridTemplate::parse_tw_with_arbitrary(suffix).map(f),
+      Self::GridAuto(f) => GridTrackSize::parse_tw_with_arbitrary(suffix).map(f),
+      Self::GridPlacement(f) => GridPlacement::parse_tw_with_arbitrary(suffix).map(f),
+      Self::GridLine(f) => GridLine::parse_tw_with_arbitrary(suffix).map(f),
+      Self::GridSpan(f) => GridPlacementSpan::parse_tw_with_arbitrary(suffix).map(f),
+      Self::LetterSpacing(f) => TwLetterSpacing::parse_tw_with_arbitrary(suffix).map(f),
+      Self::FlexGrow(f) => FlexGrow::parse_tw_with_arbitrary(suffix).map(f),
+      Self::Aspect(f) => AspectRatio::parse_tw_with_arbitrary(suffix).map(f),
+      Self::TextAlign(f) => TextAlign::parse_tw_with_arbitrary(suffix).map(f),
+      Self::TextWrap(f) => TextWrap::parse_tw_with_arbitrary(suffix).map(f),
+      Self::ColorCurrent(f) => ColorInput::parse_tw_with_arbitrary(suffix).map(f),
+      Self::ColorTransparent(f) => ColorInput::parse_tw_with_arbitrary(suffix).map(f),
+      Self::Percentage(f) => PercentageNumber::parse_tw_with_arbitrary(suffix).map(f),
+      Self::FontFamily(f) => FontFamily::parse_tw_with_arbitrary(suffix).map(f),
+      Self::LineClamp(f) => LineClamp::parse_tw_with_arbitrary(suffix).map(f),
+      Self::WhiteSpace(f) => WhiteSpace::parse_tw_with_arbitrary(suffix).map(f),
+      Self::OverflowWrap(f) => OverflowWrap::parse_tw_with_arbitrary(suffix).map(f),
+      Self::FontSize(f) => TwFontSize::parse_tw_with_arbitrary(suffix).map(f),
+      Self::LineHeight(f) => LineHeight::parse_tw_with_arbitrary(suffix).map(f),
+      Self::Flex(f) => Flex::parse_tw_with_arbitrary(suffix).map(f),
+      Self::Angle(f) => Angle::parse_tw_with_arbitrary(suffix).map(f),
+      Self::Blur(f) => TwBlur::parse_tw_with_arbitrary(suffix).map(f),
+      Self::Filter(f) => Filters::parse_tw_with_arbitrary(suffix).map(f),
+      Self::DropShadow(f) => TextShadow::parse_tw_with_arbitrary(suffix).map(f),
+      Self::TextShadow(f) => TextShadow::parse_tw_with_arbitrary(suffix).map(f),
     }
   }
 }

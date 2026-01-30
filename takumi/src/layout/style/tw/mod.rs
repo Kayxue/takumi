@@ -1,7 +1,7 @@
 pub(crate) mod map;
 pub(crate) mod parser;
 
-use std::{cmp::Ordering, ops::Neg, str::FromStr};
+use std::{borrow::Cow, cmp::Ordering, ops::Neg, str::FromStr};
 
 use serde::{Deserializer, de::Error as DeError};
 
@@ -448,10 +448,32 @@ pub enum TailwindProperty {
   TextShadow(TextShadow),
 }
 
+fn extract_arbitrary_value(suffix: &str) -> Option<Cow<'_, str>> {
+  if suffix.starts_with('[') && suffix.ends_with(']') {
+    let value = &suffix[1..suffix.len() - 1];
+    if value.contains('_') {
+      Some(Cow::Owned(value.replace('_', " ")))
+    } else {
+      Some(Cow::Borrowed(value))
+    }
+  } else {
+    None
+  }
+}
+
 /// A trait for parsing tailwind properties.
 pub trait TailwindPropertyParser: Sized + for<'i> FromCss<'i> {
   /// Parse a tailwind property from a token.
   fn parse_tw(token: &str) -> Option<Self>;
+
+  /// Parse a tailwind property from a token, with support for arbitrary values.
+  fn parse_tw_with_arbitrary(token: &str) -> Option<Self> {
+    if let Some(value) = extract_arbitrary_value(token) {
+      return Self::from_str(&value).ok();
+    }
+
+    Self::parse_tw(token)
+  }
 }
 
 impl Neg for TailwindProperty {
@@ -1100,6 +1122,17 @@ mod tests {
     assert_eq!(
       TailwindProperty::parse("rounded-full"),
       Some(TailwindProperty::Rounded(TwRounded(Length::Px(9999.0))))
+    );
+  }
+
+  #[test]
+  fn test_parse_font_size_with_arbitrary_line_height() {
+    assert_eq!(
+      TailwindProperty::parse("text-base/[12.34]"),
+      Some(TailwindProperty::FontSize(TwFontSize {
+        font_size: Length::Rem(1.0),
+        line_height: Some(LineHeight(Length::Em(12.34))),
+      }))
     );
   }
 
