@@ -37,43 +37,43 @@ impl TailwindPropertyParser for TwFontSize {
 
     match_ignore_ascii_case! {token,
       "xs" => Some(
-        Self::new(Rem(0.75), Some(LineHeight(Em(1.0 / 0.75)))),
+        Self::new(Rem(0.75), Some(Em(1.0 / 0.75).into())),
       ),
       "sm" => Some(
-        Self::new(Rem(0.875), Some(LineHeight(Em(1.25 / 0.875)))),
+        Self::new(Rem(0.875), Some(Em(1.25 / 0.875).into())),
       ),
       "base" => Some(
-        Self::new(Rem(1.0), Some(LineHeight(Em(1.5 / 1.0)))),
+        Self::new(Rem(1.0), Some(Em(1.5 / 1.0).into())),
       ),
       "lg" => Some(
-        Self::new(Rem(1.125), Some(LineHeight(Em(1.75 / 1.125)))),
+        Self::new(Rem(1.125), Some(Em(1.75 / 1.125).into())),
       ),
       "xl" => Some(
-        Self::new(Rem(1.25), Some(LineHeight(Em(1.75 / 1.25)))),
+        Self::new(Rem(1.25), Some(Em(1.75 / 1.25).into())),
       ),
       "2xl" => Some(
-        Self::new(Rem(1.5), Some(LineHeight(Em(2.0 / 1.5)))),
+        Self::new(Rem(1.5), Some(Em(2.0 / 1.5).into())),
       ),
       "3xl" => Some(
-        Self::new(Rem(1.875), Some(LineHeight(Em(2.25 / 1.875)))),
+        Self::new(Rem(1.875), Some(Em(2.25 / 1.875).into())),
       ),
       "4xl" => Some(
-        Self::new(Rem(2.25), Some(LineHeight(Em(2.5 / 2.25)))),
+        Self::new(Rem(2.25), Some(Em(2.5 / 2.25).into())),
       ),
       "5xl" => Some(
-        Self::new(Rem(3.0), Some(LineHeight(Em(1.0)))),
+        Self::new(Rem(3.0), Some(Em(1.0).into())),
       ),
       "6xl" => Some(
-        Self::new(Rem(3.75), Some(LineHeight(Em(1.0)))),
+        Self::new(Rem(3.75), Some(Em(1.0).into())),
       ),
       "7xl" => Some(
-        Self::new(Rem(4.5), Some(LineHeight(Em(1.0)))),
+        Self::new(Rem(4.5), Some(Em(1.0).into())),
       ),
       "8xl" => Some(
-        Self::new(Rem(6.0), Some(LineHeight(Em(1.0)))),
+        Self::new(Rem(6.0), Some(Em(1.0).into())),
       ),
       "9xl" => Some(
-        Self::new(Rem(8.0), Some(LineHeight(Em(1.0)))),
+        Self::new(Rem(8.0), Some(Em(1.0).into())),
       ),
       _ => None,
     }
