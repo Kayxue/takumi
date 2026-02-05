@@ -469,4 +469,6 @@ pub static FIXED_PROPERTIES: phf::Map<&str, TailwindProperty> = phf_map! {
   }),
   "isolate" => TailwindProperty::Isolation(Isolation::Isolate),
   "isolation-auto" => TailwindProperty::Isolation(Isolation::Auto),
+  "visible" => TailwindProperty::Visibility(Visibility::Visible),
+  "invisible" => TailwindProperty::Visibility(Visibility::Hidden),
 };

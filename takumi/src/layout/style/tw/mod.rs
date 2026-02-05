@@ -452,6 +452,8 @@ pub enum TailwindProperty {
   MixBlendMode(BlendMode),
   /// `background-blend-mode` property.
   BackgroundBlendMode(BlendMode),
+  /// `visibility` property.
+  Visibility(Visibility),
 }
 
 fn extract_arbitrary_value(suffix: &str) -> Option<Cow<'_, str>> {
@@ -1040,6 +1042,9 @@ impl TailwindProperty {
       }
       TailwindProperty::TextShadow(text_shadow) => {
         style.text_shadow = Some([text_shadow].into()).into();
+      }
+      TailwindProperty::Visibility(visibility) => {
+        style.visibility = visibility.into();
       }
     }
   }

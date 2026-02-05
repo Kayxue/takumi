@@ -425,6 +425,25 @@ declare_enum_from_css_impl!(
   "auto" => Isolation::Auto
 );
 
+/// Defines whether an element is visible.
+///
+/// This controls whether an element is rendered, but unlike `display: none`,
+/// it still takes up space in the layout.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum Visibility {
+  /// The element is visible.
+  #[default]
+  Visible,
+  /// The element is invisible (not rendered) but still takes up space.
+  Hidden,
+}
+
+declare_enum_from_css_impl!(
+  Visibility,
+  "visible" => Visibility::Visible,
+  "hidden" => Visibility::Hidden
+);
+
 /// Defines how the corners of text strokes are rendered.
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub enum LineJoin {

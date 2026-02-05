@@ -194,6 +194,7 @@ define_style!(
   text_wrap: TextWrap where inherit = true,
   isolation: Isolation,
   mix_blend_mode: BlendMode,
+  visibility: Visibility,
 );
 
 /// Sized font style with resolved font size and line height.
@@ -266,6 +267,10 @@ impl<'s> From<&'s SizedFontStyle<'s>> for TextStyle<'s, InlineBrush> {
 }
 
 impl InheritedStyle {
+  pub(crate) fn is_invisible(&self) -> bool {
+    self.opacity.0 == 0.0 || self.display == Display::None || self.visibility == Visibility::Hidden
+  }
+
   // https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Positioned_layout/Stacking_context#features_creating_stacking_contexts
   pub(crate) fn is_isolated(&self) -> bool {
     self.isolation == Isolation::Isolate

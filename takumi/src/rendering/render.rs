@@ -13,8 +13,8 @@ use crate::{
     inline::{InlineLayoutStage, create_inline_constraint, create_inline_layout},
     node::Node,
     style::{
-      Affine, Display, Filter, ImageScalingAlgorithm, InheritedStyle, SpacePair,
-      apply_backdrop_filter, apply_filters,
+      Affine, Filter, ImageScalingAlgorithm, InheritedStyle, SpacePair, apply_backdrop_filter,
+      apply_filters,
     },
     tree::NodeTree,
   },
@@ -299,7 +299,7 @@ fn render_node<'g, Nodes: Node<Nodes>>(
     return Err(TaffyError::InvalidInputNode(node_id).into());
   };
 
-  if node.context.style.opacity.0 == 0.0 || node.context.style.display == Display::None {
+  if node.context.style.is_invisible() {
     return Ok(());
   }
 
