@@ -3,11 +3,11 @@ use fast_image_resize::{PixelType, Resizer, images::Image};
 use image::RgbaImage;
 use taffy::{Layout, Point, Size};
 
-use crate::layout::style::Affine;
+use crate::layout::style::BlendMode;
 use crate::rendering::CowImage;
 use crate::{
   Result,
-  layout::style::{ImageScalingAlgorithm, Length, ObjectFit},
+  layout::style::{Affine, ImageScalingAlgorithm, Length, ObjectFit},
   rendering::{BorderProperties, Canvas, RenderContext},
   resources::image::{ImageResourceError, ImageSource},
 };
@@ -256,6 +256,9 @@ pub fn draw_image(
     border,
     transform_with_content_offset,
     context.style.image_rendering,
+    // blend mode will be applied in main render function,
+    // therefore we should not apply it here to avoid double application
+    BlendMode::Normal,
   );
 
   Ok(())

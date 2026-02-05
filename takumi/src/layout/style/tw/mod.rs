@@ -446,6 +446,12 @@ pub enum TailwindProperty {
   BackdropFilter(Filters),
   /// `text-shadow` property.
   TextShadow(TextShadow),
+  /// `isolation` property.
+  Isolation(Isolation),
+  /// `mix-blend-mode` property.
+  MixBlendMode(BlendMode),
+  /// `background-blend-mode` property.
+  BackgroundBlendMode(BlendMode),
 }
 
 fn extract_arbitrary_value(suffix: &str) -> Option<Cow<'_, str>> {
@@ -796,6 +802,15 @@ impl TailwindProperty {
       }
       TailwindProperty::WordBreak(word_break) => {
         style.word_break = word_break.into();
+      }
+      TailwindProperty::Isolation(isolation) => {
+        style.isolation = isolation.into();
+      }
+      TailwindProperty::MixBlendMode(blend_mode) => {
+        style.mix_blend_mode = blend_mode.into();
+      }
+      TailwindProperty::BackgroundBlendMode(blend_mode) => {
+        style.background_blend_mode = [blend_mode].into();
       }
       TailwindProperty::OverflowWrap(overflow_wrap) => {
         style.overflow_wrap = overflow_wrap.into();
@@ -1340,5 +1355,16 @@ mod tests {
         Filter::Contrast(PercentageNumber(1.25))
       ])
     )
+  }
+  #[test]
+  fn test_parse_blend_mode() {
+    assert_eq!(
+      TailwindProperty::parse("mix-blend-multiply"),
+      Some(TailwindProperty::MixBlendMode(BlendMode::Multiply))
+    );
+    assert_eq!(
+      TailwindProperty::parse("bg-blend-screen"),
+      Some(TailwindProperty::BackgroundBlendMode(BlendMode::Screen))
+    );
   }
 }

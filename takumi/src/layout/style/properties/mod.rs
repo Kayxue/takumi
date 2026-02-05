@@ -9,6 +9,7 @@ mod background_image;
 mod background_position;
 mod background_repeat;
 mod background_size;
+mod blend_mode;
 mod border;
 mod box_shadow;
 mod clip_path;
@@ -50,6 +51,7 @@ pub use background_image::*;
 pub use background_position::*;
 pub use background_repeat::*;
 pub use background_size::*;
+pub use blend_mode::*;
 pub use border::*;
 pub use box_shadow::*;
 pub use clip_path::*;
@@ -405,6 +407,22 @@ impl TailwindPropertyParser for TextAlign {
 
 impl_from_taffy_enum!(
   TextAlign, Alignment, Left, Right, Center, Justify, Start, End
+);
+
+/// Defines whether an element creates a new stacking context.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum Isolation {
+  /// The element creates a new stacking context.
+  Isolate,
+  /// Determine by other properties.
+  #[default]
+  Auto,
+}
+
+declare_enum_from_css_impl!(
+  Isolation,
+  "isolate" => Isolation::Isolate,
+  "auto" => Isolation::Auto
 );
 
 /// Defines how the corners of text strokes are rendered.
