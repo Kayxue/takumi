@@ -1,4 +1,5 @@
 use std::{borrow::Cow, convert::Into};
+use unicode_linebreak::linebreaks;
 
 use image::{
   GenericImageView, ImageError, Rgba, RgbaImage,
@@ -540,10 +541,33 @@ pub(crate) fn apply_white_space_collapse<'a>(
   }
 }
 
+/// Counts the number of word splits caused by line breaks.
+/// A word split occurs when a line break happens at a position that is not
+/// a legal Unicode line break opportunity (e.g. forced by break-word).
+fn count_word_splits(layout: &InlineLayout, text: &str) -> usize {
+  let mut splits = 0;
+  let lines: Vec<_> = layout.lines().collect();
+
+  // Get all legal break opportunities
+  let legal_breaks: Vec<usize> = linebreaks(text).map(|(offset, _)| offset).collect();
+
+  for i in 0..lines.len().saturating_sub(1) {
+    let end = lines[i].text_range().end;
+    let start = lines[i + 1].text_range().start;
+
+    if end == start && end > 0 && end < text.len() && !legal_breaks.contains(&end) {
+      splits += 1;
+    }
+  }
+
+  splits
+}
+
 /// Use binary search to find the minimum width that maintains the same number of lines.
 /// Returns `true` if a meaningful adjustment was made.
 pub(crate) fn make_balanced_text(
   inline_layout: &mut InlineLayout,
+  text: &str,
   max_width: f32,
   target_lines: usize,
   device_pixel_ratio: f32,
@@ -551,6 +575,8 @@ pub(crate) fn make_balanced_text(
   if target_lines <= 1 {
     return false;
   }
+
+  let initial_splits = count_word_splits(inline_layout, text);
 
   // Binary search between half width and full width
   let mut left = max_width / 2.0;
@@ -567,8 +593,8 @@ pub(crate) fn make_balanced_text(
     break_lines(inline_layout, mid, None);
     let lines_at_mid = inline_layout.lines().count();
 
-    if lines_at_mid > target_lines {
-      // Too narrow, need more width
+    if lines_at_mid > target_lines || count_word_splits(inline_layout, text) > initial_splits {
+      // Too narrow or introduced new word splits
       left = mid;
     } else {
       // Can fit in target lines, try narrower

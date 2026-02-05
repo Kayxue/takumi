@@ -21,6 +21,7 @@ dashmap = "6.1"
 color = "0.3"
 thiserror = "2.0"
 wide = "1.1"
+unicode-linebreak = "0.1"
 
 [dependencies.xxhash-rust]
 version = "0.8"
