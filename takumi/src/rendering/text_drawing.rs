@@ -560,8 +560,10 @@ pub(crate) fn make_balanced_text(
 
   let balanced_width = right.ceil();
 
-  // No meaningful adjustment if within 1px of max_width
-  if (balanced_width - max_width).abs() < 1.0 {
+  // No meaningful adjustment if within 1px * DPR of max_width
+  if (balanced_width - max_width).abs() < device_pixel_ratio {
+    // Reset to original max_width
+    break_lines(inline_layout, max_width, None);
     false
   } else {
     // Apply the balanced width
