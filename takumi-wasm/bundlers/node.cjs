@@ -1,4 +1,4 @@
-const wasm = require("../pkg/takumi_wasm");
+const wasm = require("../pkg/takumi_wasm.cjs");
 const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
 

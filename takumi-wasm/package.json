@@ -10,8 +10,8 @@
     "webassembly"
   ],
   "scripts": {
-    "build": "wasm-pack build --no-pack --release --out-dir pkg --target web",
-    "build:debug": "wasm-pack build --no-pack --dev --out-dir pkg --target web"
+    "build": "wasm-pack build --no-pack --release --out-dir pkg --target web && bun build pkg/takumi_wasm.js --format cjs --outfile pkg/takumi_wasm.cjs",
+    "build:debug": "wasm-pack build --no-pack --dev --out-dir pkg --target web && bun build pkg/takumi_wasm.js --format cjs --outfile pkg/takumi_wasm.cjs"
   },
   "author": {
     "email": "me@kane.tw",
@@ -36,11 +36,15 @@
         "require": "./bundlers/node.cjs"
       },
       "types": "./pkg/takumi_wasm.d.ts",
+      "import": "./pkg/takumi_wasm.js",
+      "require": "./pkg/takumi_wasm.cjs",
       "default": "./pkg/takumi_wasm.js"
     },
     "./no-bundler": {
       "types": "./pkg/takumi_wasm.d.ts",
-      "default": "./pkg/takumi_wasm.js"
+      "import": "./pkg/takumi_wasm.js",
+      "require": "./pkg/takumi_wasm.cjs",
+      "default": "./pkg/takumi_wasm.cjs"
     },
     "./node": {
       "types": "./bundlers/node.d.ts",
