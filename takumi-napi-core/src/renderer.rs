@@ -82,8 +82,8 @@ pub(crate) struct ImageCacheKey {
 /// The main renderer for Takumi image rendering engine (Node.js version).
 #[napi]
 pub struct Renderer {
-  global: GlobalContext,
-  persistent_image_cache: HashSet<ImageCacheKey, Xxh3DefaultBuilder>,
+  pub(crate) global: GlobalContext,
+  pub(crate) persistent_image_cache: HashSet<ImageCacheKey, Xxh3DefaultBuilder>,
 }
 
 /// Options for rendering an image.
@@ -240,41 +240,16 @@ impl Renderer {
       }
     }
 
-    if let Some(fonts) = options.fonts {
-      for font in fonts {
-        if let Ok(buffer) = buffer_slice_from_object(env, font) {
-          global
-            .font_context
-            .load_and_store(&buffer, None, None)
-            .map_err(map_error)?;
-
-          continue;
-        }
-
-        let buffer = font
-          .get_named_property("data")
-          .and_then(|buffer| buffer_slice_from_object(env, buffer))?;
-        let font: FontInput = deserialize_with_tracing(font)?;
-
-        let font_override = FontInfoOverride {
-          family_name: font.name.as_deref(),
-          style: font.style.map(|style| style.0),
-          weight: font.weight.map(|weight| FontWeight::new(weight as f32)),
-          axes: None,
-          width: None,
-        };
-
-        global
-          .font_context
-          .load_and_store(&buffer, Some(font_override), None)
-          .map_err(map_error)?;
-      }
-    }
-
-    let renderer = Self {
+    let mut renderer = Self {
       global,
       persistent_image_cache: HashSet::default(),
     };
+
+    if let Some(fonts) = options.fonts {
+      for font in fonts {
+        renderer.load_font_sync(env, font)?;
+      }
+    }
 
     if let Some(images) = options.persistent_images {
       for image in images {
@@ -337,6 +312,41 @@ impl Renderer {
       },
       signal,
     ))
+  }
+
+  /// Loads a font synchronously.
+  #[napi(ts_args_type = "font: Font")]
+  pub fn load_font_sync(&mut self, env: Env, font: Object) -> Result<()> {
+    if let Ok(buffer) = buffer_slice_from_object(env, font) {
+      self
+        .global
+        .font_context
+        .load_and_store(&buffer, None, None)
+        .map_err(map_error)?;
+
+      return Ok(());
+    }
+
+    let buffer = font
+      .get_named_property("data")
+      .and_then(|buffer| buffer_slice_from_object(env, buffer))?;
+    let font: FontInput = deserialize_with_tracing(font)?;
+
+    let font_override = FontInfoOverride {
+      family_name: font.name.as_deref(),
+      style: font.style.map(|style| style.0),
+      weight: font.weight.map(|weight| FontWeight::new(weight as f32)),
+      axes: None,
+      width: None,
+    };
+
+    self
+      .global
+      .font_context
+      .load_and_store(&buffer, Some(font_override), None)
+      .map_err(map_error)?;
+
+    Ok(())
   }
 
   /// @deprecated Use `loadFont` instead (to align with the naming convention for sync/async functions).

@@ -9,24 +9,22 @@
   clippy::must_use_candidate
 )]
 
+mod helper;
 mod load_font_task;
 mod measure_task;
 mod put_persistent_image_task;
 mod render_animation_task;
 mod render_task;
-mod renderer;
+pub(crate) mod renderer;
 
 use std::{fmt::Display, ops::Deref};
 
 use napi::{De, Env, Error, JsValue, bindgen_prelude::*};
-use napi_derive::napi;
-pub use renderer::Renderer;
 use serde::{Deserialize, Deserializer, de::DeserializeOwned};
-use takumi::{
-  layout::node::{Node, NodeKind},
-  parley::FontStyle,
-  resources::task::FetchTaskCollection,
-};
+use takumi::parley::FontStyle;
+
+pub use helper::*;
+pub use renderer::Renderer;
 
 #[derive(Deserialize, Default)]
 pub(crate) struct FontInput {
@@ -114,23 +112,4 @@ impl ExternalMemoryAccountable for Vec<u8> {
 
     Ok(())
   }
-}
-
-/// Collects the fetch task urls from the node.
-#[napi(ts_args_type = "node: AnyNode")]
-pub fn extract_resource_urls(node: Object) -> Result<Vec<String>> {
-  let node: NodeKind = deserialize_with_tracing(node)?;
-
-  let mut collection = FetchTaskCollection::default();
-
-  node.collect_fetch_tasks(&mut collection);
-  node.collect_style_fetch_tasks(&mut collection);
-
-  Ok(
-    collection
-      .into_inner()
-      .iter()
-      .map(|task| task.to_string())
-      .collect(),
-  )
 }
