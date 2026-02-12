@@ -362,6 +362,8 @@ describe("fromJsx", () => {
     expect(result).toEqual({
       type: "image",
       src: renderToStaticMarkup(component),
+      width: 60,
+      height: 60,
       preset: defaultStylePresets.svg,
     });
   });
