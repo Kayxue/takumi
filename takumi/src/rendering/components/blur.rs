@@ -1,7 +1,9 @@
 use image::RgbaImage;
 use wide::{u32x4, u32x8, u32x16};
 
-use crate::rendering::fast_div_255;
+use crate::rendering::{premultiply_alpha, unpremultiply_alpha};
+
+const PIXEL_STRIDE: usize = 4;
 
 /// Specifies the type of blur operation, which affects how the CSS radius is interpreted.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -225,87 +227,116 @@ pub(crate) fn apply_blur(image: &mut RgbaImage, radius: f32, blur_type: BlurType
   match simd_impl {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     SimdBestFit::U32x16 => unsafe {
-      apply_blur_avx512(image, radius, blur_type);
+      apply_blur_avx512(image, sigma);
     },
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     SimdBestFit::U32x8 => unsafe {
-      apply_blur_avx2(image, radius, blur_type);
+      apply_blur_avx2(image, sigma);
     },
-    SimdBestFit::U32x4 => apply_blur_impl::<u32x4>(image, radius, blur_type),
+    SimdBestFit::U32x4 => apply_blur_impl::<u32x4>(image, sigma),
   }
 }
 
 /// AVX-512 implementation wrapper with target feature enabled
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx512f")]
-unsafe fn apply_blur_avx512(image: &mut RgbaImage, radius: f32, blur_type: BlurType) {
-  apply_blur_impl::<u32x16>(image, radius, blur_type);
+unsafe fn apply_blur_avx512(image: &mut RgbaImage, sigma: f32) {
+  apply_blur_impl::<u32x16>(image, sigma);
 }
 
 /// AVX2 implementation wrapper with target feature enabled
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
-unsafe fn apply_blur_avx2(image: &mut RgbaImage, radius: f32, blur_type: BlurType) {
-  apply_blur_impl::<u32x8>(image, radius, blur_type);
+unsafe fn apply_blur_avx2(image: &mut RgbaImage, sigma: f32) {
+  apply_blur_impl::<u32x8>(image, sigma);
 }
 
 #[inline(always)]
-fn apply_blur_impl<V: PixelVector>(image: &mut RgbaImage, radius: f32, blur_type: BlurType) {
-  let sigma = blur_type.to_sigma(radius);
-
+fn apply_blur_impl<V: PixelVector>(image: &mut RgbaImage, sigma: f32) {
   let box_radius = (((4.0 * sigma * sigma + 1.0).sqrt() - 1.0) * 0.5)
     .round()
     .max(1.0) as u32;
 
   let (width, height) = image.dimensions();
 
-  premultiply_alpha(image);
+  for pixel in image.pixels_mut() {
+    premultiply_alpha(pixel);
+  }
 
   let mut temp_data = vec![0u8; (width * height * 4) as usize];
   let img_data = &mut **image;
-  let stride = width as usize * 4;
+  let stride = width as usize * PIXEL_STRIDE;
+  let div = 2 * box_radius + 1;
+  let (mul_val, shg) = compute_mul_shg(div);
 
   // 3-pass Box Blur to approximate Gaussian
   for _ in 0..3 {
-    box_blur_h(img_data, &mut temp_data, width, height, box_radius, stride);
-    box_blur_v::<V>(&temp_data, img_data, width, height, box_radius, stride);
+    box_blur_h(
+      img_data,
+      &mut temp_data,
+      width,
+      height,
+      box_radius,
+      stride,
+      mul_val,
+      shg,
+    );
+    box_blur_v::<V>(
+      &temp_data, img_data, width, height, box_radius, stride, mul_val, shg,
+    );
   }
 
-  unpremultiply_alpha(image);
+  for pixel in image.pixels_mut() {
+    unpremultiply_alpha(pixel);
+  }
 }
 
 /// Horizontal Box Blur Pass - Use u32x4 to process RGBA of one pixel with correct sliding window
-fn box_blur_h(src: &[u8], dst: &mut [u8], width: u32, height: u32, radius: u32, stride: usize) {
+fn box_blur_h(
+  src: &[u8],
+  dst: &mut [u8],
+  width: u32,
+  height: u32,
+  radius: u32,
+  stride: usize,
+  mul_val: u32,
+  shg: i32,
+) {
   let r = radius as i32;
   let w = width as i32;
-  let div = (2 * r + 1) as u32;
-  let (mul_val, shg) = compute_mul_shg(div);
-  let mul = u32x4::new([mul_val; 4]);
+  let mul = <u32x4 as PixelVector>::splat(mul_val);
+  let first_repeat = <u32x4 as PixelVector>::splat(r as u32 + 1);
 
   for y in 0..height {
     let line_offset = y as usize * stride;
     let mut sum = u32x4::ZERO;
 
     // Initialize sum with first pixel repeated (r+1) times
-    let p_first = load_pixel(src, line_offset);
-    sum += p_first * u32x4::new([r as u32 + 1; 4]);
+    let p_first = <u32x4 as PixelVector>::load_channels(src, line_offset);
+    sum += p_first * first_repeat;
 
     // Add trailing edge
     for dx in 1..=r {
       let px = dx.min(w - 1);
-      sum += load_pixel(src, line_offset + (px as usize * 4));
+      sum += <u32x4 as PixelVector>::load_channels(src, line_offset + (px as usize * PIXEL_STRIDE));
     }
 
     // Slide window across the whole row
     for x in 0..w {
-      let out_offset = line_offset + (x as usize * 4);
-      store_pixel(dst, out_offset, (sum * mul) >> shg);
+      let out_offset = line_offset + (x as usize * PIXEL_STRIDE);
+      <u32x4 as PixelVector>::store_channels((sum * mul) >> shg, dst, out_offset);
 
       let p_leaving_x = (x - r).max(0);
       let p_entering_x = (x + r + 1).min(w - 1);
 
-      let p_leaving = load_pixel(src, line_offset + (p_leaving_x as usize * 4));
-      let p_entering = load_pixel(src, line_offset + (p_entering_x as usize * 4));
+      let p_leaving = <u32x4 as PixelVector>::load_channels(
+        src,
+        line_offset + (p_leaving_x as usize * PIXEL_STRIDE),
+      );
+      let p_entering = <u32x4 as PixelVector>::load_channels(
+        src,
+        line_offset + (p_entering_x as usize * PIXEL_STRIDE),
+      );
 
       sum = sum + p_entering - p_leaving;
     }
@@ -320,23 +351,24 @@ fn box_blur_v<V: PixelVector>(
   height: u32,
   radius: u32,
   stride: usize,
+  mul_val: u32,
+  shg: i32,
 ) {
   let r = radius as i32;
   let h = height as i32;
-  let div = (2 * r + 1) as u32;
-  let (mul_val, shg) = compute_mul_shg(div);
   let mul = V::splat(mul_val);
+  let first_repeat = V::splat(r as u32 + 1);
 
   let batch_size = V::PIXELS_PER_BATCH as u32;
 
   let mut x = 0;
   while x + batch_size <= width {
-    let col_offset = x as usize * 4;
+    let col_offset = x as usize * PIXEL_STRIDE;
     let mut sum = V::zero();
 
     // Initialize sum with first pixel of each column repeated (r+1) times
     let p_first = V::load_channels(src, col_offset);
-    sum = sum + p_first * V::splat(r as u32 + 1);
+    sum = sum + p_first * first_repeat;
 
     // Add trailing edge
     for dy in 1..=r {
@@ -362,28 +394,31 @@ fn box_blur_v<V: PixelVector>(
   }
 
   // Handle remaining columns with u32x4
+  let mul_scalar = <u32x4 as PixelVector>::splat(mul_val);
+  let first_repeat_scalar = <u32x4 as PixelVector>::splat(r as u32 + 1);
   for x in x..width {
-    let col_offset = x as usize * 4;
+    let col_offset = x as usize * PIXEL_STRIDE;
     let mut sum = u32x4::ZERO;
 
-    let p_first = load_pixel(src, col_offset);
-    sum += p_first * u32x4::new([r as u32 + 1; 4]);
+    let p_first = <u32x4 as PixelVector>::load_channels(src, col_offset);
+    sum += p_first * first_repeat_scalar;
 
     for dy in 1..=r {
       let py = dy.min(h - 1);
-      sum += load_pixel(src, col_offset + (py as usize * stride));
+      sum += <u32x4 as PixelVector>::load_channels(src, col_offset + (py as usize * stride));
     }
 
-    let mul_scalar = u32x4::new([mul_val; 4]);
     for y in 0..h {
       let out_offset = col_offset + (y as usize * stride);
-      store_pixel(dst, out_offset, (sum * mul_scalar) >> shg);
+      <u32x4 as PixelVector>::store_channels((sum * mul_scalar) >> shg, dst, out_offset);
 
       let p_leaving_y = (y - r).max(0);
       let p_entering_y = (y + r + 1).min(h - 1);
 
-      let p_leaving = load_pixel(src, col_offset + (p_leaving_y as usize * stride));
-      let p_entering = load_pixel(src, col_offset + (p_entering_y as usize * stride));
+      let p_leaving =
+        <u32x4 as PixelVector>::load_channels(src, col_offset + (p_leaving_y as usize * stride));
+      let p_entering =
+        <u32x4 as PixelVector>::load_channels(src, col_offset + (p_entering_y as usize * stride));
 
       sum = sum + p_entering - p_leaving;
     }
@@ -391,53 +426,8 @@ fn box_blur_v<V: PixelVector>(
 }
 
 #[inline(always)]
-fn load_pixel(buffer: &[u8], offset: usize) -> u32x4 {
-  u32x4::new([
-    buffer[offset] as u32,
-    buffer[offset + 1] as u32,
-    buffer[offset + 2] as u32,
-    buffer[offset + 3] as u32,
-  ])
-}
-
-#[inline(always)]
-fn store_pixel(buffer: &mut [u8], offset: usize, pixel: u32x4) {
-  let arr: [u32; 4] = pixel.into();
-  buffer[offset] = arr[0].min(255) as u8;
-  buffer[offset + 1] = arr[1].min(255) as u8;
-  buffer[offset + 2] = arr[2].min(255) as u8;
-  buffer[offset + 3] = arr[3].min(255) as u8;
-}
-
-#[inline(always)]
 fn compute_mul_shg(d: u32) -> (u32, i32) {
   let shg = 23;
   let mul = ((1u64 << shg) as f64 / d as f64).round() as u32;
   (mul, shg)
-}
-
-fn premultiply_alpha(image: &mut RgbaImage) {
-  for pixel in image.pixels_mut() {
-    let alpha = pixel.0[3] as u32;
-
-    if alpha == 0 {
-      pixel.0 = [0; 4];
-    } else if alpha < 255 {
-      for channel in pixel.0.iter_mut().take(3) {
-        *channel = fast_div_255(*channel as u32 * alpha);
-      }
-    }
-  }
-}
-
-fn unpremultiply_alpha(image: &mut RgbaImage) {
-  for pixel in image.pixels_mut() {
-    let a = pixel.0[3] as u16;
-
-    if a != 0 && a < 255 {
-      pixel.0[0] = ((pixel.0[0] as u16 * 255 + a / 2) / a).min(255) as u8;
-      pixel.0[1] = ((pixel.0[1] as u16 * 255 + a / 2) / a).min(255) as u8;
-      pixel.0[2] = ((pixel.0[2] as u16 * 255 + a / 2) / a).min(255) as u8;
-    }
-  }
 }

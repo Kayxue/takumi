@@ -6,6 +6,78 @@ use crate::{
 };
 
 #[inline(always)]
+pub(crate) fn premultiply_alpha(color: &mut Rgba<u8>) {
+  let alpha = color.0[3] as u32;
+
+  for channel in color.0.iter_mut().take(3) {
+    *channel = fast_div_255(*channel as u32 * alpha);
+  }
+}
+
+#[inline(always)]
+pub(crate) fn unpremultiply_alpha(color: &mut Rgba<u8>) {
+  const Q16_SHIFT: u32 = 16;
+  const Q16_ROUNDING: u32 = 1 << (Q16_SHIFT - 1);
+
+  let alpha = color.0[3] as u32;
+
+  if alpha == 0 {
+    color.0 = [0; 4];
+    return;
+  }
+
+  let inv_alpha = (((255u32 << Q16_SHIFT) + (alpha / 2)) / alpha).min(255u32 << Q16_SHIFT);
+
+  for channel in color.0.iter_mut().take(3) {
+    let unpremul = ((*channel as u32 * inv_alpha) + Q16_ROUNDING) >> Q16_SHIFT;
+    *channel = unpremul.min(255) as u8;
+  }
+}
+
+#[inline(always)]
+pub(crate) fn premultiply_alpha_imm(mut color: Rgba<u8>) -> Rgba<u8> {
+  premultiply_alpha(&mut color);
+  color
+}
+
+#[inline(always)]
+fn composited_alpha(bottom_alpha: u32, top_alpha: u32) -> u32 {
+  top_alpha + bottom_alpha - fast_div_255_u32(bottom_alpha * top_alpha)
+}
+
+#[inline(always)]
+fn blend_plus_lighter(bottom: &mut Rgba<u8>, top: Rgba<u8>) {
+  let result_alpha = top.0[3].saturating_add(bottom.0[3]);
+  if result_alpha == 0 {
+    return;
+  }
+
+  let top_premul = premultiply_alpha_imm(top);
+  let bottom_premul = premultiply_alpha_imm(*bottom);
+
+  bottom.0[0] = top_premul.0[0].saturating_add(bottom_premul.0[0]);
+  bottom.0[1] = top_premul.0[1].saturating_add(bottom_premul.0[1]);
+  bottom.0[2] = top_premul.0[2].saturating_add(bottom_premul.0[2]);
+  bottom.0[3] = result_alpha;
+}
+
+#[inline(always)]
+fn blend_plus_darker(bottom: &mut Rgba<u8>, top: Rgba<u8>) {
+  let result_alpha = top.0[3].saturating_add(bottom.0[3]);
+  if result_alpha == 0 {
+    return;
+  }
+
+  let top_premul = premultiply_alpha_imm(top);
+  let bottom_premul = premultiply_alpha_imm(*bottom);
+
+  bottom.0[0] = top_premul.0[0].saturating_sub(bottom_premul.0[0]);
+  bottom.0[1] = top_premul.0[1].saturating_sub(bottom_premul.0[1]);
+  bottom.0[2] = top_premul.0[2].saturating_sub(bottom_premul.0[2]);
+  bottom.0[3] = result_alpha;
+}
+
+#[inline(always)]
 pub(crate) fn blend_pixel(bottom: &mut Rgba<u8>, top: Rgba<u8>, mode: BlendMode) {
   if top.0[3] == 0 {
     return;
@@ -37,14 +109,18 @@ pub(crate) fn blend_pixel(bottom: &mut Rgba<u8>, top: Rgba<u8>, mode: BlendMode)
         blend_normal_partial_transparency(bottom, top);
       }
     }
+    BlendMode::PlusLighter => {
+      blend_plus_lighter(bottom, top);
+    }
+    BlendMode::PlusDarker => {
+      blend_plus_darker(bottom, top);
+    }
     BlendMode::Multiply
     | BlendMode::Screen
     | BlendMode::Darken
     | BlendMode::Lighten
     | BlendMode::Difference
-    | BlendMode::Exclusion
-    | BlendMode::PlusLighter
-    | BlendMode::PlusDarker => {
+    | BlendMode::Exclusion => {
       blend_with_integer(bottom, top, mode);
     }
     _ => {
@@ -58,8 +134,7 @@ fn blend_normal_partial_transparency(bottom: &mut Rgba<u8>, top: Rgba<u8>) {
   let top_alpha = top.0[3] as u32;
   let bottom_alpha = bottom.0[3] as u32;
 
-  let result_alpha =
-    top_alpha + bottom_alpha - fast_div_255_u32(bottom.0[3] as u32 * top.0[3] as u32);
+  let result_alpha = composited_alpha(bottom_alpha, top_alpha);
 
   if result_alpha == 0 {
     return;
@@ -82,69 +157,43 @@ fn blend_normal_partial_transparency(bottom: &mut Rgba<u8>, top: Rgba<u8>) {
 fn blend_with_integer(bottom: &mut Rgba<u8>, top: Rgba<u8>, mode: BlendMode) {
   let bottom_alpha = bottom.0[3] as u32;
   let top_alpha = top.0[3] as u32;
-
-  let result_alpha = top_alpha + bottom_alpha - fast_div_255_u32(bottom_alpha * top_alpha);
+  let result_alpha = composited_alpha(bottom_alpha, top_alpha);
 
   if result_alpha == 0 {
     return;
   }
+  const ROUNDING_OFFSET: u32 = 32512;
+  const ALPHA_DIVISOR: u32 = 65025;
+  const MAX_ALPHA: u32 = u8::MAX as u32;
 
-  let blended = compute_blend_integer(mode, *bottom, top);
-  let composited = composite_integer(*bottom, top, &blended);
-
-  for (channel, composited_channel) in bottom.0.iter_mut().zip(composited.iter()) {
-    *channel = ((composited_channel * 255 + result_alpha / 2) / result_alpha).min(255) as u8;
+  for i in 0..3 {
+    let b = bottom.0[i];
+    let t = top.0[i];
+    let blended = blend_channel_integer(mode, b, t) as u32;
+    let composited = ((MAX_ALPHA - top_alpha) * bottom_alpha * b as u32
+      + (MAX_ALPHA - bottom_alpha) * top_alpha * t as u32
+      + top_alpha * bottom_alpha * blended
+      + ROUNDING_OFFSET)
+      / ALPHA_DIVISOR;
+    bottom.0[i] = ((composited * 255 + result_alpha / 2) / result_alpha).min(255) as u8;
   }
 
   bottom.0[3] = result_alpha.min(255) as u8;
 }
 
 #[inline(always)]
-fn compute_blend_integer(mode: BlendMode, bottom: Rgba<u8>, top: Rgba<u8>) -> [u8; 3] {
-  let mut result = [0u8; 3];
-
-  for (r, (&t, &b)) in result
-    .iter_mut()
-    .zip(top.0.iter().zip(bottom.0.iter()))
-    .take(3)
-  {
-    *r = match mode {
-      BlendMode::Multiply => fast_div_255(t as u32 * b as u32),
-      BlendMode::Screen => 255 - fast_div_255((255 - t as u32) * (255 - b as u32)),
-      BlendMode::Darken => t.min(b),
-      BlendMode::Lighten => t.max(b),
-      BlendMode::Difference => t.abs_diff(b),
-      BlendMode::Exclusion => {
-        (b as u32 + t as u32 - (2 * fast_div_255_u32(b as u32 * t as u32))).min(255) as u8
-      }
-      BlendMode::PlusLighter => (t as u16 + b as u16).min(255) as u8,
-      BlendMode::PlusDarker => (t as u16 + b as u16).saturating_sub(255) as u8,
-      _ => unreachable!(),
-    };
+fn blend_channel_integer(mode: BlendMode, bottom: u8, top: u8) -> u8 {
+  match mode {
+    BlendMode::Multiply => fast_div_255(top as u32 * bottom as u32),
+    BlendMode::Screen => 255 - fast_div_255((255 - top as u32) * (255 - bottom as u32)),
+    BlendMode::Darken => top.min(bottom),
+    BlendMode::Lighten => top.max(bottom),
+    BlendMode::Difference => top.abs_diff(bottom),
+    BlendMode::Exclusion => (bottom as u32 + top as u32
+      - (2 * fast_div_255_u32(bottom as u32 * top as u32)))
+    .min(255) as u8,
+    _ => unreachable!(),
   }
-
-  result
-}
-
-#[inline(always)]
-fn composite_integer(bottom: Rgba<u8>, top: Rgba<u8>, blended: &[u8; 3]) -> [u32; 3] {
-  const ROUNDING_OFFSET: u32 = 32512;
-  const ALPHA_DIVISOR: u32 = 65025;
-  const MAX_ALPHA: u32 = u8::MAX as u32;
-
-  let top_alpha = top.0[3] as u32;
-  let bottom_alpha = bottom.0[3] as u32;
-
-  let mut result = [0u32; 3];
-  for i in 0..3 {
-    result[i] = ((MAX_ALPHA - top_alpha) * bottom_alpha * bottom.0[i] as u32
-      + (MAX_ALPHA - bottom_alpha) * top_alpha * top.0[i] as u32
-      + top_alpha * bottom_alpha * blended[i] as u32
-      + ROUNDING_OFFSET)
-      / ALPHA_DIVISOR;
-  }
-
-  result
 }
 
 #[inline(always)]
