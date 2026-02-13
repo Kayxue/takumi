@@ -57,7 +57,11 @@
 //! let mut global = GlobalContext::default();
 //!
 //! // Load fonts
-//! global.font_context.load_and_store(include_bytes!("../../assets/fonts/geist/Geist[wght].woff2"), None, None);
+//! global.font_context.load_and_store(
+//!   include_bytes!("../../assets/fonts/geist/Geist[wght].woff2").into(),
+//!   None,
+//!   None,
+//! );
 //!
 //! // Create a viewport
 //! let viewport = Viewport::new(Some(1200), Some(630));
