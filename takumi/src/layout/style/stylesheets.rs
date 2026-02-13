@@ -278,6 +278,48 @@ impl InheritedStyle {
       || !self.filter.is_empty()
       || !self.backdrop_filter.is_empty()
       || self.mix_blend_mode != BlendMode::Normal
+      || self.clip_path.is_some()
+      || self
+        .mask
+        .iter()
+        .any(|mask| !matches!(mask.image, BackgroundImage::None))
+      || self.mask_image.as_ref().is_some_and(|images| {
+        images
+          .iter()
+          .any(|image| !matches!(image, BackgroundImage::None))
+      })
+  }
+
+  pub(crate) fn has_non_identity_transform(&self, border_box: Size<f32>, sizing: &Sizing) -> bool {
+    let transform_origin = self.transform_origin.unwrap_or_default();
+    let origin = transform_origin.to_point(sizing, border_box);
+
+    let mut local = Affine::translation(origin.x, origin.y);
+
+    let translate = self.translate();
+    if translate != SpacePair::default() {
+      local *= Affine::translation(
+        translate.x.to_px(sizing, border_box.width),
+        translate.y.to_px(sizing, border_box.height),
+      );
+    }
+
+    if let Some(rotate) = self.rotate {
+      local *= Affine::rotation(rotate);
+    }
+
+    let scale = self.scale();
+    if scale != SpacePair::default() {
+      local *= Affine::scale(scale.x.0, scale.y.0);
+    }
+
+    if let Some(node_transform) = &self.transform {
+      local *= Affine::from_transforms(node_transform.iter(), sizing, border_box);
+    }
+
+    local *= Affine::translation(-origin.x, -origin.y);
+
+    !local.is_identity()
   }
 
   pub(crate) fn resolve_overflows(&self) -> SpacePair<Overflow> {
@@ -697,7 +739,15 @@ impl InheritedStyle {
 
 #[cfg(test)]
 mod tests {
-  use crate::layout::style::{CssValue, Style, properties::*};
+  use taffy::Size;
+
+  use crate::{
+    layout::{
+      Viewport,
+      style::{CssValue, InheritedStyle, Style, properties::*},
+    },
+    rendering::Sizing,
+  };
 
   #[test]
   fn test_merge_from_inline_over_tailwind() {
@@ -761,5 +811,108 @@ mod tests {
 
     let inherit: CssValue<Length> = CssValue::Inherit;
     assert_eq!(inherit.or(low_priority), inherit);
+  }
+
+  #[test]
+  fn test_resolve_padding_precedence() {
+    let inherited = Style {
+      padding: Sides([
+        Length::Px(1.0),
+        Length::Px(2.0),
+        Length::Px(3.0),
+        Length::Px(4.0),
+      ])
+      .into(),
+      padding_inline: Some(SpacePair::from_pair(Length::Px(10.0), Length::Px(20.0))).into(),
+      padding_block: Some(SpacePair::from_pair(Length::Px(30.0), Length::Px(40.0))).into(),
+      padding_left: Some(Length::Px(50.0)).into(),
+      ..Default::default()
+    }
+    .inherit(&InheritedStyle::default());
+
+    let resolved = inherited.resolved_padding();
+
+    assert_eq!(resolved.top, Length::Px(30.0));
+    assert_eq!(resolved.right, Length::Px(20.0));
+    assert_eq!(resolved.bottom, Length::Px(40.0));
+    assert_eq!(resolved.left, Length::Px(50.0));
+  }
+
+  #[test]
+  fn test_resolve_border_width_precedence() {
+    let inherited = Style {
+      border: Border {
+        width: Some(Length::Px(1.0)),
+        style: None,
+        color: None,
+      }
+      .into(),
+      border_inline_width: Some(SpacePair::from_pair(Length::Px(2.0), Length::Px(3.0))).into(),
+      border_top_width: Some(Length::Px(4.0)).into(),
+      ..Default::default()
+    }
+    .inherit(&InheritedStyle::default());
+
+    let resolved = inherited.resolved_border_width();
+
+    assert_eq!(resolved.top, Length::Px(4.0));
+    assert_eq!(resolved.right, Length::Px(3.0));
+    assert_eq!(resolved.bottom, Length::Px(1.0));
+    assert_eq!(resolved.left, Length::Px(2.0));
+  }
+
+  #[test]
+  fn test_isolated_for_clip_path_and_mask_image() {
+    let mut style = InheritedStyle::default();
+    assert!(!style.is_isolated());
+
+    style.clip_path = BasicShape::from_str("inset(10px)").ok();
+    assert!(style.is_isolated());
+
+    style.clip_path = None;
+    style.mask_image =
+      Some(vec![BackgroundImage::Url("https://example.com/mask.png".into())].into_boxed_slice());
+    assert!(style.is_isolated());
+  }
+
+  #[test]
+  fn test_non_identity_transform_detection() {
+    let mut style = InheritedStyle::default();
+    let sizing = Sizing {
+      viewport: Viewport::new(Some(1200), Some(630)),
+      font_size: 16.0,
+    };
+    let border_box = Size {
+      width: 200.0,
+      height: 100.0,
+    };
+
+    assert!(!style.has_non_identity_transform(border_box, &sizing));
+
+    style.transform = Some(vec![Transform::Rotate(Angle::new(0.0))].into_boxed_slice());
+    assert!(!style.has_non_identity_transform(border_box, &sizing));
+
+    style.transform = Some(vec![Transform::Rotate(Angle::new(10.0))].into_boxed_slice());
+    assert!(style.has_non_identity_transform(border_box, &sizing));
+  }
+
+  #[test]
+  fn test_text_overflow_ellipsis_forces_single_line_clamp_on_nowrap() {
+    let style = InheritedStyle {
+      text_wrap_mode: Some(TextWrapMode::NoWrap),
+      text_overflow: TextOverflow::Ellipsis,
+      ..Default::default()
+    };
+
+    let (text_wrap_mode, line_clamp) = style.text_wrap_mode_and_line_clamp();
+
+    assert_eq!(text_wrap_mode, TextWrapMode::Wrap);
+    assert_eq!(
+      line_clamp,
+      Some(std::borrow::Cow::Owned(LineClamp {
+        count: 1,
+        ellipsis: Some("…".to_string()),
+      }))
+    );
   }
 }

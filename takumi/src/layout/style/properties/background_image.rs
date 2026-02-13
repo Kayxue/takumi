@@ -24,9 +24,11 @@ pub enum BackgroundImage {
 }
 
 impl TailwindPropertyParser for BackgroundImage {
-  fn parse_tw(_token: &str) -> Option<Self> {
-    // TODO: Implement
-    None
+  fn parse_tw(token: &str) -> Option<Self> {
+    match_ignore_ascii_case! {token,
+      "none" => Some(BackgroundImage::None),
+      _ => None,
+    }
   }
 }
 
@@ -86,5 +88,26 @@ impl<'i> FromCss<'i> for BackgroundImages {
 
   fn valid_tokens() -> &'static [CssToken] {
     BackgroundImage::valid_tokens()
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_parse_tailwind_none() {
+    assert_eq!(
+      BackgroundImage::parse_tw("none"),
+      Some(BackgroundImage::None)
+    );
+  }
+
+  #[test]
+  fn test_parse_tailwind_arbitrary_url() {
+    assert_eq!(
+      BackgroundImage::parse_tw_with_arbitrary("[url(https://example.com/bg.png)]"),
+      Some(BackgroundImage::Url("https://example.com/bg.png".into()))
+    );
   }
 }

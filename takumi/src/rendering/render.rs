@@ -345,7 +345,13 @@ fn render_node<'g, Nodes: Node<Nodes>>(
 
   // If isolated canvas is required, replace the current canvas with a new one.
   // Make sure to merge the image back!
-  let original_canvas_image = if node.context.style.is_isolated() {
+  let should_isolate = node.context.style.is_isolated()
+    || node
+      .context
+      .style
+      .has_non_identity_transform(layout.size, &node.context.sizing);
+
+  let original_canvas_image = if should_isolate {
     Some(canvas.replace_new_image())
   } else {
     None
