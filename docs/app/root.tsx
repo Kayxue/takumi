@@ -10,6 +10,7 @@ import {
 } from "react-router";
 import type { Route } from "./+types/root";
 import "./app.css";
+import { Analytics } from "@vercel/analytics/react";
 import { SearchDialog } from "components/search";
 
 export const links: Route.LinksFunction = () => [
@@ -71,6 +72,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </ReactRouterProvider>
         <ScrollRestoration />
         <Scripts />
+        <Analytics />
       </body>
     </html>
   );
