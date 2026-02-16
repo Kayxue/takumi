@@ -3,13 +3,11 @@ use image::{GenericImageView, Rgba};
 use std::ops::{Deref, Neg};
 
 use super::gradient_utils::{adaptive_lut_size, build_color_lut, resolve_stops_along_axis};
-use crate::{
-  layout::style::{
-    Color, CssToken, FromCss, Length, MakeComputed, ParseResult, declare_enum_from_css_impl,
-    properties::ColorInput, tw::TailwindPropertyParser,
-  },
-  rendering::{RenderContext, Sizing},
+use crate::layout::style::{
+  Color, CssToken, FromCss, Length, MakeComputed, ParseResult, declare_enum_from_css_impl,
+  properties::ColorInput, tw::TailwindPropertyParser,
 };
+use crate::rendering::{RenderContext, Sizing};
 
 /// Represents a linear gradient.
 #[derive(Debug, Clone, PartialEq)]
@@ -225,6 +223,8 @@ impl<'i> FromCss<'i> for GradientStop {
 /// Represents an angle value in degrees.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct Angle(f32);
+
+impl MakeComputed for Angle {}
 
 impl From<Angle> for zeno::Angle {
   fn from(angle: Angle) -> Self {

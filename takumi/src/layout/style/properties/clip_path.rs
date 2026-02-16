@@ -22,6 +22,8 @@ pub enum FillRule {
   EvenOdd,
 }
 
+impl MakeComputed for FillRule {}
+
 impl From<FillRule> for Fill {
   fn from(value: FillRule) -> Self {
     match value {

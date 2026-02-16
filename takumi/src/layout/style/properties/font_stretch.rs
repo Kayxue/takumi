@@ -1,11 +1,15 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
 use parley::FontWidth;
 
-use crate::layout::style::{CssToken, FromCss, ParseResult, tw::TailwindPropertyParser};
+use crate::layout::style::{
+  CssToken, FromCss, MakeComputed, ParseResult, tw::TailwindPropertyParser,
+};
 
 /// Controls the width/stretch of text rendering.
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct FontStretch(FontWidth);
+
+impl MakeComputed for FontStretch {}
 
 impl<'i> FromCss<'i> for FontStretch {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {

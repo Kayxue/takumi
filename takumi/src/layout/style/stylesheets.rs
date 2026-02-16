@@ -51,6 +51,14 @@ macro_rules! define_style {
     pub struct InheritedStyle {
       $( pub(crate) $property: $type, )*
     }
+
+    impl InheritedStyle {
+      pub(crate) fn make_computed_values(&mut self, sizing: &Sizing) {
+        $(
+          self.$property.make_computed(sizing);
+        )*
+      }
+    }
   };
 }
 
@@ -279,69 +287,7 @@ impl InheritedStyle {
       Length::Px(sizing.font_size)
     });
 
-    self.width.make_computed(sizing);
-    self.height.make_computed(sizing);
-    self.max_width.make_computed(sizing);
-    self.max_height.make_computed(sizing);
-    self.min_width.make_computed(sizing);
-    self.min_height.make_computed(sizing);
-    self.padding.make_computed(sizing);
-    self.padding_inline.make_computed(sizing);
-    self.padding_block.make_computed(sizing);
-    self.padding_top.make_computed(sizing);
-    self.padding_right.make_computed(sizing);
-    self.padding_bottom.make_computed(sizing);
-    self.padding_left.make_computed(sizing);
-    self.margin.make_computed(sizing);
-    self.margin_inline.make_computed(sizing);
-    self.margin_block.make_computed(sizing);
-    self.margin_top.make_computed(sizing);
-    self.margin_right.make_computed(sizing);
-    self.margin_bottom.make_computed(sizing);
-    self.margin_left.make_computed(sizing);
-    self.inset.make_computed(sizing);
-    self.inset_inline.make_computed(sizing);
-    self.inset_block.make_computed(sizing);
-    self.top.make_computed(sizing);
-    self.right.make_computed(sizing);
-    self.bottom.make_computed(sizing);
-    self.left.make_computed(sizing);
-    self.flex_basis.make_computed(sizing);
-    self.translate.make_computed(sizing);
-    self.translate_x.make_computed(sizing);
-    self.translate_y.make_computed(sizing);
-    self.column_gap.make_computed(sizing);
-    self.row_gap.make_computed(sizing);
-    self.flex.make_computed(sizing);
-    self.border_radius.make_computed(sizing);
-    self.border_top_left_radius.make_computed(sizing);
-    self.border_top_right_radius.make_computed(sizing);
-    self.border_bottom_right_radius.make_computed(sizing);
-    self.border_bottom_left_radius.make_computed(sizing);
-    self.border_width.make_computed(sizing);
-    self.border_inline_width.make_computed(sizing);
-    self.border_block_width.make_computed(sizing);
-    self.border_top_width.make_computed(sizing);
-    self.border_right_width.make_computed(sizing);
-    self.border_bottom_width.make_computed(sizing);
-    self.border_left_width.make_computed(sizing);
-    self.border.make_computed(sizing);
-    self.object_position.make_computed(sizing);
-    self.mask_size.make_computed(sizing);
-    self.background_size.make_computed(sizing);
-    self.box_shadow.make_computed(sizing);
-    self.grid_auto_columns.make_computed(sizing);
-    self.grid_auto_rows.make_computed(sizing);
-    self.filter.make_computed(sizing);
-    self.backdrop_filter.make_computed(sizing);
-    self.transform.make_computed(sizing);
-    self.webkit_text_stroke.make_computed(sizing);
-    self.clip_path.make_computed(sizing);
-    self.line_height.make_computed(sizing);
-    self.webkit_text_stroke_width.make_computed(sizing);
-    self.text_shadow.make_computed(sizing);
-    self.letter_spacing.make_computed(sizing);
-    self.word_spacing.make_computed(sizing);
+    self.make_computed_values(sizing);
   }
 
   pub(crate) fn is_invisible(&self) -> bool {

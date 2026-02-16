@@ -254,6 +254,8 @@ macro_rules! declare_enum_from_css_impl {
     $enum_type:ty,
     $($css_value:expr => $variant:expr),* $(,)?
   ) => {
+    impl crate::layout::style::MakeComputed for $enum_type {}
+
     impl<'i> crate::layout::style::FromCss<'i> for $enum_type {
       fn valid_tokens() -> &'static [crate::layout::style::CssToken] {
         &[$(crate::layout::style::CssToken::Keyword($css_value)),*]
@@ -822,6 +824,8 @@ declare_enum_from_css_impl!(
 /// Multi value fallback is supported.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FontFamily(String);
+
+impl MakeComputed for FontFamily {}
 
 impl<'i> FromCss<'i> for FontFamily {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
