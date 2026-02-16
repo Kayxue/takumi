@@ -29,12 +29,12 @@ impl From<Length> for LineHeight {
 impl TailwindPropertyParser for LineHeight {
   fn parse_tw(token: &str) -> Option<Self> {
     match_ignore_ascii_case! {&token,
-      "none" => Some(Length::Em(1.0).into()),
-      "tight" => Some(Length::Em(1.25).into()),
-      "snug" => Some(Length::Em(1.375).into()),
-      "normal" => Some(Length::Em(1.5).into()),
-      "relaxed" => Some(Length::Em(1.625).into()),
-      "loose" => Some(Length::Em(2.0).into()),
+      "none" => Some(LineHeight::Unitless(1.0)),
+      "tight" => Some(LineHeight::Unitless(1.25)),
+      "snug" => Some(LineHeight::Unitless(1.375)),
+      "normal" => Some(LineHeight::Unitless(1.5)),
+      "relaxed" => Some(LineHeight::Unitless(1.625)),
+      "loose" => Some(LineHeight::Unitless(2.0)),
       _ => {
         let Ok(value) = token.parse::<f32>() else {
           return None;
