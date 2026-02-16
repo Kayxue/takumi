@@ -1156,7 +1156,7 @@ mod tests {
       TailwindProperty::parse("text-base/[12.34]"),
       Some(TailwindProperty::FontSize(TwFontSize {
         font_size: Length::Rem(1.0),
-        line_height: Some(Length::Em(12.34).into()),
+        line_height: Some(LineHeight::Unitless(12.34)),
       }))
     );
   }

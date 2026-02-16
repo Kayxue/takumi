@@ -1,29 +1,28 @@
 use cssparser::{Parser, match_ignore_ascii_case};
 
 use crate::{
-  layout::{
-    DEFAULT_LINE_HEIGHT_SCALER,
-    style::{
-      CssToken, FromCss, Length, ParseResult,
-      tw::{TW_VAR_SPACING, TailwindPropertyParser},
-    },
+  layout::style::{
+    CssToken, FromCss, Length, ParseResult,
+    tw::{TW_VAR_SPACING, TailwindPropertyParser},
   },
   rendering::Sizing,
 };
 
 /// Represents a line height value, number value is parsed as em.
-#[derive(Debug, Clone, PartialEq, Copy)]
-pub struct LineHeight(pub Length);
+#[derive(Debug, Clone, PartialEq, Copy, Default)]
+pub enum LineHeight {
+  /// Normal line height.
+  #[default]
+  Normal,
+  /// A unitless line height which is relative to the font size.
+  Unitless(f32),
+  /// A specific line height.
+  Length(Length),
+}
 
 impl From<Length> for LineHeight {
   fn from(value: Length) -> Self {
-    Self(value)
-  }
-}
-
-impl Default for LineHeight {
-  fn default() -> Self {
-    Length::Em(DEFAULT_LINE_HEIGHT_SCALER).into()
+    Self::Length(value)
   }
 }
 
@@ -41,7 +40,7 @@ impl TailwindPropertyParser for LineHeight {
           return None;
         };
 
-        Some(Length::Em(value * TW_VAR_SPACING).into())
+        Some(LineHeight::Unitless(value * TW_VAR_SPACING))
       }
     }
   }
@@ -49,11 +48,18 @@ impl TailwindPropertyParser for LineHeight {
 
 impl<'i> FromCss<'i> for LineHeight {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
+    if input
+      .try_parse(|input| input.expect_ident_matching("normal"))
+      .is_ok()
+    {
+      return Ok(Self::Normal);
+    }
+
     let Ok(number) = input.try_parse(Parser::expect_number) else {
-      return Length::from_css(input).map(LineHeight);
+      return Length::from_css(input).map(Into::into);
     };
 
-    Ok(Length::Em(number).into())
+    Ok(LineHeight::Unitless(number))
   }
 
   fn valid_tokens() -> &'static [CssToken] {
@@ -63,6 +69,10 @@ impl<'i> FromCss<'i> for LineHeight {
 
 impl LineHeight {
   pub(crate) fn into_parley(self, sizing: &Sizing) -> parley::LineHeight {
-    parley::LineHeight::Absolute(self.0.to_px(sizing, sizing.font_size))
+    match self {
+      Self::Normal => parley::LineHeight::MetricsRelative(1.0),
+      Self::Length(length) => parley::LineHeight::Absolute(length.to_px(sizing, sizing.font_size)),
+      Self::Unitless(value) => parley::LineHeight::FontSizeRelative(value),
+    }
   }
 }
