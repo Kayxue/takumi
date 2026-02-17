@@ -2,6 +2,7 @@ mod container;
 mod image;
 mod text;
 
+use ::image::RgbaImage;
 pub use container::*;
 pub use image::*;
 pub use text::*;
@@ -16,7 +17,8 @@ use crate::{
     Viewport,
     inline::InlineContentKind,
     style::{
-      Affine, BackgroundClip, BackgroundImage, BlendMode, CssValue, InheritedStyle, Sides, Style,
+      Affine, BackgroundClip, BackgroundImage, BlendMode, CssValue, InheritedStyle, Length, Sides,
+      Style,
     },
   },
   rendering::{
@@ -75,6 +77,12 @@ macro_rules! impl_node_enum {
       fn draw_border(&self, context: &$crate::rendering::RenderContext, canvas: &mut $crate::rendering::Canvas, layout: $crate::taffy::Layout) -> $crate::Result<()> {
         match self {
           $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::draw_border(inner, context, canvas, layout), )*
+        }
+      }
+
+      fn draw_outline(&self, context: &$crate::rendering::RenderContext, canvas: &mut $crate::rendering::Canvas, layout: $crate::taffy::Layout) -> $crate::Result<()> {
+        match self {
+          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::draw_outline(inner, context, canvas, layout), )*
         }
       }
 
@@ -441,6 +449,51 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
       context.transform,
       clip_image.as_ref(),
     );
+    Ok(())
+  }
+
+  /// Draws the outline of the node.
+  fn draw_outline(
+    &self,
+    context: &RenderContext,
+    canvas: &mut Canvas,
+    layout: Layout,
+  ) -> Result<()> {
+    let width = context
+      .style
+      .outline_width
+      .unwrap_or(context.style.outline.width)
+      .to_px(&context.sizing, layout.size.width)
+      .max(0.0);
+
+    let offset = context
+      .style
+      .outline_offset
+      .unwrap_or(Length::zero())
+      .to_px(&context.sizing, layout.size.width);
+
+    let mut border = BorderProperties {
+      width: Sides([width; 4]).into(),
+      color: context
+        .style
+        .outline_color
+        .unwrap_or(context.style.outline.color)
+        .resolve(context.current_color),
+      style: context
+        .style
+        .outline_style
+        .unwrap_or(context.style.outline.style),
+      image_rendering: context.style.image_rendering,
+      radius: BorderProperties::resolve_radius_part(context, layout.size),
+    };
+
+    border.expand_by(Sides([offset + width; 4]).into());
+
+    let transform = Affine::translation(-offset - width, -offset - width) * context.transform;
+    let size = layout.size.map(|x| x + (offset + width) * 2.0);
+
+    border.draw::<RgbaImage>(canvas, size, transform, None);
+
     Ok(())
   }
 }

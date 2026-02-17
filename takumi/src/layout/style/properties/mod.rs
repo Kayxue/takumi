@@ -923,6 +923,28 @@ declare_enum_from_css_impl!(
   "pixelated" => ImageScalingAlgorithm::Pixelated
 );
 
+/// Represents border style options.
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub enum BorderStyle {
+  /// No border will be rendered.
+  #[default]
+  None,
+  /// Solid border style.
+  Solid,
+}
+
+declare_enum_from_css_impl!(
+  BorderStyle,
+  "none" => BorderStyle::None,
+  "solid" => BorderStyle::Solid,
+);
+
+impl TailwindPropertyParser for BorderStyle {
+  fn parse_tw(token: &str) -> Option<Self> {
+    Self::from_str(token).ok()
+  }
+}
+
 impl From<ImageScalingAlgorithm> for FilterType {
   fn from(algorithm: ImageScalingAlgorithm) -> Self {
     match algorithm {
