@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- 585e1ba: support `background: cconic-gradient()`
+- 585e1ba: support `background: conic-gradient()`
 - 755b998: support `font-stretch` property
 - 12ef8ce: loosen SVG check
 - db327e6: fix overflow hidden constraint should include border radius mask
