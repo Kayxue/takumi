@@ -34,14 +34,26 @@ fn draw_glyph_run<I: GenericImageView<Pixel = Rgba<u8>>>(
   let run = glyph_run.run();
   let metrics = run.metrics();
 
-  // decoration underline should not overlap with the glyph descent part,
-  // as a temporary workaround, we draw the decoration under the glyph.
+  // FIXME: support https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/text-decoration-skip-ink
+  // to control whether underline should overlap with the glyph descent part or not.
   if decoration_line.contains(&TextDecorationLine::Underline) {
     draw_decoration(
       canvas,
       glyph_run,
       glyph_run.style().brush.decoration_color,
       glyph_run.baseline() - metrics.underline_offset,
+      glyph_run.run().font_size() / 18.0,
+      layout,
+      context.transform,
+    );
+  }
+
+  if decoration_line.contains(&TextDecorationLine::Overline) {
+    draw_decoration(
+      canvas,
+      glyph_run,
+      glyph_run.style().brush.decoration_color,
+      glyph_run.baseline() - metrics.ascent - metrics.underline_offset,
       glyph_run.run().font_size() / 18.0,
       layout,
       context.transform,
@@ -113,18 +125,6 @@ fn draw_glyph_run<I: GenericImageView<Pixel = Rgba<u8>>>(
       glyph_run.style().brush.decoration_color,
       offset,
       size,
-      layout,
-      context.transform,
-    );
-  }
-
-  if decoration_line.contains(&TextDecorationLine::Overline) {
-    draw_decoration(
-      canvas,
-      glyph_run,
-      glyph_run.style().brush.decoration_color,
-      glyph_run.baseline() - metrics.ascent - metrics.underline_offset,
-      glyph_run.run().font_size() / 18.0,
       layout,
       context.transform,
     );
