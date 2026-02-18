@@ -199,16 +199,23 @@ impl FontContext {
       .normalized_coords(run.run().normalized_coords())
       .build();
 
-    let embolden =
-      if run.run().synthesis().embolden() && run.style().brush.font_synthesis.weight.is_allowed() {
-        Some(synthesis_embolden_strength(run.run().font_size()))
-      } else {
-        None
-      };
+    let has_emoji_cluster = run
+      .run()
+      .visual_clusters()
+      .any(|cluster| cluster.is_emoji());
+    let embolden = if !has_emoji_cluster
+      && run.run().synthesis().embolden()
+      && run.style().brush.font_synthesis.weight.is_allowed()
+    {
+      Some(synthesis_embolden_strength(run.run().font_size()))
+    } else {
+      None
+    };
     let skew = run
       .run()
       .synthesis()
       .skew()
+      .filter(|_| !has_emoji_cluster)
       .filter(|_| run.style().brush.font_synthesis.style.is_allowed())
       .map(|degrees| ZenoTransform::skew(ZenoAngle::from_degrees(degrees), ZenoAngle::ZERO));
 
@@ -216,30 +223,30 @@ impl FontContext {
     for &glyph_id in &unique_glyph_ids {
       let mut resolved = scaler
         .scale_color_bitmap(glyph_id as u16, StrikeWith::BestFit)
-        .map(ResolvedGlyph::Image)
+        .map(|image| (ResolvedGlyph::Image(image), false))
         .or_else(|| {
           scaler
             .scale_color_outline(glyph_id as u16)
-            .map(ResolvedGlyph::Outline)
+            .map(|outline| (ResolvedGlyph::Outline(outline), false))
         })
         .or_else(|| {
           scaler
             .scale_outline(glyph_id as u16)
-            .map(ResolvedGlyph::Outline)
+            .map(|outline| (ResolvedGlyph::Outline(outline), true))
         });
 
       if let Some(embolden_strength) = embolden
-        && let Some(ResolvedGlyph::Outline(ref mut outline)) = resolved
+        && let Some((ResolvedGlyph::Outline(ref mut outline), true)) = resolved
       {
         outline.embolden(embolden_strength, embolden_strength);
       }
       if let Some(ref skew_transform) = skew
-        && let Some(ResolvedGlyph::Outline(ref mut outline)) = resolved
+        && let Some((ResolvedGlyph::Outline(ref mut outline), true)) = resolved
       {
         outline.transform(skew_transform);
       }
 
-      if let Some(glyph) = resolved {
+      if let Some((glyph, _)) = resolved {
         result.insert(glyph_id, glyph);
       }
     }

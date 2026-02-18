@@ -25,6 +25,10 @@ impl<'i> FromCss<'i> for FontSynthesis {
       let ident = input.expect_ident()?;
 
       match_ignore_ascii_case! {ident,
+        "none" => {
+          weight = FontSynthesic::None;
+          style = FontSynthesic::None;
+        },
         "weight" => {
           weight = FontSynthesic::Auto;
         },
@@ -43,7 +47,11 @@ impl<'i> FromCss<'i> for FontSynthesis {
   }
 
   fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Keyword("weight"), CssToken::Keyword("style")]
+    &[
+      CssToken::Keyword("none"),
+      CssToken::Keyword("weight"),
+      CssToken::Keyword("style"),
+    ]
   }
 }
 
