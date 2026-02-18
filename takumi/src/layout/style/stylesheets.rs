@@ -15,15 +15,33 @@ use crate::{
 };
 
 /// Helper macro to define the `Style` struct and `InheritedStyle` struct.
+macro_rules! define_style_apply_clears {
+  ($self:ident, $other:ident, $trigger:ident, [$($clear:ident),* $(,)?]) => {
+    if !matches!(&$other.$trigger, CssValue::Unset) {
+      $(
+        if matches!(&$other.$clear, CssValue::Unset) {
+          $self.$clear = CssValue::Unset;
+        }
+      )*
+    }
+  };
+  ($self:ident, $other:ident, $trigger:ident) => {};
+}
+
 macro_rules! define_style {
-  ($( $(#[$attr:meta])? $property:ident: $type:ty $(where inherit = $inherit:expr)? ),* $(,)?) => {
+  ($(
+    $(#[$attr:meta])*
+    $property:ident: $type:ty
+      $(where inherit = $inherit:expr)?
+      $(=> [$($merge_clear:ident),* $(,)?])?,
+  )*) => {
     /// Defines the style of an element.
     #[derive(Debug, Default, Clone, Deserialize, Builder, PartialEq)]
     #[serde(default, rename_all = "camelCase")]
     #[builder(default, setter(into))]
     pub struct Style {
       $(
-        $(#[$attr])?
+        $(#[$attr])*
         #[allow(missing_docs)]
         pub $property: CssValue<$type$(, $inherit)?>,
       )*
@@ -40,6 +58,10 @@ macro_rules! define_style {
       /// Merges styles from another Style, where the other Style's non-Unset values take precedence.
       /// This is used to overlay higher-priority styles (e.g., inline styles) over lower-priority ones (e.g., Tailwind).
       pub(crate) fn merge_from(&mut self, other: Self) {
+        $(
+          define_style_apply_clears!(self, other, $property $(, [$($merge_clear),*])?);
+        )*
+
         $(
           self.$property = other.$property.or(std::mem::take(&mut self.$property));
         )*
@@ -74,23 +96,37 @@ define_style!(
   min_width: Length,
   min_height: Length,
   aspect_ratio: AspectRatio,
-  padding: Sides<Length<false>>,
-  padding_inline: Option<SpacePair<Length<false>>>,
-  padding_block: Option<SpacePair<Length<false>>>,
+  padding: Sides<Length<false>> => [
+    padding_inline,
+    padding_block,
+    padding_top,
+    padding_right,
+    padding_bottom,
+    padding_left,
+  ],
+  padding_inline: Option<SpacePair<Length<false>>> => [padding_left, padding_right],
+  padding_block: Option<SpacePair<Length<false>>> => [padding_top, padding_bottom],
   padding_top: Option<Length<false>>,
   padding_right: Option<Length<false>>,
   padding_bottom: Option<Length<false>>,
   padding_left: Option<Length<false>>,
-  margin: Sides<Length<false>>,
-  margin_inline: Option<SpacePair<Length<false>>>,
-  margin_block: Option<SpacePair<Length<false>>>,
+  margin: Sides<Length<false>> => [
+    margin_inline,
+    margin_block,
+    margin_top,
+    margin_right,
+    margin_bottom,
+    margin_left,
+  ],
+  margin_inline: Option<SpacePair<Length<false>>> => [margin_left, margin_right],
+  margin_block: Option<SpacePair<Length<false>>> => [margin_top, margin_bottom],
   margin_top: Option<Length<false>>,
   margin_right: Option<Length<false>>,
   margin_bottom: Option<Length<false>>,
   margin_left: Option<Length<false>>,
-  inset: Sides<Length>,
-  inset_inline: Option<SpacePair<Length>>,
-  inset_block: Option<SpacePair<Length>>,
+  inset: Sides<Length> => [inset_inline, inset_block, top, right, bottom, left],
+  inset_inline: Option<SpacePair<Length>> => [left, right],
+  inset_block: Option<SpacePair<Length>> => [top, bottom],
   top: Option<Length>,
   right: Option<Length>,
   bottom: Option<Length>,
@@ -106,51 +142,81 @@ define_style!(
   flex_basis: Option<Length>,
   position: Position,
   rotate: Option<Angle>,
-  scale: Option<SpacePair<PercentageNumber>>,
+  scale: Option<SpacePair<PercentageNumber>> => [scale_x, scale_y],
   scale_x: Option<PercentageNumber>,
   scale_y: Option<PercentageNumber>,
-  transform: Option<Transforms>,
+  transform: Option<Transforms> => [translate, rotate, scale, translate_x, translate_y, scale_x, scale_y],
   transform_origin: Option<BackgroundPosition>,
-  translate: Option<SpacePair<Length>>,
+  translate: Option<SpacePair<Length>> => [translate_x, translate_y],
   translate_x: Option<Length>,
   translate_y: Option<Length>,
-  mask: Backgrounds,
+  mask: Backgrounds => [mask_image, mask_size, mask_position, mask_repeat],
   mask_image: Option<BackgroundImages>,
   mask_size: Option<BackgroundSizes>,
   mask_position: Option<BackgroundPositions>,
   mask_repeat: Option<BackgroundRepeats>,
-  gap: Gap,
+  gap: Gap => [column_gap, row_gap],
   column_gap: Option<Length<false>>,
   row_gap: Option<Length<false>>,
-  flex: Option<Flex>,
+  flex: Option<Flex> => [flex_basis, flex_grow, flex_shrink],
   flex_grow: Option<FlexGrow>,
   flex_shrink: Option<FlexGrow>,
-  border_radius: BorderRadius,
+  border_radius: BorderRadius => [
+    border_top_left_radius,
+    border_top_right_radius,
+    border_bottom_right_radius,
+    border_bottom_left_radius,
+  ],
   border_top_left_radius: Option<SpacePair<Length<false>>>,
   border_top_right_radius: Option<SpacePair<Length<false>>>,
   border_bottom_right_radius: Option<SpacePair<Length<false>>>,
   border_bottom_left_radius: Option<SpacePair<Length<false>>>,
-  border_width: Option<Sides<Length>>,
-  border_inline_width: Option<SpacePair<Length>>,
-  border_block_width: Option<SpacePair<Length>>,
+  border_width: Option<Sides<Length>> => [
+    border_inline_width,
+    border_block_width,
+    border_top_width,
+    border_right_width,
+    border_bottom_width,
+    border_left_width,
+  ],
+  border_inline_width: Option<SpacePair<Length>> => [border_left_width, border_right_width],
+  border_block_width: Option<SpacePair<Length>> => [border_top_width, border_bottom_width],
   border_top_width: Option<Length>,
   border_right_width: Option<Length>,
   border_bottom_width: Option<Length>,
   border_left_width: Option<Length>,
   border_style: Option<BorderStyle>,
   border_color: Option<ColorInput>,
-  border: Border,
-  outline: Border,
+  border: Border => [
+    border_width,
+    border_inline_width,
+    border_block_width,
+    border_top_width,
+    border_right_width,
+    border_bottom_width,
+    border_left_width,
+    border_style,
+    border_color,
+  ],
+  outline: Border => [outline_width, outline_style, outline_color, outline_offset],
   outline_width: Option<Length>,
   outline_style: Option<BorderStyle>,
   outline_color: Option<ColorInput>,
   outline_offset: Option<Length>,
   object_fit: ObjectFit,
-  overflow: SpacePair<Overflow>,
+  overflow: SpacePair<Overflow> => [overflow_x, overflow_y],
   overflow_x: Option<Overflow>,
   overflow_y: Option<Overflow>,
   object_position: BackgroundPosition where inherit = true,
-  background: Backgrounds,
+  background: Backgrounds => [
+    background_image,
+    background_position,
+    background_size,
+    background_repeat,
+    background_blend_mode,
+    background_color,
+    background_clip,
+  ],
   background_image: Option<BackgroundImages>,
   background_position: Option<BackgroundPositions>,
   background_size: Option<BackgroundSizes>,
@@ -180,13 +246,17 @@ define_style!(
   font_weight: FontWeight where inherit = true,
   font_variation_settings: Option<FontVariationSettings> where inherit = true,
   font_feature_settings: Option<FontFeatureSettings> where inherit = true,
-  font_synthesis: FontSynthesis where inherit = true,
+  font_synthesis: FontSynthesis where inherit = true => [font_synthesis_weight, font_synthesis_style],
   font_synthesis_weight: Option<FontSynthesic> where inherit = true,
   font_synthesis_style: Option<FontSynthesic> where inherit = true,
   line_clamp: Option<LineClamp> where inherit = true,
   text_align: TextAlign where inherit = true,
   #[serde(rename = "WebkitTextStroke", alias = "textStroke")]
-  webkit_text_stroke: Option<TextStroke> where inherit = true,
+  webkit_text_stroke: Option<TextStroke> where inherit = true => [
+    webkit_text_stroke_width,
+    webkit_text_stroke_color,
+    webkit_text_fill_color,
+  ],
   #[serde(rename = "WebkitTextStrokeWidth", alias = "textStrokeWidth")]
   webkit_text_stroke_width: Option<Length<false>> where inherit = true,
   #[serde(rename = "WebkitTextStrokeColor", alias = "textStrokeColor")]
@@ -195,7 +265,7 @@ define_style!(
   webkit_text_fill_color: Option<ColorInput> where inherit = true,
   stroke_linejoin: LineJoin where inherit = true,
   text_shadow: Option<TextShadows> where inherit = true,
-  text_decoration: TextDecoration,
+  text_decoration: TextDecoration => [text_decoration_line, text_decoration_color],
   text_decoration_line: Option<TextDecorationLines> where inherit = true,
   text_decoration_color: Option<ColorInput> where inherit = true,
   text_decoration_skip_ink: TextDecorationSkipInk where inherit = true,
@@ -210,7 +280,7 @@ define_style!(
   white_space_collapse: Option<WhiteSpaceCollapse> where inherit = true,
   text_wrap_mode: Option<TextWrapMode> where inherit = true,
   text_wrap_style: Option<TextWrapStyle> where inherit = true,
-  text_wrap: TextWrap where inherit = true,
+  text_wrap: TextWrap where inherit = true => [text_wrap_mode, text_wrap_style],
   isolation: Isolation,
   mix_blend_mode: BlendMode,
   visibility: Visibility,
@@ -825,6 +895,128 @@ mod tests {
       tw_style.color,
       CssValue::Value(ColorInput::Value(Color([255, 0, 0, 255])))
     ); // from tw
+  }
+
+  #[test]
+  fn test_merge_from_margin_shorthand_clears_lower_priority_longhands() {
+    let mut preset_style = Style {
+      margin_top: Some(Length::Em(0.67)).into(),
+      margin_bottom: Some(Length::Em(0.67)).into(),
+      margin_left: Some(Length::Px(0.0)).into(),
+      margin_right: Some(Length::Px(0.0)).into(),
+      ..Default::default()
+    };
+
+    let inline_style = Style {
+      margin: Sides([Length::Px(0.0); 4]).into(),
+      ..Default::default()
+    };
+
+    preset_style.merge_from(inline_style);
+
+    let inherited = preset_style.inherit(&InheritedStyle::default());
+    let resolved = inherited.resolved_margin();
+    assert_eq!(resolved.top, Length::Px(0.0));
+    assert_eq!(resolved.right, Length::Px(0.0));
+    assert_eq!(resolved.bottom, Length::Px(0.0));
+    assert_eq!(resolved.left, Length::Px(0.0));
+  }
+
+  #[test]
+  fn test_merge_from_margin_longhand_still_overrides_shorthand_in_same_layer() {
+    let mut preset_style = Style {
+      margin_top: Some(Length::Em(0.67)).into(),
+      margin_bottom: Some(Length::Em(0.67)).into(),
+      ..Default::default()
+    };
+
+    let inline_style = Style {
+      margin: Sides([Length::Px(0.0); 4]).into(),
+      margin_top: Some(Length::Px(8.0)).into(),
+      ..Default::default()
+    };
+
+    preset_style.merge_from(inline_style);
+
+    let inherited = preset_style.inherit(&InheritedStyle::default());
+    let resolved = inherited.resolved_margin();
+    assert_eq!(resolved.top, Length::Px(8.0));
+    assert_eq!(resolved.right, Length::Px(0.0));
+    assert_eq!(resolved.bottom, Length::Px(0.0));
+    assert_eq!(resolved.left, Length::Px(0.0));
+  }
+
+  #[test]
+  fn test_merge_from_text_decoration_shorthand_clears_lower_priority_color() {
+    let mut preset_style = Style {
+      text_decoration_color: Some(ColorInput::Value(Color([255, 0, 0, 255]))).into(),
+      ..Default::default()
+    };
+
+    let inline_style = Style {
+      text_decoration: TextDecoration {
+        line: TextDecorationLines::UNDERLINE,
+        style: None,
+        color: None,
+      }
+      .into(),
+      ..Default::default()
+    };
+
+    preset_style.merge_from(inline_style);
+
+    let inherited = preset_style.inherit(&InheritedStyle::default());
+    assert_eq!(inherited.text_decoration_color, None);
+    assert_eq!(
+      inherited.text_decoration.line,
+      TextDecorationLines::UNDERLINE
+    );
+  }
+
+  #[test]
+  fn test_merge_from_border_shorthand_clears_lower_priority_border_width_longhands() {
+    let mut preset_style = Style {
+      border_top_width: Some(Length::Px(8.0)).into(),
+      border_bottom_width: Some(Length::Px(8.0)).into(),
+      ..Default::default()
+    };
+
+    let inline_style = Style {
+      border: Border {
+        width: Length::Px(2.0),
+        style: BorderStyle::Solid,
+        color: ColorInput::CurrentColor,
+      }
+      .into(),
+      ..Default::default()
+    };
+
+    preset_style.merge_from(inline_style);
+
+    let inherited = preset_style.inherit(&InheritedStyle::default());
+    let resolved = inherited.resolved_border_width();
+    assert_eq!(resolved.top, Length::Px(2.0));
+    assert_eq!(resolved.right, Length::Px(2.0));
+    assert_eq!(resolved.bottom, Length::Px(2.0));
+    assert_eq!(resolved.left, Length::Px(2.0));
+  }
+
+  #[test]
+  fn test_merge_from_background_shorthand_clears_lower_priority_background_color() {
+    let mut preset_style = Style {
+      background_color: Some(ColorInput::Value(Color([255, 0, 0, 255]))).into(),
+      ..Default::default()
+    };
+
+    let inline_style = Style {
+      background: [Background::default()].into(),
+      ..Default::default()
+    };
+
+    preset_style.merge_from(inline_style);
+
+    let inherited = preset_style.inherit(&InheritedStyle::default());
+    assert_eq!(inherited.background_color, None);
   }
 
   #[test]
