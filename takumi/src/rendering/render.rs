@@ -4,7 +4,9 @@ use derive_builder::Builder;
 use image::RgbaImage;
 use parley::PositionedLayoutItem;
 use serde::Serialize;
-use taffy::{AvailableSpace, NodeId, TaffyError, TaffyTree, geometry::Size};
+use taffy::{
+  AvailableSpace, NodeId, TaffyError, compute_root_layout, geometry::Size, round_layout,
+};
 
 use crate::{
   GlobalContext,
@@ -77,56 +79,42 @@ pub struct MeasuredNode {
 /// Computes the taffy layout for a node and returns the taffy tree and root node ID.
 fn compute_taffy_layout<'g, N: Node<N>>(
   options: RenderOptions<'g, N>,
-) -> Result<(TaffyTree<NodeTree<'g, N>>, NodeId), crate::Error> {
-  let mut taffy = TaffyTree::new();
-
+) -> Result<NodeTree<'g, N>, crate::Error> {
   let render_context = RenderContext {
     draw_debug_border: options.draw_debug_border,
     ..RenderContext::new(options.global, options.viewport, options.fetched_resources)
   };
 
-  let tree = NodeTree::from_node(&render_context, options.node);
+  let mut taffy = NodeTree::from_node(&render_context, options.node);
+  let root_node_id = taffy.root_node_id();
 
-  let root_node_id = tree.insert_into_taffy(&mut taffy)?;
-
-  taffy.compute_layout_with_measure(
+  compute_root_layout(
+    &mut taffy,
     root_node_id,
     render_context.sizing.viewport.into(),
-    |known_dimensions, available_space, _node_id, node_context, style| {
-      if let Size {
-        width: Some(width),
-        height: Some(height),
-      } = known_dimensions.maybe_apply_aspect_ratio(style.aspect_ratio)
-      {
-        Size { width, height }
-      } else if let Some(context) = node_context {
-        context.measure(available_space, known_dimensions, style)
-      } else {
-        Size::ZERO
-      }
-    },
-  )?;
+  );
+  round_layout(&mut taffy, root_node_id);
 
-  Ok((taffy, root_node_id))
+  Ok(taffy)
 }
 
 /// Measures the layout of a node.
 pub fn measure_layout<'g, N: Node<N>>(
   options: RenderOptions<'g, N>,
 ) -> Result<MeasuredNode, crate::Error> {
-  let (taffy, root_node_id) = compute_taffy_layout(options)?;
+  let taffy = compute_taffy_layout(options)?;
 
-  collect_measure_result(&taffy, root_node_id, Affine::IDENTITY)
+  collect_measure_result(&taffy, taffy.root_node_id(), Affine::IDENTITY)
 }
 
 fn collect_measure_result<'g, Nodes: Node<Nodes>>(
-  taffy: &TaffyTree<NodeTree<'g, Nodes>>,
+  taffy: &NodeTree<'g, Nodes>,
   node_id: NodeId,
   mut transform: Affine,
 ) -> Result<MeasuredNode, crate::Error> {
   let layout = *taffy.layout(node_id)?;
 
-  let Some(node) = taffy.get_node_context(node_id) else {
+  let Some(node) = taffy.get_render_node(node_id) else {
     return Err(TaffyError::InvalidInputNode(node_id).into());
   };
 
@@ -206,7 +194,7 @@ fn collect_measure_result<'g, Nodes: Node<Nodes>>(
   }
 
   for child_id in taffy.children(node_id)? {
-    children.push(collect_measure_result(taffy, child_id, local_transform)?);
+    children.push(collect_measure_result(taffy, *child_id, local_transform)?);
   }
 
   Ok(MeasuredNode {
@@ -221,8 +209,9 @@ fn collect_measure_result<'g, Nodes: Node<Nodes>>(
 /// Renders a node to an image.
 pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage, crate::Error> {
   let viewport = options.viewport;
-  let (mut taffy, root_node_id) = compute_taffy_layout(options)?;
+  let mut taffy = compute_taffy_layout(options)?;
 
+  let root_node_id = taffy.root_node_id();
   let root_size = taffy
     .layout(root_node_id)?
     .size
@@ -288,14 +277,14 @@ fn apply_transform(
 }
 
 fn render_node<'g, Nodes: Node<Nodes>>(
-  taffy: &mut TaffyTree<NodeTree<'g, Nodes>>,
+  taffy: &mut NodeTree<'g, Nodes>,
   node_id: NodeId,
   canvas: &mut Canvas,
   mut transform: Affine,
 ) -> Result<(), crate::Error> {
   let layout = *taffy.layout(node_id)?;
 
-  let Some(node) = taffy.get_node_context_mut(node_id) else {
+  let Some(node) = taffy.get_render_node_mut(node_id) else {
     return Err(TaffyError::InvalidInputNode(node_id).into());
   };
 
@@ -381,7 +370,7 @@ fn render_node<'g, Nodes: Node<Nodes>>(
   }
 
   // Extract needed properties from node before dropping it
-  let sizing = node.context.sizing;
+  let sizing = node.context.sizing.clone();
   let current_color = node.context.current_color;
   let mut filters = node.context.style.filter.clone();
   let opacity = node.context.style.opacity;
@@ -395,10 +384,7 @@ fn render_node<'g, Nodes: Node<Nodes>>(
   if should_create_inline {
     node.draw_inline(canvas, layout)?;
   } else {
-    // Drop the node context reference so we can borrow taffy again
-    let _ = node;
-
-    for child_id in taffy.children(node_id)? {
+    for child_id in taffy.children(node_id)?.to_vec() {
       render_node(taffy, child_id, canvas, transform)?;
     }
   }
