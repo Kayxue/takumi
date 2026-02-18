@@ -152,8 +152,6 @@ pub(crate) fn draw_glyph_clip_image<I: GenericImageView<Pixel = Rgba<u8>>>(
 
       let paths = collect_outline_paths(outline);
 
-      draw_text_shadow(canvas, style, transform, &paths);
-
       let (mask, placement) = canvas.mask_memory.render(&paths, Some(transform), None);
 
       overlay_area(
@@ -228,8 +226,6 @@ pub(crate) fn draw_glyph(
     ResolvedGlyph::Outline(outline) => {
       let paths = collect_outline_paths(outline);
 
-      draw_text_shadow(canvas, style, transform, &paths);
-
       if outline.is_color()
         && let Some(palette) = palette
       {
@@ -260,6 +256,21 @@ pub(crate) fn draw_glyph(
   }
 
   Ok(())
+}
+
+pub(crate) fn draw_glyph_text_shadow(
+  glyph: &ResolvedGlyph,
+  canvas: &mut Canvas,
+  style: &SizedFontStyle,
+  mut transform: Affine,
+  inline_offset: Point<f32>,
+) {
+  transform *= Affine::translation(inline_offset.x, inline_offset.y);
+
+  if let ResolvedGlyph::Outline(outline) = glyph {
+    let paths = collect_outline_paths(outline);
+    draw_text_shadow(canvas, style, transform, &paths);
+  }
 }
 
 fn draw_text_stroke_clip_image<I: GenericImageView<Pixel = Rgba<u8>>>(

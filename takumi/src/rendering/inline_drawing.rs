@@ -18,27 +18,19 @@ use crate::{
   rendering::{
     BorderProperties, Canvas, ColorTile, RenderContext, collect_background_layers,
     collect_outline_paths, draw_decoration, draw_glyph, draw_glyph_clip_image,
-    mask_index_from_coord, rasterize_layers,
+    draw_glyph_text_shadow, mask_index_from_coord, rasterize_layers,
   },
   resources::font::{FontError, ResolvedGlyph},
 };
 
 const UNDERLINE_SKIP_INK_ALPHA_THRESHOLD: u8 = 16;
-/// Empirical multiplier used for extending skip-ink bounds around detected glyph ink.
 const SKIP_PADDING_RATIO: f32 = 0.6;
-/// Empirical lower bound for skip-ink padding on thin underlines.
 const SKIP_PADDING_MIN: f32 = 1.0;
-/// Empirical upper bound for skip-ink padding on thick underlines.
 const SKIP_PADDING_MAX: f32 = 3.0;
-/// Empirical multiplier controlling when adjacent skip ranges are merged.
 const SMOOTH_GAP_RATIO: f32 = 0.28;
-/// Empirical lower bound for skip-range merge smoothing.
 const SMOOTH_GAP_MIN: f32 = 0.5;
-/// Empirical upper bound for skip-range merge smoothing.
 const SMOOTH_GAP_MAX: f32 = 1.5;
-/// Empirical multiplier for minimum visible underline segment between skipped ranges.
 const MIN_VISIBLE_SEGMENT_RATIO: f32 = 0.8;
-/// Empirical floor for minimum visible underline segment.
 const MIN_VISIBLE_SEGMENT_MIN: f32 = 0.75;
 
 #[derive(Clone, Copy)]
@@ -284,13 +276,13 @@ fn draw_underline_with_skip_ink(
   }
 }
 
-fn draw_glyph_run<I: GenericImageView<Pixel = Rgba<u8>>>(
+fn draw_glyph_run_under_overline(
   style: &SizedFontStyle,
   glyph_run: &GlyphRun<'_, InlineBrush>,
+  resolved_glyphs: &HashMap<u32, ResolvedGlyph>,
   canvas: &mut Canvas,
   layout: Layout,
   context: &RenderContext,
-  clip_image: Option<&I>,
 ) -> Result<()> {
   let decoration_line = style
     .parent
@@ -301,30 +293,6 @@ fn draw_glyph_run<I: GenericImageView<Pixel = Rgba<u8>>>(
   let run = glyph_run.run();
   let metrics = run.metrics();
 
-  if decoration_line.contains(&TextDecorationLine::Overline) {
-    draw_decoration(
-      canvas,
-      glyph_run,
-      glyph_run.style().brush.decoration_color,
-      glyph_run.baseline() - metrics.ascent - metrics.underline_offset,
-      glyph_run.run().font_size() / 18.0,
-      layout,
-      context.transform,
-    );
-  }
-
-  // Collect all glyph IDs for batch processing
-  let glyph_ids = glyph_run.positioned_glyphs().map(|glyph| glyph.id);
-
-  let font = FontRef::from_index(run.font().data.as_ref(), run.font().index as usize)
-    .ok_or(FontError::InvalidFontIndex)?;
-  let resolved_glyphs = context
-    .global
-    .font_context
-    .resolve_glyphs(glyph_run, font, glyph_ids);
-
-  let palette = font.color_palettes().next();
-
   if decoration_line.contains(&TextDecorationLine::Underline) {
     let offset = glyph_run.baseline() - metrics.underline_offset;
     let size = glyph_run.run().font_size() / 18.0;
@@ -332,7 +300,7 @@ fn draw_glyph_run<I: GenericImageView<Pixel = Rgba<u8>>>(
     if context.transform.only_translation()
       && style.parent.text_decoration_skip_ink != TextDecorationSkipInk::None
     {
-      let glyph_bounds_cache = build_glyph_bounds_cache(canvas, &resolved_glyphs);
+      let glyph_bounds_cache = build_glyph_bounds_cache(canvas, resolved_glyphs);
 
       draw_underline_with_skip_ink(
         canvas,
@@ -356,6 +324,68 @@ fn draw_glyph_run<I: GenericImageView<Pixel = Rgba<u8>>>(
       );
     }
   }
+
+  if decoration_line.contains(&TextDecorationLine::Overline) {
+    draw_decoration(
+      canvas,
+      glyph_run,
+      glyph_run.style().brush.decoration_color,
+      glyph_run.baseline() - metrics.ascent - metrics.underline_offset,
+      glyph_run.run().font_size() / 18.0,
+      layout,
+      context.transform,
+    );
+  }
+
+  Ok(())
+}
+
+fn draw_glyph_run_line_through(
+  style: &SizedFontStyle,
+  glyph_run: &GlyphRun<'_, InlineBrush>,
+  canvas: &mut Canvas,
+  layout: Layout,
+  context: &RenderContext,
+) {
+  let decoration_line = style
+    .parent
+    .text_decoration_line
+    .as_ref()
+    .unwrap_or(&style.parent.text_decoration.line);
+
+  if !decoration_line.contains(&TextDecorationLine::LineThrough) {
+    return;
+  }
+
+  let metrics = glyph_run.run().metrics();
+  let size = glyph_run.run().font_size() / 18.0;
+  let offset = glyph_run.baseline() - metrics.strikethrough_offset;
+
+  draw_decoration(
+    canvas,
+    glyph_run,
+    glyph_run.style().brush.decoration_color,
+    offset,
+    size,
+    layout,
+    context.transform,
+  );
+}
+
+fn draw_glyph_run_content<I: GenericImageView<Pixel = Rgba<u8>>>(
+  style: &SizedFontStyle,
+  glyph_run: &GlyphRun<'_, InlineBrush>,
+  resolved_glyphs: &HashMap<u32, ResolvedGlyph>,
+  canvas: &mut Canvas,
+  layout: Layout,
+  context: &RenderContext,
+  clip_image: Option<&I>,
+) -> Result<()> {
+  let run = glyph_run.run();
+
+  let font = FontRef::from_index(run.font().data.as_ref(), run.font().index as usize)
+    .ok_or(FontError::InvalidFontIndex)?;
+  let palette = font.color_palettes().next();
 
   if let Some(clip_image) = clip_image {
     for glyph in glyph_run.positioned_glyphs() {
@@ -400,22 +430,73 @@ fn draw_glyph_run<I: GenericImageView<Pixel = Rgba<u8>>>(
     )?;
   }
 
-  if decoration_line.contains(&TextDecorationLine::LineThrough) {
-    let size = glyph_run.run().font_size() / 18.0;
-    let offset = glyph_run.baseline() - metrics.strikethrough_offset;
+  Ok(())
+}
 
-    draw_decoration(
-      canvas,
-      glyph_run,
-      glyph_run.style().brush.decoration_color,
-      offset,
-      size,
-      layout,
-      context.transform,
-    );
+fn draw_glyph_run_text_shadow(
+  style: &SizedFontStyle,
+  glyph_run: &GlyphRun<'_, InlineBrush>,
+  resolved_glyphs: &HashMap<u32, ResolvedGlyph>,
+  canvas: &mut Canvas,
+  layout: Layout,
+  context: &RenderContext,
+) -> Result<()> {
+  for glyph in glyph_run.positioned_glyphs() {
+    let Some(content) = resolved_glyphs.get(&glyph.id) else {
+      continue;
+    };
+
+    let inline_offset = Point {
+      x: layout.border.left + layout.padding.left + glyph.x,
+      y: layout.border.top + layout.padding.top + glyph.y,
+    };
+
+    draw_glyph_text_shadow(content, canvas, style, context.transform, inline_offset);
   }
 
   Ok(())
+}
+
+fn glyph_runs(
+  inline_layout: &InlineLayout,
+) -> impl Iterator<Item = GlyphRun<'_, InlineBrush>> + '_ {
+  inline_layout.lines().flat_map(|line| {
+    line.items().filter_map(|item| {
+      if let PositionedLayoutItem::GlyphRun(glyph_run) = item {
+        Some(glyph_run)
+      } else {
+        None
+      }
+    })
+  })
+}
+
+fn glyph_runs_with_resolved<'a>(
+  inline_layout: &'a InlineLayout,
+  resolved_glyph_runs: &'a [HashMap<u32, ResolvedGlyph>],
+) -> impl Iterator<Item = (GlyphRun<'a, InlineBrush>, &'a HashMap<u32, ResolvedGlyph>)> + 'a {
+  glyph_runs(inline_layout).zip(resolved_glyph_runs.iter())
+}
+
+fn resolve_inline_layout_glyphs(
+  context: &RenderContext,
+  inline_layout: &InlineLayout,
+) -> Result<Vec<HashMap<u32, ResolvedGlyph>>> {
+  glyph_runs(inline_layout)
+    .map(|glyph_run| {
+      let run = glyph_run.run();
+      let glyph_ids = glyph_run.positioned_glyphs().map(|glyph| glyph.id);
+      let font = FontRef::from_index(run.font().data.as_ref(), run.font().index as usize)
+        .ok_or(FontError::InvalidFontIndex)?;
+
+      Ok(
+        context
+          .global
+          .font_context
+          .resolve_glyphs(&glyph_run, font, glyph_ids),
+      )
+    })
+    .collect()
 }
 
 pub(crate) fn draw_inline_box<N: Node<N>>(
@@ -451,6 +532,7 @@ pub(crate) fn draw_inline_layout(
   inline_layout: InlineLayout,
   font_style: &SizedFontStyle,
 ) -> Result<Vec<PositionedInlineBox>> {
+  let resolved_glyph_runs = resolve_inline_layout_glyphs(context, &inline_layout)?;
   let clip_image = if context.style.background_clip == BackgroundClip::Text {
     let layers = collect_background_layers(context, layout.size)?;
 
@@ -468,13 +550,43 @@ pub(crate) fn draw_inline_layout(
 
   let mut positioned_inline_boxes = Vec::new();
 
+  // Reference: https://www.w3.org/TR/css-text-decor-3/#painting-order
+  for (glyph_run, resolved_glyphs) in glyph_runs_with_resolved(&inline_layout, &resolved_glyph_runs)
+  {
+    draw_glyph_run_text_shadow(
+      font_style,
+      &glyph_run,
+      resolved_glyphs,
+      canvas,
+      layout,
+      context,
+    )?;
+  }
+
+  for (glyph_run, resolved_glyphs) in glyph_runs_with_resolved(&inline_layout, &resolved_glyph_runs)
+  {
+    draw_glyph_run_under_overline(
+      font_style,
+      &glyph_run,
+      resolved_glyphs,
+      canvas,
+      layout,
+      context,
+    )?;
+  }
+
+  let mut glyph_runs_with_resolved = glyph_runs_with_resolved(&inline_layout, &resolved_glyph_runs);
   for line in inline_layout.lines() {
     for item in line.items() {
       match item {
         PositionedLayoutItem::GlyphRun(glyph_run) => {
-          draw_glyph_run(
+          let Some((_, resolved_glyphs)) = glyph_runs_with_resolved.next() else {
+            continue;
+          };
+          draw_glyph_run_content(
             font_style,
             &glyph_run,
+            resolved_glyphs,
             canvas,
             layout,
             context,
@@ -489,10 +601,13 @@ pub(crate) fn draw_inline_layout(
     }
   }
 
+  for glyph_run in glyph_runs(&inline_layout) {
+    draw_glyph_run_line_through(font_style, &glyph_run, canvas, layout, context);
+  }
+
   Ok(positioned_inline_boxes)
 }
 
-// https://github.com/linebender/parley/blob/d7ed9b1ec844fa5a9ed71b84552c603dae3cab18/parley/src/layout/line.rs#L261C28-L261C61
 pub(crate) fn fix_inline_box_y(y: &mut f32, metrics: &LineMetrics) {
   *y += metrics.line_height - metrics.baseline;
 }
