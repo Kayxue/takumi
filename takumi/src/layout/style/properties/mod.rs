@@ -664,38 +664,61 @@ pub enum Display {
   /// The element generates a flex container and its children follow the flexbox layout algorithm
   #[default]
   Flex,
+  /// The element generates an inline-level flex container
+  InlineFlex,
   /// The element generates a grid container and its children follow the CSS Grid layout algorithm
   Grid,
+  /// The element generates an inline-level grid container
+  InlineGrid,
   /// The element generates an inline container and its children follow the inline layout algorithm
   Inline,
   /// The element creates a block container and its children follow the block layout algorithm
   Block,
+  /// The element generates an inline-level block container
+  InlineBlock,
 }
 
 declare_enum_from_css_impl!(
   Display,
   "none" => Display::None,
   "flex" => Display::Flex,
+  "inline-flex" => Display::InlineFlex,
   "grid" => Display::Grid,
+  "inline-grid" => Display::InlineGrid,
   "inline" => Display::Inline,
-  "block" => Display::Block
+  "block" => Display::Block,
+  "inline-block" => Display::InlineBlock
 );
 
 impl Display {
-  /// Returns true if the display is inline.
+  /// Returns true if the display creates an inline formatting context.
   pub fn is_inline(&self) -> bool {
     *self == Display::Inline
   }
 
+  /// Returns true if the display participates in the inline flow as an atomic box.
+  pub fn is_inline_level(&self) -> bool {
+    matches!(
+      self,
+      Display::Inline | Display::InlineBlock | Display::InlineFlex | Display::InlineGrid
+    )
+  }
+
   /// Returns true if the display makes the children blockified (e.g., flex or grid).
   pub fn should_blockify_children(&self) -> bool {
-    matches!(self, Display::Flex | Display::Grid)
+    matches!(
+      self,
+      Display::Flex | Display::InlineFlex | Display::Grid | Display::InlineGrid
+    )
   }
 
   /// Cast the display to block level.
   pub fn as_blockified(self) -> Self {
     match self {
       Display::Inline => Display::Block,
+      Display::InlineBlock => Display::Block,
+      Display::InlineFlex => Display::Flex,
+      Display::InlineGrid => Display::Grid,
       _ => self,
     }
   }
@@ -710,8 +733,11 @@ impl From<Display> for taffy::Display {
   fn from(value: Display) -> Self {
     match value {
       Display::Flex => taffy::Display::Flex,
+      Display::InlineFlex => taffy::Display::Flex,
       Display::Grid => taffy::Display::Grid,
+      Display::InlineGrid => taffy::Display::Grid,
       Display::Block => taffy::Display::Block,
+      Display::InlineBlock => taffy::Display::Block,
       Display::None => taffy::Display::None,
       Display::Inline => unreachable!("Inline node should not be inserted into taffy context"),
     }

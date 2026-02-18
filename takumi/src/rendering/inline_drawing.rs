@@ -14,14 +14,16 @@ use crate::{
       Affine, BackgroundClip, BlendMode, Color, ImageScalingAlgorithm, SizedFontStyle,
       TextDecorationLines, TextDecorationSkipInk,
     },
+    tree::LayoutTree,
   },
   rendering::{
     BorderProperties, Canvas, ColorTile, RenderContext, collect_background_layers,
     collect_outline_paths, draw_decoration, draw_glyph, draw_glyph_clip_image,
-    draw_glyph_text_shadow, mask_index_from_coord, rasterize_layers,
+    draw_glyph_text_shadow, mask_index_from_coord, rasterize_layers, render::render_node,
   },
   resources::font::{FontError, ResolvedGlyph},
 };
+use taffy::{AvailableSpace, geometry::Size};
 
 const UNDERLINE_SKIP_INK_ALPHA_THRESHOLD: u8 = 16;
 const SKIP_PADDING_RATIO: f32 = 0.6;
@@ -485,22 +487,56 @@ pub(crate) fn draw_inline_box<N: Node<N>>(
   canvas: &mut Canvas,
   transform: Affine,
 ) -> Result<()> {
-  if item.context.style.opacity.0 == 0.0 {
+  if item.render_node.context.style.opacity.0 == 0.0 {
     return Ok(());
   }
 
+  if item.render_node.is_inline_atomic_container() {
+    let mut subtree_root = item.render_node.clone();
+    let mut layout_tree = LayoutTree::from_render_node(&subtree_root);
+
+    let inline_width =
+      (inline_box.width - item.margin.grid_axis_sum(taffy::AbsoluteAxis::Horizontal)).max(0.0);
+    let inline_height =
+      (inline_box.height - item.margin.grid_axis_sum(taffy::AbsoluteAxis::Vertical)).max(0.0);
+
+    layout_tree.compute_layout(Size {
+      width: AvailableSpace::Definite(inline_width),
+      height: AvailableSpace::Definite(inline_height),
+    });
+    let layout_results = layout_tree.into_results();
+    let root_node_id = layout_results.root_node_id();
+
+    render_node(
+      &mut subtree_root,
+      &layout_results,
+      root_node_id,
+      canvas,
+      transform
+        * Affine::translation(
+          inline_box.x + item.margin.left,
+          inline_box.y + item.margin.top,
+        ),
+    )?;
+    return Ok(());
+  }
+
+  let Some(node) = &item.render_node.node else {
+    return Ok(());
+  };
+
   let context = RenderContext {
     transform: transform * Affine::translation(inline_box.x, inline_box.y),
-    ..item.context.clone()
+    ..item.render_node.context.clone()
   };
   let layout = item.into();
 
-  item.node.draw_outset_box_shadow(&context, canvas, layout)?;
-  item.node.draw_background(&context, canvas, layout)?;
-  item.node.draw_inset_box_shadow(&context, canvas, layout)?;
-  item.node.draw_border(&context, canvas, layout)?;
-  item.node.draw_content(&context, canvas, layout)?;
-  item.node.draw_outline(&context, canvas, layout)?;
+  node.draw_outset_box_shadow(&context, canvas, layout)?;
+  node.draw_background(&context, canvas, layout)?;
+  node.draw_inset_box_shadow(&context, canvas, layout)?;
+  node.draw_border(&context, canvas, layout)?;
+  node.draw_content(&context, canvas, layout)?;
+  node.draw_outline(&context, canvas, layout)?;
 
   Ok(())
 }

@@ -8,7 +8,7 @@ use crate::{
   layout::{
     node::Node,
     style::{Color, FontSynthesis, SizedFontStyle, TextOverflow, TextWrapStyle},
-    tree::RenderTreeNode,
+    tree::RenderNode,
   },
   rendering::{
     MaxHeight, RenderContext, apply_text_transform, apply_white_space_collapse, make_balanced_text,
@@ -23,8 +23,7 @@ pub(crate) enum InlineLayoutStage {
 }
 
 pub(crate) struct InlineBoxItem<'c, 'g, N: Node<N>> {
-  pub(crate) node: &'c N,
-  pub(crate) context: &'c RenderContext<'g>,
+  pub(crate) render_node: &'c RenderNode<'g, N>,
   pub(crate) inline_box: InlineBox,
   pub(crate) margin: Rect<f32>,
   pub(crate) padding: Rect<f32>,
@@ -55,9 +54,8 @@ pub(crate) enum ProcessedInlineSpan<'c, 'g, N: Node<N>> {
 }
 
 pub(crate) enum InlineItem<'c, 'g, N: Node<N>> {
-  Node {
-    node: &'c N,
-    context: &'c RenderContext<'g>,
+  RenderNode {
+    render_node: &'c RenderNode<'g, N>,
   },
   Text {
     text: Cow<'c, str>,
@@ -145,7 +143,8 @@ pub(crate) fn create_inline_layout<'c, 'g: 'c, N: Node<N> + 'c>(
             style: span_style,
           });
         }
-        InlineItem::Node { node, context } => {
+        InlineItem::RenderNode { render_node } => {
+          let context = &render_node.context;
           let margin = context
             .style
             .resolved_margin()
@@ -159,29 +158,42 @@ pub(crate) fn create_inline_layout<'c, 'g: 'c, N: Node<N> + 'c>(
             .resolved_border_width()
             .map(|length| length.to_px(&context.sizing, 0.0));
 
-          let content_size = node.measure(
-            context,
-            available_space,
-            Size::NONE,
-            &taffy::Style::default(),
-          );
+          let content_size = if render_node.is_inline_atomic_container() {
+            render_node.measure_atomic_subtree(available_space)
+          } else if let Some(node) = &render_node.node {
+            node.measure(
+              context,
+              available_space,
+              Size::NONE,
+              &taffy::Style::default(),
+            )
+          } else {
+            Size::zero()
+          };
 
           let inline_box = InlineBox {
             index: index_pos,
             id: idx,
-            width: content_size.width
-              + margin.grid_axis_sum(taffy::AbsoluteAxis::Horizontal)
-              + padding.grid_axis_sum(taffy::AbsoluteAxis::Horizontal)
-              + border.grid_axis_sum(taffy::AbsoluteAxis::Horizontal),
-            height: content_size.height
-              + margin.grid_axis_sum(taffy::AbsoluteAxis::Vertical)
-              + padding.grid_axis_sum(taffy::AbsoluteAxis::Vertical)
-              + border.grid_axis_sum(taffy::AbsoluteAxis::Vertical),
+            width: if render_node.is_inline_atomic_container() {
+              content_size.width + margin.grid_axis_sum(taffy::AbsoluteAxis::Horizontal)
+            } else {
+              content_size.width
+                + margin.grid_axis_sum(taffy::AbsoluteAxis::Horizontal)
+                + padding.grid_axis_sum(taffy::AbsoluteAxis::Horizontal)
+                + border.grid_axis_sum(taffy::AbsoluteAxis::Horizontal)
+            },
+            height: if render_node.is_inline_atomic_container() {
+              content_size.height + margin.grid_axis_sum(taffy::AbsoluteAxis::Vertical)
+            } else {
+              content_size.height
+                + margin.grid_axis_sum(taffy::AbsoluteAxis::Vertical)
+                + padding.grid_axis_sum(taffy::AbsoluteAxis::Vertical)
+                + border.grid_axis_sum(taffy::AbsoluteAxis::Vertical)
+            },
           };
 
           spans.push(ProcessedInlineSpan::Box(InlineBoxItem {
-            node,
-            context,
+            render_node,
             inline_box: inline_box.clone(),
             margin,
             padding,
@@ -384,7 +396,7 @@ fn make_ellipsis_layout<'c, 'g: 'c, N: Node<N> + 'c>(
 }
 
 pub(crate) struct InlineItemIterator<'n, 'g, N: Node<N>> {
-  pub(crate) stack: Vec<(&'n RenderTreeNode<'g, N>, usize)>, // (node, depth)
+  pub(crate) stack: Vec<(&'n RenderNode<'g, N>, usize)>, // (node, depth)
   pub(crate) current_node_content: Option<InlineItem<'n, 'g, N>>,
 }
 
@@ -399,6 +411,11 @@ impl<'n, 'g, N: Node<N>> Iterator for InlineItemIterator<'n, 'g, N> {
 
       let (node, depth) = self.stack.pop()?;
 
+      if node.is_inline_atomic_container() {
+        self.current_node_content = Some(InlineItem::RenderNode { render_node: node });
+        continue;
+      }
+
       if let Some(children) = &node.children {
         for child in children.iter().rev() {
           self.stack.push((child, depth + 1));
@@ -408,12 +425,7 @@ impl<'n, 'g, N: Node<N>> Iterator for InlineItemIterator<'n, 'g, N> {
       if let Some(inline_content) = node.node.as_ref().and_then(Node::inline_content) {
         match inline_content {
           InlineContentKind::Box => {
-            if let Some(n) = &node.node {
-              self.current_node_content = Some(InlineItem::Node {
-                node: n,
-                context: &node.context,
-              });
-            }
+            self.current_node_content = Some(InlineItem::RenderNode { render_node: node });
           }
           InlineContentKind::Text(text) => {
             self.current_node_content = Some(InlineItem::Text {

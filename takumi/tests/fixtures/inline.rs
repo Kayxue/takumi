@@ -304,3 +304,117 @@ fn inline_span_background_color() {
 
   run_fixture_test(container.into(), "inline_span_background_color");
 }
+
+#[test]
+fn inline_atomic_containers() {
+  let atomic = |display, color, label: &str| {
+    ContainerNode {
+      preset: None,
+      tw: None,
+      style: Some(
+        StyleBuilder::default()
+          .display(display)
+          .padding(Sides([Px(8.0); 4]))
+          .background_color(ColorInput::Value(color))
+          .border_width(Some(Sides([Px(2.0); 4])))
+          .border_style(Some(BorderStyle::Solid))
+          .build()
+          .unwrap(),
+      ),
+      children: Some(
+        [TextNode {
+          preset: None,
+          tw: None,
+          style: None,
+          text: label.to_string(),
+        }
+        .into()]
+        .into(),
+      ),
+    }
+    .into()
+  };
+
+  let container = ContainerNode {
+    preset: None,
+    tw: None,
+    style: Some(
+      StyleBuilder::default()
+        .width(Percentage(100.0))
+        .height(Percentage(100.0))
+        .align_items(AlignItems::Center)
+        .justify_content(JustifyContent::Center)
+        .background_color(ColorInput::Value(Color::white()))
+        .white_space(WhiteSpace::pre())
+        .build()
+        .unwrap(),
+    ),
+    children: Some(
+      [ContainerNode {
+        preset: None,
+        tw: None,
+        style: Some(
+          StyleBuilder::default()
+            .display(Display::Block)
+            .font_size(Some(Px(24.0)))
+            .border_width(Some(Sides([Px(2.0); 4])))
+            .border_style(Some(BorderStyle::Solid))
+            .build()
+            .unwrap(),
+        ),
+        children: Some(
+          [
+            TextNode {
+              preset: None,
+              tw: None,
+              style: Some(
+                StyleBuilder::default()
+                  .display(Display::Inline)
+                  .build()
+                  .unwrap(),
+              ),
+              text: "before ".to_string(),
+            }
+            .into(),
+            atomic(
+              Display::InlineBlock,
+              Color([255, 0, 0, 100]),
+              "inline-block",
+            ),
+            TextNode {
+              preset: None,
+              tw: None,
+              style: Some(
+                StyleBuilder::default()
+                  .display(Display::Inline)
+                  .build()
+                  .unwrap(),
+              ),
+              text: " mid ".to_string(),
+            }
+            .into(),
+            atomic(Display::InlineFlex, Color([0, 255, 0, 100]), "inline-flex"),
+            TextNode {
+              preset: None,
+              tw: None,
+              style: Some(
+                StyleBuilder::default()
+                  .display(Display::Inline)
+                  .build()
+                  .unwrap(),
+              ),
+              text: " end ".to_string(),
+            }
+            .into(),
+            atomic(Display::InlineGrid, Color([0, 0, 255, 100]), "inline-grid"),
+          ]
+          .into(),
+        ),
+      }
+      .into()]
+      .into(),
+    ),
+  };
+
+  run_fixture_test(container.into(), "inline_atomic_containers");
+}

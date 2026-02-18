@@ -4,9 +4,7 @@ use derive_builder::Builder;
 use image::RgbaImage;
 use parley::PositionedLayoutItem;
 use serde::Serialize;
-use taffy::{
-  AvailableSpace, NodeId, TaffyError, compute_root_layout, geometry::Size, round_layout,
-};
+use taffy::{AvailableSpace, NodeId, geometry::Size};
 
 use crate::{
   GlobalContext,
@@ -18,7 +16,7 @@ use crate::{
       Affine, Filter, ImageScalingAlgorithm, InheritedStyle, SpacePair, apply_backdrop_filter,
       apply_filters,
     },
-    tree::NodeTree,
+    tree::{LayoutResults, LayoutTree, RenderNode},
   },
   rendering::{
     BorderProperties, Canvas, CanvasConstrain, CanvasConstrainResult, RenderContext, Sizing,
@@ -76,47 +74,34 @@ pub struct MeasuredNode {
   pub runs: Vec<MeasuredTextRun>,
 }
 
-/// Computes the taffy layout for a node and returns the taffy tree and root node ID.
-fn compute_taffy_layout<'g, N: Node<N>>(
-  options: RenderOptions<'g, N>,
-) -> Result<NodeTree<'g, N>, crate::Error> {
-  let render_context = RenderContext {
-    draw_debug_border: options.draw_debug_border,
-    ..RenderContext::new(options.global, options.viewport, options.fetched_resources)
-  };
-
-  let mut taffy = NodeTree::from_node(&render_context, options.node);
-  let root_node_id = taffy.root_node_id();
-
-  compute_root_layout(
-    &mut taffy,
-    root_node_id,
-    render_context.sizing.viewport.into(),
-  );
-  round_layout(&mut taffy, root_node_id);
-
-  Ok(taffy)
-}
-
 /// Measures the layout of a node.
 pub fn measure_layout<'g, N: Node<N>>(
   options: RenderOptions<'g, N>,
 ) -> Result<MeasuredNode, crate::Error> {
-  let taffy = compute_taffy_layout(options)?;
+  let render_context = RenderContext {
+    draw_debug_border: options.draw_debug_border,
+    ..RenderContext::new(options.global, options.viewport, options.fetched_resources)
+  };
+  let root = RenderNode::from_node(&render_context, options.node);
+  let mut tree = LayoutTree::from_render_node(&root);
+  tree.compute_layout(render_context.sizing.viewport.into());
+  let layout_results = tree.into_results();
 
-  collect_measure_result(&taffy, taffy.root_node_id(), Affine::IDENTITY)
+  collect_measure_result(
+    &root,
+    &layout_results,
+    layout_results.root_node_id(),
+    Affine::IDENTITY,
+  )
 }
 
 fn collect_measure_result<'g, Nodes: Node<Nodes>>(
-  taffy: &NodeTree<'g, Nodes>,
+  node: &RenderNode<'g, Nodes>,
+  layout_results: &LayoutResults,
   node_id: NodeId,
   mut transform: Affine,
 ) -> Result<MeasuredNode, crate::Error> {
-  let layout = *taffy.layout(node_id)?;
-
-  let Some(node) = taffy.get_render_node(node_id) else {
-    return Err(TaffyError::InvalidInputNode(node_id).into());
-  };
+  let layout = *layout_results.layout(node_id)?;
 
   transform *= Affine::translation(layout.location.x, layout.location.y);
 
@@ -193,8 +178,18 @@ fn collect_measure_result<'g, Nodes: Node<Nodes>>(
     }
   }
 
-  for child_id in taffy.children(node_id)? {
-    children.push(collect_measure_result(taffy, *child_id, local_transform)?);
+  if !node.should_create_inline_layout()
+    && let Some(render_children) = node.children.as_deref()
+  {
+    let layout_children = layout_results.children(node_id)?;
+    for (child, child_id) in render_children.iter().zip(layout_children.iter().copied()) {
+      children.push(collect_measure_result(
+        child,
+        layout_results,
+        child_id,
+        local_transform,
+      )?);
+    }
   }
 
   Ok(MeasuredNode {
@@ -209,10 +204,17 @@ fn collect_measure_result<'g, Nodes: Node<Nodes>>(
 /// Renders a node to an image.
 pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage, crate::Error> {
   let viewport = options.viewport;
-  let mut taffy = compute_taffy_layout(options)?;
+  let render_context = RenderContext {
+    draw_debug_border: options.draw_debug_border,
+    ..RenderContext::new(options.global, options.viewport, options.fetched_resources)
+  };
 
-  let root_node_id = taffy.root_node_id();
-  let root_size = taffy
+  let mut root = RenderNode::from_node(&render_context, options.node);
+  let mut tree = LayoutTree::from_render_node(&root);
+  tree.compute_layout(render_context.sizing.viewport.into());
+  let layout_results = tree.into_results();
+  let root_node_id = layout_results.root_node_id();
+  let root_size = layout_results
     .layout(root_node_id)?
     .size
     .map(|size| size.round() as u32);
@@ -231,9 +233,21 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
 
   let mut canvas = Canvas::new(root_size);
 
-  render_node(&mut taffy, root_node_id, &mut canvas, Affine::IDENTITY)?;
+  root.render(&layout_results, root_node_id, &mut canvas, Affine::IDENTITY)?;
 
   Ok(canvas.into_inner())
+}
+
+impl<'g, Nodes: Node<Nodes>> RenderNode<'g, Nodes> {
+  pub(crate) fn render(
+    &mut self,
+    layout_results: &LayoutResults,
+    node_id: NodeId,
+    canvas: &mut Canvas,
+    transform: Affine,
+  ) -> Result<(), crate::Error> {
+    render_node(self, layout_results, node_id, canvas, transform)
+  }
 }
 
 fn apply_transform(
@@ -276,17 +290,14 @@ fn apply_transform(
   *transform *= local;
 }
 
-fn render_node<'g, Nodes: Node<Nodes>>(
-  taffy: &mut NodeTree<'g, Nodes>,
+pub(crate) fn render_node<'g, Nodes: Node<Nodes>>(
+  node: &mut RenderNode<'g, Nodes>,
+  layout_results: &LayoutResults,
   node_id: NodeId,
   canvas: &mut Canvas,
   mut transform: Affine,
 ) -> Result<(), crate::Error> {
-  let layout = *taffy.layout(node_id)?;
-
-  let Some(node) = taffy.get_render_node_mut(node_id) else {
-    return Err(TaffyError::InvalidInputNode(node_id).into());
-  };
+  let layout = *layout_results.layout(node_id)?;
 
   if node.context.style.is_invisible() {
     return Ok(());
@@ -369,27 +380,28 @@ fn render_node<'g, Nodes: Node<Nodes>>(
     draw_debug_border(canvas, layout, transform);
   }
 
-  // Extract needed properties from node before dropping it
-  let sizing = node.context.sizing.clone();
-  let current_color = node.context.current_color;
   let mut filters = node.context.style.filter.clone();
-  let opacity = node.context.style.opacity;
-  let mix_blend_mode = node.context.style.mix_blend_mode;
   let should_create_inline = node.should_create_inline_layout();
 
-  if opacity.0 < 1.0 {
-    filters.push(Filter::Opacity(opacity));
+  if node.context.style.opacity.0 < 1.0 {
+    filters.push(Filter::Opacity(node.context.style.opacity));
   }
 
   if should_create_inline {
     node.draw_inline(canvas, layout)?;
-  } else {
-    for child_id in taffy.children(node_id)?.to_vec() {
-      render_node(taffy, child_id, canvas, transform)?;
+  } else if let Some(children) = node.children.as_deref_mut() {
+    let layout_children = layout_results.children(node_id)?;
+    for (child, child_id) in children.iter_mut().zip(layout_children.iter().copied()) {
+      render_node(child, layout_results, child_id, canvas, transform)?;
     }
   }
 
-  apply_filters(&mut canvas.image, &sizing, current_color, filters.iter());
+  apply_filters(
+    &mut canvas.image,
+    &node.context.sizing,
+    node.context.current_color,
+    filters.iter(),
+  );
 
   // If there was an isolated canvas, composite the filtered image back into the original canvas
   if let Some(mut original_canvas_image) = original_canvas_image {
@@ -399,7 +411,7 @@ fn render_node<'g, Nodes: Node<Nodes>>(
       BorderProperties::zero(),
       Affine::IDENTITY,
       ImageScalingAlgorithm::Auto,
-      mix_blend_mode,
+      node.context.style.mix_blend_mode,
       &[],
       &mut canvas.mask_memory,
     );
