@@ -12,7 +12,7 @@ use crate::{
   Result,
   layout::{
     inline::{
-      InlineItemIterator, InlineLayoutStage, ProcessedInlineSpan, create_inline_constraint,
+      InlineLayoutStage, ProcessedInlineSpan, collect_inline_items, create_inline_constraint,
       create_inline_layout, measure_inline_layout,
     },
     node::Node,
@@ -439,7 +439,7 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
     };
 
     let (inline_layout, _, spans) = create_inline_layout(
-      self.inline_items_iter(),
+      collect_inline_items(self).into_iter(),
       Size {
         width: AvailableSpace::Definite(layout.content_box_width()),
         height: AvailableSpace::Definite(layout.content_box_height()),
@@ -666,7 +666,7 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
       let font_style = self.context.style.to_sized_font_style(&self.context);
 
       let (mut layout, _, _) = create_inline_layout(
-        self.inline_items_iter(),
+        collect_inline_items(self).into_iter(),
         available_space,
         max_width,
         max_height,
@@ -689,13 +689,6 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
     };
 
     node.measure(&self.context, available_space, known_dimensions, style)
-  }
-
-  pub(crate) fn inline_items_iter(&self) -> InlineItemIterator<'_, 'g, N> {
-    InlineItemIterator {
-      stack: vec![(self, 0)],
-      current_node_content: None,
-    }
   }
 }
 

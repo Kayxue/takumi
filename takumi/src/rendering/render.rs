@@ -10,7 +10,9 @@ use crate::{
   GlobalContext,
   layout::{
     Viewport,
-    inline::{InlineLayoutStage, create_inline_constraint, create_inline_layout},
+    inline::{
+      InlineLayoutStage, collect_inline_items, create_inline_constraint, create_inline_layout,
+    },
     node::Node,
     style::{
       Affine, Filter, ImageScalingAlgorithm, InheritedStyle, SpacePair, apply_backdrop_filter,
@@ -129,7 +131,7 @@ fn collect_measure_result<'g, Nodes: Node<Nodes>>(
     );
 
     let (inline_layout, text, _) = create_inline_layout(
-      node.inline_items_iter(),
+      collect_inline_items(node).into_iter(),
       Size {
         width: AvailableSpace::Definite(layout.content_box_width()),
         height: AvailableSpace::Definite(layout.content_box_height()),

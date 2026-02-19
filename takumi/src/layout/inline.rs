@@ -63,6 +63,41 @@ pub(crate) enum InlineItem<'c, 'g, N: Node<N>> {
   },
 }
 
+pub(crate) fn collect_inline_items<'n, 'g, N: Node<N>>(
+  root: &'n RenderNode<'g, N>,
+) -> Vec<InlineItem<'n, 'g, N>> {
+  let mut items = Vec::new();
+  collect_inline_items_impl(root, 0, &mut items);
+  items
+}
+
+fn collect_inline_items_impl<'n, 'g, N: Node<N>>(
+  node: &'n RenderNode<'g, N>,
+  depth: usize,
+  items: &mut Vec<InlineItem<'n, 'g, N>>,
+) {
+  if depth > 0 && node.is_inline_atomic_container() {
+    items.push(InlineItem::RenderNode { render_node: node });
+    return;
+  }
+
+  if let Some(inline_content) = node.node.as_ref().and_then(Node::inline_content) {
+    match inline_content {
+      InlineContentKind::Box => items.push(InlineItem::RenderNode { render_node: node }),
+      InlineContentKind::Text(text) => items.push(InlineItem::Text {
+        text,
+        context: &node.context,
+      }),
+    }
+  }
+
+  if let Some(children) = &node.children {
+    for child in children {
+      collect_inline_items_impl(child, depth + 1, items);
+    }
+  }
+}
+
 pub enum InlineContentKind<'c> {
   Text(Cow<'c, str>),
   Box,
@@ -389,50 +424,6 @@ fn make_ellipsis_layout<'c, 'g: 'c, N: Node<N> + 'c>(
         } else {
           // Text span is empty, remove it
           spans.pop();
-        }
-      }
-    }
-  }
-}
-
-pub(crate) struct InlineItemIterator<'n, 'g, N: Node<N>> {
-  pub(crate) stack: Vec<(&'n RenderNode<'g, N>, usize)>, // (node, depth)
-  pub(crate) current_node_content: Option<InlineItem<'n, 'g, N>>,
-}
-
-impl<'n, 'g, N: Node<N>> Iterator for InlineItemIterator<'n, 'g, N> {
-  type Item = InlineItem<'n, 'g, N>;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    loop {
-      if let Some(content) = self.current_node_content.take() {
-        return Some(content);
-      }
-
-      let (node, depth) = self.stack.pop()?;
-
-      if node.is_inline_atomic_container() {
-        self.current_node_content = Some(InlineItem::RenderNode { render_node: node });
-        continue;
-      }
-
-      if let Some(children) = &node.children {
-        for child in children.iter().rev() {
-          self.stack.push((child, depth + 1));
-        }
-      }
-
-      if let Some(inline_content) = node.node.as_ref().and_then(Node::inline_content) {
-        match inline_content {
-          InlineContentKind::Box => {
-            self.current_node_content = Some(InlineItem::RenderNode { render_node: node });
-          }
-          InlineContentKind::Text(text) => {
-            self.current_node_content = Some(InlineItem::Text {
-              text,
-              context: &node.context,
-            });
-          }
         }
       }
     }
