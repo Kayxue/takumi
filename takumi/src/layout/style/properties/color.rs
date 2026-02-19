@@ -87,6 +87,26 @@ const STONE: [u32; 11] = [
   0x1c1917, 0x0c0a09,
 ];
 
+const TAUPE: [u32; 11] = [
+  0xfbfaf9, 0xf3f1f1, 0xe8e4e3, 0xd8d2d0, 0xaba09c, 0x7c6d67, 0x5b4f4b, 0x473c39, 0x2b2422,
+  0x1d1816, 0x0c0a09,
+];
+
+const MAUVE: [u32; 11] = [
+  0xfafafa, 0xf3f1f3, 0xe7e4e7, 0xd7d0d7, 0xa89ea9, 0x79697b, 0x594c5b, 0x463947, 0x2a212c,
+  0x1d161e, 0x0c090c,
+];
+
+const MIST: [u32; 11] = [
+  0xf9fbfb, 0xf1f3f3, 0xe3e7e8, 0xd0d6d8, 0x9ca8ab, 0x67787c, 0x4b585b, 0x394447, 0x22292b,
+  0x161b1d, 0x090b0c,
+];
+
+const OLIVE: [u32; 11] = [
+  0xfbfbf9, 0xf4f4f0, 0xe8e8e3, 0xd8d8d0, 0xabab9c, 0x7c7c67, 0x5b5b4b, 0x474739, 0x2b2b22,
+  0x1d1d16, 0x0c0c09,
+];
+
 const RED: [u32; 11] = [
   0xfef2f2, 0xfee2e2, 0xfecaca, 0xfca5a5, 0xf87171, 0xef4444, 0xdc2626, 0xb91c1c, 0x991b1b,
   0x7f1d1d, 0x450a0a,
@@ -119,7 +139,7 @@ const GREEN: [u32; 11] = [
 
 const EMERALD: [u32; 11] = [
   0xecfdf5, 0xd1fae5, 0xa7f3d0, 0x6ee7b7, 0x34d399, 0x10b981, 0x059669, 0x047857, 0x065f46,
-  0x064e3b, 0x052c22,
+  0x064e3b, 0x022c22,
 ];
 
 const TEAL: [u32; 11] = [
@@ -193,6 +213,10 @@ fn lookup_tailwind_color(color_name: &str, shade: u16) -> Option<u32> {
       "zinc" => &ZINC,
       "neutral" => &NEUTRAL,
       "stone" => &STONE,
+      "taupe" => &TAUPE,
+      "mauve" => &MAUVE,
+      "mist" => &MIST,
+      "olive" => &OLIVE,
       "red" => &RED,
       "orange" => &ORANGE,
       "amber" => &AMBER,
