@@ -1,4 +1,4 @@
-use std::{ops::Neg, sync::RwLock};
+use std::{cell::RefCell, ops::Neg};
 
 use cssparser::{Parser, Token, match_ignore_ascii_case};
 use taffy::{CompactLength, Dimension, LengthPercentage, LengthPercentageAuto};
@@ -21,15 +21,12 @@ const CALC_ZERO_EPSILON: f32 = 1e-6;
 
 #[derive(Default)]
 pub(crate) struct CalcArena {
-  linear_values: RwLock<Vec<CalcLinear>>,
+  linear_values: RefCell<Vec<CalcLinear>>,
 }
 
 impl CalcArena {
   fn register_linear(&self, linear: CalcLinear) -> *const () {
-    let mut linear_values = match self.linear_values.write() {
-      Ok(values) => values,
-      Err(poisoned) => poisoned.into_inner(),
-    };
+    let mut linear_values = self.linear_values.borrow_mut();
 
     linear_values.push(linear);
     encode_linear_id(linear_values.len())
@@ -40,10 +37,7 @@ impl CalcArena {
       return 0.0;
     };
 
-    let linear_values = match self.linear_values.read() {
-      Ok(values) => values,
-      Err(poisoned) => poisoned.into_inner(),
-    };
+    let linear_values = self.linear_values.borrow();
     linear_values
       .get(id - 1)
       .map(|linear| linear.resolve(basis))
@@ -723,7 +717,7 @@ impl<const DEFAULT_AUTO: bool> MakeComputed for Length<DEFAULT_AUTO> {
 
 #[cfg(test)]
 mod tests {
-  use std::sync::Arc;
+  use std::rc::Rc;
 
   use super::*;
   use crate::layout::Viewport;
@@ -737,7 +731,7 @@ mod tests {
         device_pixel_ratio: 2.0,
       },
       font_size: 10.0,
-      calc_arena: Arc::new(CalcArena::default()),
+      calc_arena: Rc::new(CalcArena::default()),
     }
   }
 

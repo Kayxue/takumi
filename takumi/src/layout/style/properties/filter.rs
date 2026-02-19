@@ -598,12 +598,15 @@ impl<'i> FromCss<'i> for Filter {
 
 #[cfg(test)]
 mod tests {
-  use std::sync::Arc;
+  use std::rc::Rc;
 
   use super::*;
   use crate::{
     Result,
-    layout::style::{CalcArena, Color, ColorInput, Length::Px},
+    layout::{
+      Viewport,
+      style::{CalcArena, Color, ColorInput, Length::Px},
+    },
   };
 
   #[test]
@@ -666,11 +669,11 @@ mod tests {
       Filter::Opacity(PercentageNumber(0.5)),    // 255 * 0.5 = 127
     ];
 
-    let viewport = crate::layout::Viewport::new(Some(100), Some(100));
+    let viewport = Viewport::new(Some(100), Some(100));
     let sizing = Sizing {
       viewport,
       font_size: 16.0,
-      calc_arena: Arc::new(CalcArena::default()),
+      calc_arena: Rc::new(CalcArena::default()),
     };
     let mut buffer_pool = BufferPool::default();
     apply_filters(

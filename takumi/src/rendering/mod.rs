@@ -15,7 +15,7 @@ mod render;
 mod text_drawing;
 mod write;
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, rc::Rc, sync::Arc};
 
 pub(crate) use background_drawing::*;
 pub(crate) use blend::*;
@@ -44,7 +44,7 @@ pub(crate) struct Sizing {
   /// The font size in pixels.
   pub(crate) font_size: f32,
   /// The calc arena shared by the current layout tree.
-  pub(crate) calc_arena: Arc<CalcArena>,
+  pub(crate) calc_arena: Rc<CalcArena>,
 }
 
 /// The context for the internal rendering. You should not construct this directly.
@@ -77,7 +77,7 @@ impl<'g> RenderContext<'g> {
       sizing: Sizing {
         viewport,
         font_size: viewport.font_size,
-        calc_arena: Arc::new(CalcArena::default()),
+        calc_arena: Rc::new(CalcArena::default()),
       },
       transform: Affine::IDENTITY,
       current_color: Color::black(),

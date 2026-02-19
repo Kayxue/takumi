@@ -876,7 +876,7 @@ impl InheritedStyle {
 
 #[cfg(test)]
 mod tests {
-  use std::sync::Arc;
+  use std::rc::Rc;
 
   use taffy::Size;
 
@@ -1143,7 +1143,7 @@ mod tests {
     let sizing = Sizing {
       viewport: Viewport::new(Some(1200), Some(630)),
       font_size: 16.0,
-      calc_arena: Arc::new(CalcArena::default()),
+      calc_arena: Rc::new(CalcArena::default()),
     };
     let border_box = Size {
       width: 200.0,
@@ -1191,14 +1191,14 @@ mod tests {
     parent.make_computed(&Sizing {
       viewport: Viewport::new(Some(1200), Some(630)),
       font_size: 32.0,
-      calc_arena: Arc::new(CalcArena::default()),
+      calc_arena: Rc::new(CalcArena::default()),
     });
 
     let inherited_child = Style::default().inherit(&parent);
     let inherited_child_sizing = Sizing {
       viewport: Viewport::new(Some(1200), Some(630)),
       font_size: 32.0,
-      calc_arena: Arc::new(CalcArena::default()),
+      calc_arena: Rc::new(CalcArena::default()),
     };
     let inherited_font_size = inherited_child
       .font_size
@@ -1214,7 +1214,7 @@ mod tests {
     let child_sizing = Sizing {
       viewport: Viewport::new(Some(1200), Some(630)),
       font_size: 10.0,
-      calc_arena: Arc::new(CalcArena::default()),
+      calc_arena: Rc::new(CalcArena::default()),
     };
 
     let inherited_letter_spacing = child_with_own_font_size
