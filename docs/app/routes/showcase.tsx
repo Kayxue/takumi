@@ -1,7 +1,8 @@
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import JSConfetti from "js-confetti";
-import { Heart, LayoutTemplate } from "lucide-react";
+import { ArrowRight, Heart } from "lucide-react";
 import { useCallback, useRef } from "react";
+import { GithubIcon } from "~/components/showcase/github-icon";
 import { ShowcaseCard } from "~/components/showcase/showcase-card";
 import { TemplateCard } from "~/components/showcase/template-card";
 import { baseOptions } from "~/layout-config";
@@ -20,82 +21,108 @@ export default function Showcase() {
     const y = rect.top + rect.height / 2;
 
     confettiRef.current.addConfettiAtPosition({
-      emojis: ["❤️", "🪓"],
-      emojiSize: 50,
-      confettiNumber: 25,
+      emojis: ["❤️", "🪓", "🎨", "✨"],
+      emojiSize: 40,
+      confettiNumber: 30,
       confettiDispatchPosition: { x, y },
     });
   }, []);
 
   return (
-    <HomeLayout {...baseOptions}>
-      <title>Showcase</title>
+    <HomeLayout className="overflow-x-hidden" {...baseOptions}>
+      <title>Showcase — Built with Takumi</title>
       <meta
         name="description"
         content="Discover how developers are using Takumi to power their dynamic image generation."
       />
-      <div className="container py-24 px-4 mx-auto max-w-8xl">
-        <div className="flex flex-col items-center text-center mb-16">
-          <div className="relative mb-6">
-            <div className="absolute -inset-4 bg-primary/20 blur-2xl rounded-full animate-pulse duration-300" />
+
+      <div className="fixed inset-0 pointer-events-none z-[-1] overflow-hidden">
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] opacity-[0.03] bg-[radial-gradient(circle_at_center,var(--color-primary)_0%,transparent_70%)] blur-[100px]" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] opacity-[0.03] bg-[radial-gradient(circle_at_center,var(--color-primary)_0%,transparent_70%)] blur-[100px]" />
+      </div>
+
+      <div className="max-w-[1200px] mx-auto px-6 py-24 max-sm:py-16">
+        <div className="flex flex-col items-center text-center mb-24 max-w-3xl mx-auto">
+          <div className="mb-8 relative group">
+            <div className="absolute -inset-4 bg-primary/20 blur-2xl rounded-full animate-pulse duration-700 opacity-50 group-hover:opacity-100 transition-opacity" />
             <button
               type="button"
               onClick={onConfetti}
-              className="relative group transition-transform active:scale-95 cursor-pointer outline-none"
+              className="relative flex items-center justify-center w-20 h-20 transition-transform active:scale-95 cursor-pointer outline-none bg-background rounded-full border border-border/50 shadow-[0_0_30px_-5px_--theme(--color-primary/0.3)] backdrop-blur-sm group-hover:border-primary/40 group-hover:shadow-[0_0_40px_-5px_--theme(--color-primary/0.5)] z-10"
+              aria-label="Celebrate"
             >
-              <Heart className="w-16 h-16 text-primary fill-primary drop-shadow-[0_0_15px_rgba(239,68,68,0.5)] transition-transform group-hover:scale-110 duration-300" />
+              <Heart className="w-8 h-8 text-primary fill-primary/20 group-hover:fill-primary transition-all duration-300" />
             </button>
           </div>
-          <h1 className="text-4xl md:text-6xl font-bold mb-6 tracking-tight">
-            Built with <span className="text-primary">Takumi</span>
+
+          <h1 className="font-display text-[clamp(2.5rem,6vw,4.5rem)] font-[750] tracking-tighter leading-[1.1] mb-6">
+            Crafted with <span className="text-primary">Takumi</span>
           </h1>
-          <p className="text-muted-foreground text-lg md:text-xl max-w-2xl mx-auto text-pretty">
-            Discover how developers are using Takumi to power their dynamic
-            image generation.
+          <p className="text-[1.1rem] md:text-[1.25rem] leading-relaxed text-muted-foreground text-pretty">
+            Explore a curated collection of production applications and
+            open-source projects leveraging Takumi's high-performance image
+            engine.
           </p>
         </div>
 
-        <section className="mb-24 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {showcaseProjects.map((project) => (
-            <ShowcaseCard key={project.url} project={project} />
-          ))}
+        <section className="mb-32">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
+            {showcaseProjects.map((project) => (
+              <ShowcaseCard key={project.url} project={project} />
+            ))}
+          </div>
         </section>
 
-        <section className="mb-24">
-          <h2 className="text-2xl font-semibold mb-8 flex items-center gap-2">
-            <LayoutTemplate className="w-6 h-6 text-blue-500" />
-            Ready-to-use Templates
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <section className="mb-32">
+          <div className="mb-12 border-b border-border/50 pb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <span className="inline-block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground mb-3">
+                Starter Kits
+              </span>
+              <h2 className="font-display text-[clamp(2rem,4vw,2.5rem)] font-[750] tracking-tighter leading-tight">
+                Ready-to-use Templates
+              </h2>
+            </div>
+            <p className="text-muted-foreground max-w-sm md:text-right">
+              Kickstart your generation with our pre-built, responsive canvas
+              layouts.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {showcaseTemplates.map((item) => (
               <TemplateCard key={item.title} item={item} />
             ))}
           </div>
         </section>
 
-        <div className="rounded-3xl bg-primary/80 p-8 md:p-16 text-primary-foreground text-center relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.1),transparent)]" />
-          <div className="relative z-10">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Want to be featured?
-            </h2>
-            <p className="text-primary-foreground/80 mb-8 max-w-xl mx-auto">
-              Built something cool with Takumi? We&apos;d love to show it off!
-              <br />
-              Submit your project to our GitHub repository.
-            </p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <a
-                href="https://github.com/kane50613/takumi/edit/master/docs/app/data/showcase.ts"
-                target="_blank"
-                rel="noreferrer"
-                className="bg-white text-primary px-8 py-3 rounded-full font-medium hover:shadow-lg transition-transform hover:-translate-y-1"
-              >
-                Make a Pull Request
-              </a>
+        <section className="relative overflow-hidden rounded-3xl border border-border/40 bg-zinc-950/50 dark:bg-zinc-900/20 backdrop-blur-xl">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,--theme(--color-zinc-800/0.1)_1px,transparent_1px),linear-gradient(to_bottom,--theme(--color-zinc-800/0.1)_1px,transparent_1px)] bg-size-[40px_40px] opacity-20 pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary/10 blur-[100px] rounded-full pointer-events-none" />
+
+          <div className="relative px-8 py-20 md:py-24 flex flex-col items-center text-center z-10">
+            <div className="text-primary/80 mb-6">
+              <GithubIcon size={48} />
             </div>
+            <h2 className="font-display text-3xl md:text-4xl font-[750] tracking-tighter mb-4 text-foreground">
+              Feature your creation
+            </h2>
+            <p className="text-muted-foreground text-lg mb-10 max-w-[500px]">
+              Forged something exceptional? Submit your project to the showcase
+              and share your craft with the community.
+            </p>
+
+            <a
+              href="https://github.com/kane50613/takumi/edit/master/docs/app/data/showcase.ts"
+              target="_blank"
+              rel="noreferrer"
+              className="group inline-flex items-center gap-3 px-8 py-4 bg-primary text-primary-foreground font-semibold rounded-full hover:bg-primary/90 transition-all shadow-[0_0_20px_-5px_--theme(--color-primary/0.4)] hover:shadow-[0_0_30px_-5px_--theme(--color-primary/0.6)] hover:-translate-y-0.5 active:translate-y-0 active:scale-95"
+            >
+              Submit Pull Request
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </a>
           </div>
-        </div>
+        </section>
       </div>
     </HomeLayout>
   );

@@ -1,6 +1,7 @@
 import { test } from "bun:test";
 import { join } from "node:path";
-import { Renderer } from "@takumi-rs/core";
+import { extractResourceUrls, Renderer } from "@takumi-rs/core";
+import { fetchResources } from "@takumi-rs/helpers";
 import { fromJsx } from "@takumi-rs/helpers/jsx";
 import { write } from "bun";
 import type { ReactNode } from "react";
@@ -24,10 +25,14 @@ function testRender(name: string, template: ReactNode) {
     const node = await fromJsx(template);
     const start = performance.now();
 
+    const resourceUrls = extractResourceUrls(node);
+    const fetchedResources = await fetchResources(resourceUrls);
+
     const buffer = await renderer.render(node, {
       width: 1200,
       height: 630,
       format: "webp",
+      fetchedResources,
     });
 
     const end = performance.now();

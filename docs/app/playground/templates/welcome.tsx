@@ -1,4 +1,4 @@
-export default function Image() {
+export default function Welcome() {
   return (
     <div
       tw="w-full h-full justify-center bg-black bg-size-[100px_100px] items-center"
