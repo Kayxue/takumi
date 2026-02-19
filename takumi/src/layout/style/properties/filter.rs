@@ -1,18 +1,16 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
-use image::{
-  Pixel, Rgba, RgbaImage,
-  imageops::{colorops::huerotate_in_place, crop_imm},
-};
+use image::{Pixel, Rgba, RgbaImage, imageops::colorops::huerotate_in_place};
 use smallvec::SmallVec;
 use taffy::{Point, Size};
 
 use crate::{
+  Result,
   layout::style::{
     Affine, Angle, BlendMode, Color, CssToken, FromCss, Length, MakeComputed, ParseResult,
     PercentageNumber, TextShadow, tw::TailwindPropertyParser,
   },
   rendering::{
-    BlurType, BorderProperties, Canvas, RenderContext, SizedShadow, Sizing, apply_blur,
+    BlurType, BorderProperties, BufferPool, Canvas, RenderContext, SizedShadow, Sizing, apply_blur,
     blend_pixel, fast_div_255,
   },
 };
@@ -187,35 +185,52 @@ fn apply_single_pixel_filter(pixel: &mut Rgba<u8>, filter: &Filter) {
   }
 }
 
+/// Filter prepared for batch execution
+enum PreparedFilter<'a> {
+  Matrix(&'a Filter),
+  RgbLut(Box<TransferTable>),
+  AlphaLut(Box<TransferTable>),
+  BothLut(Box<TransferTable>, Box<TransferTable>),
+}
+
 /// Applies batched pixel filters in a single pass over the image
 fn apply_batched_pixel_filters(image: &mut RgbaImage, filters: &[&Filter]) {
   if filters.is_empty() {
     return;
   }
 
-  // Pre-calculate LUTs for each filter once
-  let luts: SmallVec<[(Option<TransferTable>, Option<TransferTable>); 4]> =
-    filters.iter().map(|f| f.transfer_tables()).collect();
+  // Pre-calculate LUTs and categorize filters
+  let prepared: SmallVec<[PreparedFilter; 4]> = filters
+    .iter()
+    .map(|&f| match f.transfer_tables() {
+      (Some(rgb), Some(alpha)) => PreparedFilter::BothLut(Box::new(rgb), Box::new(alpha)),
+      (Some(rgb), None) => PreparedFilter::RgbLut(Box::new(rgb)),
+      (None, Some(alpha)) => PreparedFilter::AlphaLut(Box::new(alpha)),
+      (None, None) => PreparedFilter::Matrix(f),
+    })
+    .collect();
 
   for pixel in image.pixels_mut() {
     if pixel.0[3] == 0 {
       continue;
     }
 
-    for (i, &filter) in filters.iter().enumerate() {
-      let (rgb_lut, alpha_lut) = &luts[i];
-
-      if rgb_lut.is_none() && alpha_lut.is_none() {
-        // Fallback for matrix filters (grayscale, sepia, etc.)
-        apply_single_pixel_filter(pixel, filter);
-      } else {
-        if let Some(t) = rgb_lut {
+    for p in &prepared {
+      match p {
+        PreparedFilter::Matrix(f) => apply_single_pixel_filter(pixel, f),
+        PreparedFilter::RgbLut(t) => {
           pixel.0[0] = t[pixel.0[0] as usize];
           pixel.0[1] = t[pixel.0[1] as usize];
           pixel.0[2] = t[pixel.0[2] as usize];
         }
-        if let Some(t) = alpha_lut {
+        PreparedFilter::AlphaLut(t) => {
           pixel.0[3] = t[pixel.0[3] as usize];
+        }
+        PreparedFilter::BothLut(rgb, alpha) => {
+          pixel.0[0] = rgb[pixel.0[0] as usize];
+          pixel.0[1] = rgb[pixel.0[1] as usize];
+          pixel.0[2] = rgb[pixel.0[2] as usize];
+          pixel.0[3] = alpha[pixel.0[3] as usize];
         }
       }
     }
@@ -226,8 +241,9 @@ pub(crate) fn apply_filters<'f, F: Iterator<Item = &'f Filter>>(
   image: &mut RgbaImage,
   sizing: &Sizing,
   current_color: Color,
+  buffer_pool: &mut BufferPool,
   filters: F,
-) {
+) -> Result<()> {
   // Collect filters and batch consecutive pixel filters
   let mut pending_pixel_filters: SmallVec<[&Filter; 8]> = SmallVec::new();
 
@@ -250,7 +266,12 @@ pub(crate) fn apply_filters<'f, F: Iterator<Item = &'f Filter>>(
             huerotate_in_place(image, *angle as i32);
           }
           Filter::Blur(blur) => {
-            apply_blur(image, blur.to_px(sizing, 1.0), BlurType::Filter);
+            apply_blur(
+              image,
+              blur.to_px(sizing, 1.0),
+              BlurType::Filter,
+              buffer_pool,
+            )?;
           }
           Filter::DropShadow(drop_shadow) => {
             let size = Size {
@@ -258,7 +279,7 @@ pub(crate) fn apply_filters<'f, F: Iterator<Item = &'f Filter>>(
               height: image.height() as f32,
             };
             let shadow = SizedShadow::from_text_shadow(drop_shadow, sizing, current_color, size);
-            apply_drop_shadow_filter(image, &shadow);
+            apply_drop_shadow_filter(image, &shadow, buffer_pool)?;
           }
           _ => unreachable!(),
         }
@@ -270,6 +291,8 @@ pub(crate) fn apply_filters<'f, F: Iterator<Item = &'f Filter>>(
   if !pending_pixel_filters.is_empty() {
     apply_batched_pixel_filters(image, &pending_pixel_filters);
   }
+
+  Ok(())
 }
 
 /// Applies backdrop-filter effects to the area behind an element.
@@ -282,30 +305,33 @@ pub(crate) fn apply_backdrop_filter(
   layout_size: Size<f32>,
   transform: Affine,
   context: &RenderContext,
-) {
+) -> Result<()> {
   let filters = &context.style.backdrop_filter;
+
+  if filters.iter().all(|f| matches!(f, Filter::DropShadow(_))) {
+    return Ok(());
+  }
 
   let drop_shadow_filtered = filters
     .iter()
     .filter(|f| !matches!(f, Filter::DropShadow(_)));
 
-  if drop_shadow_filtered.clone().count() == 0 {
-    return;
-  }
-
   let canvas_size = canvas.size();
   if canvas_size.width == 0 || canvas_size.height == 0 {
-    return;
+    return Ok(());
   }
 
   // Generate the mask for the element's shape (with border-radius)
   let mut paths = Vec::new();
   border.append_mask_commands(&mut paths, layout_size, Point::ZERO);
 
-  let (mask, placement) = canvas.mask_memory.render(&paths, Some(transform), None);
+  // Render the mask — this borrows mask_memory only for the duration of the
+  // composite loop below. apply_filters borrows buffer_pool separately, so
+  // there is no conflict and no clone is needed.
+  let (mask_data, placement) = canvas.mask_memory.render(&paths, Some(transform), None);
 
   if placement.width == 0 || placement.height == 0 {
-    return;
+    return Ok(());
   }
 
   // Calculate the region to extract (clamped to canvas bounds)
@@ -317,30 +343,43 @@ pub(crate) fn apply_backdrop_filter(
     (placement.top + placement.height as i32).clamp(0, canvas_size.height as i32) as u32;
 
   if region_x >= region_right || region_y >= region_bottom {
-    return;
+    return Ok(());
   }
 
   let region_width = region_right - region_x;
   let region_height = region_bottom - region_y;
 
-  // Extract the region from the canvas using crop_imm
-  let mut backdrop_image = crop_imm(
-    &canvas.image,
-    region_x,
-    region_y,
-    region_width,
-    region_height,
-  )
-  .to_image();
+  // Extract the region from the canvas using the pool to avoid allocations
+  let mut backdrop_image = canvas
+    .buffer_pool
+    .acquire_image(region_width, region_height)?;
+
+  {
+    let canvas_width = canvas.image.width();
+    let canvas_raw = canvas.image.as_raw();
+    let backdrop_raw = backdrop_image.as_mut();
+
+    for y in 0..region_height {
+      let src_y = region_y + y;
+      let src_offset = (src_y * canvas_width + region_x) as usize * 4;
+      let dest_offset = (y * region_width) as usize * 4;
+      let row_bytes = region_width as usize * 4;
+
+      backdrop_raw[dest_offset..dest_offset + row_bytes]
+        .copy_from_slice(&canvas_raw[src_offset..src_offset + row_bytes]);
+    }
+  }
 
   apply_filters(
     &mut backdrop_image,
     &context.sizing,
     context.current_color,
+    &mut canvas.buffer_pool,
     drop_shadow_filtered,
-  );
+  )?;
 
-  // Composite the filtered backdrop back to the canvas, respecting the mask
+  // Composite the filtered backdrop back to the canvas, respecting the mask.
+  // mask_memory borrow (mask_data) ends here — canvas.image borrow begins.
   let mask_offset_x = (region_x as i32 - placement.left) as u32;
   let mask_offset_y = (region_y as i32 - placement.top) as u32;
 
@@ -361,7 +400,7 @@ pub(crate) fn apply_backdrop_filter(
 
     for x in 0..region_width {
       let mask_idx = mask_y_offset + x as usize;
-      let alpha = mask[mask_idx];
+      let alpha = mask_data[mask_idx];
 
       if alpha == 0 {
         continue;
@@ -387,13 +426,21 @@ pub(crate) fn apply_backdrop_filter(
       }
     }
   }
+
+  canvas.buffer_pool.release_image(backdrop_image);
+
+  Ok(())
 }
 
 /// Applies a drop-shadow filter effect to an image.
-fn apply_drop_shadow_filter(canvas: &mut RgbaImage, shadow: &SizedShadow) {
+fn apply_drop_shadow_filter(
+  canvas: &mut RgbaImage,
+  shadow: &SizedShadow,
+  buffer_pool: &mut BufferPool,
+) -> Result<()> {
   let (canvas_width, canvas_height) = canvas.dimensions();
   if canvas_width == 0 || canvas_height == 0 {
-    return;
+    return Ok(());
   }
 
   let blur_radius = shadow.blur_radius;
@@ -401,7 +448,7 @@ fn apply_drop_shadow_filter(canvas: &mut RgbaImage, shadow: &SizedShadow) {
 
   let shadow_width = canvas_width + 2 * padding;
   let shadow_height = canvas_height + 2 * padding;
-  let mut shadow_image = RgbaImage::new(shadow_width, shadow_height);
+  let mut shadow_image = buffer_pool.acquire_image(shadow_width, shadow_height)?;
 
   let offset_x = shadow.offset_x.round() as i32;
   let offset_y = shadow.offset_y.round() as i32;
@@ -441,7 +488,12 @@ fn apply_drop_shadow_filter(canvas: &mut RgbaImage, shadow: &SizedShadow) {
   }
 
   // Apply blur to the shadow image
-  apply_blur(&mut shadow_image, blur_radius, BlurType::Shadow);
+  apply_blur(
+    &mut shadow_image,
+    blur_radius,
+    BlurType::Shadow,
+    buffer_pool,
+  )?;
 
   // Draw source element OVER the blurred shadow
   // Since we already copied the source alpha to shadow_image, we can blend in-place
@@ -450,6 +502,9 @@ fn apply_drop_shadow_filter(canvas: &mut RgbaImage, shadow: &SizedShadow) {
     blend_pixel(&mut final_px, *canvas_pixel, BlendMode::Normal);
     *canvas_pixel = final_px;
   }
+
+  buffer_pool.release_image(shadow_image);
+  Ok(())
 }
 
 impl<'i> FromCss<'i> for Filters {
@@ -543,7 +598,10 @@ mod tests {
   use std::sync::Arc;
 
   use super::*;
-  use crate::layout::style::{CalcArena, Color, ColorInput, Length::Px};
+  use crate::{
+    Result,
+    layout::style::{CalcArena, Color, ColorInput, Length::Px},
+  };
 
   #[test]
   fn test_parse_blur_filter() {
@@ -595,7 +653,7 @@ mod tests {
   }
 
   #[test]
-  fn test_apply_filters_lut_batching() {
+  fn test_apply_filters_lut_batching() -> Result<()> {
     let mut image = RgbaImage::new(1, 1);
     image.put_pixel(0, 0, Rgba([100, 150, 200, 255]));
 
@@ -611,7 +669,14 @@ mod tests {
       font_size: 16.0,
       calc_arena: Arc::new(CalcArena::default()),
     };
-    apply_filters(&mut image, &sizing, Color::black(), filters.iter());
+    let mut buffer_pool = BufferPool::default();
+    apply_filters(
+      &mut image,
+      &sizing,
+      Color::black(),
+      &mut buffer_pool,
+      filters.iter(),
+    )?;
 
     let pixel = image.get_pixel(0, 0);
     // Rough verification of the math
@@ -619,5 +684,7 @@ mod tests {
     assert_eq!(pixel.0[1], 75);
     assert_eq!(pixel.0[2], 15);
     assert_eq!(pixel.0[3], 127);
+
+    Ok(())
   }
 }

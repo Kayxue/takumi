@@ -3,9 +3,10 @@ use taffy::{Layout, Point, Size};
 use zeno::{Command, Fill, PathData, Placement};
 
 use crate::{
+  Result,
   layout::style::{Affine, BlendMode, BoxShadow, Color, ImageScalingAlgorithm, Sides, TextShadow},
   rendering::{
-    BlurType, BorderProperties, Canvas, CanvasConstrain, MaskMemory, Sizing, apply_blur, draw_mask,
+    BlurType, BorderProperties, BufferPool, Canvas, MaskMemory, Sizing, apply_blur, draw_mask,
     overlay_image,
   },
 };
@@ -63,28 +64,29 @@ impl SizedShadow {
   #[allow(clippy::too_many_arguments)]
   pub fn draw_outset<D: PathData>(
     &self,
-    canvas: &mut RgbaImage,
-    mask_memory: &mut MaskMemory,
-    constrains: &[CanvasConstrain],
+    canvas: &mut Canvas,
     paths: D,
     transform: Affine,
     style: zeno::Style,
     cutout_paths: Option<&[Command]>,
-  ) {
-    let (mask, mut placement) = mask_memory.render(&paths, Some(transform), Some(style));
+  ) -> Result<()> {
+    let (mask, mut placement) = canvas
+      .mask_memory
+      .render(&paths, Some(transform), Some(style));
 
     placement.left += self.offset_x as i32;
     placement.top += self.offset_y as i32;
 
     if self.blur_radius <= 0.0 && cutout_paths.is_none() {
-      return draw_mask(
-        canvas,
+      draw_mask(
+        &mut canvas.image,
         mask,
         placement,
         self.color,
         BlendMode::Normal,
-        constrains,
+        &canvas.constrains,
       );
+      return Ok(());
     }
 
     let blur_padding = if self.blur_radius > 0.0 {
@@ -93,10 +95,10 @@ impl SizedShadow {
       0.0
     };
 
-    let mut image = RgbaImage::new(
+    let mut image = canvas.buffer_pool.acquire_image(
       placement.width + (blur_padding * 2.0) as u32,
       placement.height + (blur_padding * 2.0) as u32,
-    );
+    )?;
 
     draw_mask(
       &mut image,
@@ -112,14 +114,21 @@ impl SizedShadow {
       &[],
     );
 
-    apply_blur(&mut image, self.blur_radius, BlurType::Shadow);
+    apply_blur(
+      &mut image,
+      self.blur_radius,
+      BlurType::Shadow,
+      &mut canvas.buffer_pool,
+    )?;
 
     let img_origin_x = placement.left as f32 - blur_padding;
     let img_origin_y = placement.top as f32 - blur_padding;
 
     if let Some(cutout_paths) = cutout_paths {
       let (erase_mask, erase_placement) =
-        mask_memory.render(cutout_paths, Some(transform), Some(Fill::NonZero.into()));
+        canvas
+          .mask_memory
+          .render(cutout_paths, Some(transform), Some(Fill::NonZero.into()));
 
       let img_w = image.width() as i32;
       let img_h = image.height() as i32;
@@ -146,15 +155,18 @@ impl SizedShadow {
     }
 
     overlay_image(
-      canvas,
+      &mut canvas.image,
       &image,
       BorderProperties::zero(),
       Affine::translation(img_origin_x, img_origin_y),
       ImageScalingAlgorithm::Auto,
       BlendMode::Normal,
-      constrains,
-      mask_memory,
+      &canvas.constrains,
+      &mut canvas.mask_memory,
     );
+
+    canvas.buffer_pool.release_image(image);
+    Ok(())
   }
 
   pub fn draw_inset(
@@ -163,8 +175,14 @@ impl SizedShadow {
     border_radius: BorderProperties,
     canvas: &mut Canvas,
     layout: Layout,
-  ) {
-    let image = draw_inset_shadow(self, border_radius, layout.size, &mut canvas.mask_memory);
+  ) -> Result<()> {
+    let image = draw_inset_shadow(
+      self,
+      border_radius,
+      layout.size,
+      &mut canvas.mask_memory,
+      &mut canvas.buffer_pool,
+    )?;
 
     canvas.overlay_image(
       &image,
@@ -173,20 +191,28 @@ impl SizedShadow {
       ImageScalingAlgorithm::Auto,
       BlendMode::Normal,
     );
+
+    canvas.buffer_pool.release_image(image);
+    Ok(())
   }
 }
 
-fn draw_inset_shadow(
+pub(crate) fn draw_inset_shadow(
   shadow: &SizedShadow,
   mut border: BorderProperties,
   border_box: Size<f32>,
   mask_memory: &mut MaskMemory,
-) -> RgbaImage {
-  let mut shadow_image = RgbaImage::from_pixel(
-    border_box.width as u32,
-    border_box.height as u32,
-    shadow.color.into(),
-  );
+  buffer_pool: &mut BufferPool,
+) -> Result<RgbaImage> {
+  let mut shadow_image =
+    buffer_pool.acquire_image(border_box.width as u32, border_box.height as u32)?;
+
+  // Fill with shadow color (BufferPool returns zeroed/dirty buffers)
+  let shadow_raw = shadow_image.as_mut();
+  let color_rgba: [u8; 4] = shadow.color.0;
+  for pixel in shadow_raw.chunks_exact_mut(4) {
+    pixel.copy_from_slice(&color_rgba);
+  }
 
   let offset = Point {
     x: shadow.offset_x,
@@ -232,7 +258,12 @@ fn draw_inset_shadow(
     }
   }
 
-  apply_blur(&mut shadow_image, shadow.blur_radius, BlurType::Shadow);
+  apply_blur(
+    &mut shadow_image,
+    shadow.blur_radius,
+    BlurType::Shadow,
+    buffer_pool,
+  )?;
 
-  shadow_image
+  Ok(shadow_image)
 }

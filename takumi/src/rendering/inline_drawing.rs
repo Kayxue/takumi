@@ -17,7 +17,7 @@ use crate::{
     tree::LayoutTree,
   },
   rendering::{
-    BorderProperties, Canvas, ColorTile, RenderContext, collect_background_layers,
+    BackgroundTile, BorderProperties, Canvas, ColorTile, RenderContext, collect_background_layers,
     collect_outline_paths, draw_decoration, draw_glyph, draw_glyph_clip_image,
     draw_glyph_text_shadow, mask_index_from_coord, rasterize_layers, render::render_node,
   },
@@ -334,12 +334,12 @@ fn draw_glyph_run_line_through(
   canvas: &mut Canvas,
   layout: Layout,
   context: &RenderContext,
-) {
+) -> Result<()> {
   let brush = &glyph_run.style().brush;
   let decoration_line = brush.decoration_line;
 
   if !decoration_line.contains(TextDecorationLines::LINE_THROUGH) {
-    return;
+    return Ok(());
   }
 
   let metrics = glyph_run.run().metrics();
@@ -358,6 +358,8 @@ fn draw_glyph_run_line_through(
     layout,
     context.transform,
   );
+
+  Ok(())
 }
 
 fn draw_glyph_run_content<I: GenericImageView<Pixel = Rgba<u8>>>(
@@ -393,7 +395,7 @@ fn draw_glyph_run_content<I: GenericImageView<Pixel = Rgba<u8>>>(
         context.transform,
         inline_offset,
         clip_image,
-      );
+      )?;
     }
   }
 
@@ -439,7 +441,7 @@ fn draw_glyph_run_text_shadow(
       y: layout.border.top + layout.padding.top + glyph.y,
     };
 
-    draw_glyph_text_shadow(content, canvas, style, context.transform, inline_offset);
+    draw_glyph_text_shadow(content, canvas, style, context.transform, inline_offset)?;
   }
 
   Ok(())
@@ -590,7 +592,8 @@ pub(crate) fn draw_inline_layout<N: Node<N>>(
       BorderProperties::default(),
       Affine::IDENTITY,
       &mut canvas.mask_memory,
-    )
+      &mut canvas.buffer_pool,
+    )?
   } else {
     None
   };
@@ -653,7 +656,11 @@ pub(crate) fn draw_inline_layout<N: Node<N>>(
   }
 
   for glyph_run in glyph_runs(&inline_layout) {
-    draw_glyph_run_line_through(&glyph_run, canvas, layout, context);
+    draw_glyph_run_line_through(&glyph_run, canvas, layout, context)?;
+  }
+
+  if let Some(BackgroundTile::Image(image)) = clip_image {
+    canvas.buffer_pool.release_image(image);
   }
 
   Ok(positioned_inline_boxes)

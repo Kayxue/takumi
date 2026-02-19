@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, mem::replace, sync::Arc};
 
 use derive_builder::Builder;
 use image::RgbaImage;
@@ -7,7 +7,7 @@ use serde::Serialize;
 use taffy::{AvailableSpace, NodeId, geometry::Size};
 
 use crate::{
-  GlobalContext,
+  Error, GlobalContext, Result,
   layout::{
     Viewport,
     inline::{
@@ -78,9 +78,7 @@ pub struct MeasuredNode {
 }
 
 /// Measures the layout of a node.
-pub fn measure_layout<'g, N: Node<N>>(
-  options: RenderOptions<'g, N>,
-) -> Result<MeasuredNode, crate::Error> {
+pub fn measure_layout<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<MeasuredNode> {
   let render_context = RenderContext {
     draw_debug_border: options.draw_debug_border,
     ..RenderContext::new(options.global, options.viewport, options.fetched_resources)
@@ -103,7 +101,7 @@ fn collect_measure_result<'g, Nodes: Node<Nodes>>(
   layout_results: &LayoutResults,
   node_id: NodeId,
   mut transform: Affine,
-) -> Result<MeasuredNode, crate::Error> {
+) -> Result<MeasuredNode> {
   let layout = *layout_results.layout(node_id)?;
 
   transform *= Affine::translation(layout.location.x, layout.location.y);
@@ -215,7 +213,7 @@ fn collect_measure_result<'g, Nodes: Node<Nodes>>(
 }
 
 /// Renders a node to an image.
-pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage, crate::Error> {
+pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage> {
   let viewport = options.viewport;
   let render_context = RenderContext {
     draw_debug_border: options.draw_debug_border,
@@ -241,7 +239,7 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
   });
 
   if root_size.width == 0 || root_size.height == 0 {
-    return Err(crate::Error::InvalidViewport);
+    return Err(Error::InvalidViewport);
   }
 
   let mut canvas = Canvas::new(root_size);
@@ -258,7 +256,7 @@ impl<'g, Nodes: Node<Nodes>> RenderNode<'g, Nodes> {
     node_id: NodeId,
     canvas: &mut Canvas,
     transform: Affine,
-  ) -> Result<(), crate::Error> {
+  ) -> Result<()> {
     render_node(self, layout_results, node_id, canvas, transform)
   }
 }
@@ -309,7 +307,7 @@ pub(crate) fn render_node<'g, Nodes: Node<Nodes>>(
   node_id: NodeId,
   canvas: &mut Canvas,
   mut transform: Affine,
-) -> Result<(), crate::Error> {
+) -> Result<()> {
   let layout = *layout_results.layout(node_id)?;
 
   if node.context.style.is_invisible() {
@@ -340,6 +338,7 @@ pub(crate) fn render_node<'g, Nodes: Node<Nodes>>(
     layout,
     transform,
     &mut canvas.mask_memory,
+    &mut canvas.buffer_pool,
   )?;
 
   // Skip rendering if the node is not visible
@@ -353,7 +352,7 @@ pub(crate) fn render_node<'g, Nodes: Node<Nodes>>(
   if !node.context.style.backdrop_filter.is_empty() {
     let border = BorderProperties::from_context(&node.context, layout.size, layout.border);
 
-    apply_backdrop_filter(canvas, border, layout.size, transform, &node.context);
+    apply_backdrop_filter(canvas, border, layout.size, transform, &node.context)?;
   }
 
   // If isolated canvas is required, replace the current canvas with a new one.
@@ -365,7 +364,7 @@ pub(crate) fn render_node<'g, Nodes: Node<Nodes>>(
       .has_non_identity_transform(layout.size, &node.context.sizing);
 
   let original_canvas_image = if should_isolate {
-    Some(canvas.replace_new_image())
+    Some(canvas.replace_new_image()?)
   } else {
     None
   };
@@ -393,12 +392,7 @@ pub(crate) fn render_node<'g, Nodes: Node<Nodes>>(
     draw_debug_border(canvas, layout, transform);
   }
 
-  let mut filters = node.context.style.filter.clone();
   let should_create_inline = node.should_create_inline_layout();
-
-  if node.context.style.opacity.0 < 1.0 {
-    filters.push(Filter::Opacity(node.context.style.opacity));
-  }
 
   if should_create_inline {
     node.draw_inline(canvas, layout)?;
@@ -409,12 +403,23 @@ pub(crate) fn render_node<'g, Nodes: Node<Nodes>>(
     }
   }
 
-  apply_filters(
-    &mut canvas.image,
-    &node.context.sizing,
-    node.context.current_color,
-    filters.iter(),
-  );
+  let opacity_filter =
+    (node.context.style.opacity.0 < 1.0).then_some(Filter::Opacity(node.context.style.opacity));
+
+  if !node.context.style.filter.is_empty() || opacity_filter.is_some() {
+    apply_filters(
+      &mut canvas.image,
+      &node.context.sizing,
+      node.context.current_color,
+      &mut canvas.buffer_pool,
+      node
+        .context
+        .style
+        .filter
+        .iter()
+        .chain(opacity_filter.iter()),
+    )?;
+  }
 
   // If there was an isolated canvas, composite the filtered image back into the original canvas
   if let Some(mut original_canvas_image) = original_canvas_image {
@@ -429,7 +434,8 @@ pub(crate) fn render_node<'g, Nodes: Node<Nodes>>(
       &mut canvas.mask_memory,
     );
 
-    canvas.image = original_canvas_image;
+    let isolated_image = replace(&mut canvas.image, original_canvas_image);
+    canvas.buffer_pool.release_image(isolated_image);
   }
 
   if has_constrain {

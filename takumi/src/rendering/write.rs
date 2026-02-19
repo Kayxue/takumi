@@ -9,7 +9,7 @@ use image_webp::WebPEncoder;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
-use crate::{Error::IoError, Xxh3HashMap, rendering::quantize_alpha};
+use crate::{Error::IoError, Result, Xxh3HashMap, rendering::quantize_alpha};
 
 /// Output format for rendered images.
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
@@ -248,7 +248,7 @@ pub fn write_image<T: Write>(
   destination: &mut T,
   format: ImageOutputFormat,
   quality: Option<u8>,
-) -> Result<(), crate::Error> {
+) -> Result<()> {
   match format {
     ImageOutputFormat::Jpeg => {
       let rgb = strip_alpha_channel(image);
@@ -383,7 +383,7 @@ const VP8X_HEADER_SIZE: u32 = 10;
 // background color (4 bytes) + loop count (2 bytes)
 const ANIM_HEADER_SIZE: u32 = 6;
 
-fn estimate_vp8_payload_size(buf: &[u8]) -> Result<u32, crate::Error> {
+fn estimate_vp8_payload_size(buf: &[u8]) -> Result<u32> {
   let (_, len) = vp8_payload_coords(buf)
     .ok_or_else(|| IoError(std::io::Error::other("VP8/VP8L chunk not found")))?;
 
@@ -393,7 +393,7 @@ fn estimate_vp8_payload_size(buf: &[u8]) -> Result<u32, crate::Error> {
   Ok(BASE_HEADER_SIZE + ANMF_HEADER_SIZE + BASE_HEADER_SIZE + len as u32 + padding as u32)
 }
 
-fn estimate_riff_size<'a, I: Iterator<Item = &'a [u8]>>(frames: I) -> Result<u32, crate::Error> {
+fn estimate_riff_size<'a, I: Iterator<Item = &'a [u8]>>(frames: I) -> Result<u32> {
   // "WEBP" +  VPX8 chunk + ANIM chunk + [ANMF chunks]
   let mut size = 4 + BASE_HEADER_SIZE + VP8X_HEADER_SIZE + BASE_HEADER_SIZE + ANIM_HEADER_SIZE;
 
@@ -411,7 +411,7 @@ pub fn encode_animated_webp<W: Write>(
   blend: bool,
   dispose: bool,
   loop_count: Option<u16>,
-) -> Result<(), crate::Error> {
+) -> Result<()> {
   assert_ne!(frames.len(), 0);
 
   // encode frames losslessly and collect VP8L/VP8 payloads
@@ -429,7 +429,7 @@ pub fn encode_animated_webp<W: Write>(
 
       Ok((frame, buf))
     })
-    .collect::<Result<Vec<(&AnimationFrame, Vec<u8>)>, crate::Error>>()?;
+    .collect::<Result<Vec<(&AnimationFrame, Vec<u8>)>>>()?;
 
   #[cfg(not(feature = "rayon"))]
   let frames_payloads: Vec<(&AnimationFrame, Vec<u8>)> = frames
@@ -447,7 +447,7 @@ pub fn encode_animated_webp<W: Write>(
 
       Ok((frame, buf))
     })
-    .collect::<Result<Vec<(&AnimationFrame, Vec<u8>)>, crate::Error>>()?;
+    .collect::<Result<Vec<(&AnimationFrame, Vec<u8>)>>>()?;
 
   let riff_size = estimate_riff_size(frames_payloads.iter().map(|(_, buf)| buf.as_slice()))?;
 
@@ -521,7 +521,7 @@ pub fn encode_animated_png<W: Write>(
   frames: &[AnimationFrame],
   destination: &mut W,
   loop_count: Option<u16>,
-) -> Result<(), crate::Error> {
+) -> Result<()> {
   assert_ne!(frames.len(), 0);
 
   let mut encoder = png::Encoder::new(

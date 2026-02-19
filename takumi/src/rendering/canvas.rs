@@ -3,17 +3,18 @@
 //! This module provides performance-optimized canvas operations including
 //! fast image blending and pixel manipulation operations.
 
-use std::borrow::Cow;
+use std::{borrow::Cow, mem::replace};
 
 use image::{
-  GenericImageView, Rgba, RgbaImage,
+  GenericImageView, ImageError, Rgba, RgbaImage,
+  error::{ParameterError, ParameterErrorKind},
   imageops::{interpolate_bilinear, interpolate_nearest},
 };
 use smallvec::SmallVec;
 use taffy::{Layout, Point, Size};
 use zeno::{Mask, PathData, Placement, Scratch};
 
-use crate::layout::style::BlendMode;
+use crate::{Result, layout::style::BlendMode};
 use crate::{
   layout::style::{Affine, Color, ImageScalingAlgorithm, InheritedStyle, Overflow},
   rendering::{BorderProperties, RenderContext, blend_pixel, create_mask, fast_div_255},
@@ -141,7 +142,8 @@ impl CanvasConstrain {
     layout: Layout,
     transform: Affine,
     mask_memory: &mut MaskMemory,
-  ) -> crate::Result<CanvasConstrainResult> {
+    buffer_pool: &mut BufferPool,
+  ) -> Result<CanvasConstrainResult> {
     // Clip path would just clip everything, and behaves like overflow: hidden.
     if let Some(clip_path) = &style.clip_path {
       let (mask, placement) = clip_path.render_mask(context, layout.size, mask_memory);
@@ -163,7 +165,7 @@ impl CanvasConstrain {
       return Ok(CanvasConstrainResult::SkipRendering);
     };
 
-    if let Some(mask) = create_mask(context, layout.size, mask_memory)? {
+    if let Some(mask) = create_mask(context, layout.size, mask_memory, buffer_pool)? {
       return Ok(CanvasConstrainResult::Some(CanvasConstrain::MaskImage {
         mask: mask.into_boxed_slice(),
         from: Point { x: 0, y: 0 },
@@ -354,7 +356,7 @@ impl CanvasConstrain {
   }
 }
 
-/// Memory for reusing dynamic memory allocations for masking operations.
+/// Memory for mask rasterization scratch space and output buffer.
 #[derive(Default)]
 pub(crate) struct MaskMemory {
   scratch: Scratch,
@@ -394,6 +396,90 @@ impl MaskMemory {
   }
 }
 
+/// A pool of reusable RGBA image buffers to avoid repeated heap allocations.
+pub(crate) struct BufferPool {
+  pool: Vec<Vec<u8>>,
+  current_size: usize,
+  max_size: usize,
+}
+
+impl Default for BufferPool {
+  fn default() -> Self {
+    Self {
+      pool: Vec::new(),
+      current_size: 0,
+      // Default to 64MB limit to avoid excessive memory usage
+      max_size: 64 * 1024 * 1024,
+    }
+  }
+}
+
+impl BufferPool {
+  /// Acquires a zero-filled `Vec<u8>` of the given capacity from the pool.
+  /// Call [`release`](Self::release) when done to return the buffer.
+  pub(crate) fn acquire(&mut self, capacity: usize) -> Vec<u8> {
+    // Find the smallest buffer that satisfies the requirement (since pool is sorted ascending)
+    let index_opt = self.pool.iter().position(|b| b.capacity() >= capacity);
+
+    if let Some(index) = index_opt {
+      // Use remove to maintain the sorted order of the pool
+      let mut buf = self.pool.remove(index);
+      self.current_size -= buf.capacity();
+
+      // Zero-fill only the portion we'll use.
+      buf.clear();
+      buf.resize(capacity, 0);
+      buf
+    } else {
+      vec![0u8; capacity]
+    }
+  }
+
+  /// Returns a previously acquired buffer to the pool for reuse.
+  pub(crate) fn release(&mut self, buffer: Vec<u8>) {
+    let cap = buffer.capacity();
+
+    // If adding this buffer exceeds our size limit, just let it be dropped.
+    if self.current_size + cap > self.max_size {
+      // Alternatively, we could pop the smallest buffers to make room,
+      // but simpler to just drop this one.
+      return;
+    }
+
+    self.current_size += cap;
+    // Maintain the pool sorted by capacity ascending
+    let pos = self
+      .pool
+      .binary_search_by_key(&cap, Vec::capacity)
+      .unwrap_or_else(|e| e);
+    self.pool.insert(pos, buffer);
+  }
+
+  /// Acquires a zeroed `RgbaImage` of the given dimensions from the pool.
+  ///
+  /// If the pool contains a buffer with enough capacity to hold `width * height * 4` bytes,
+  /// it is reused (zero-filled); otherwise a fresh allocation is made.
+  /// Call [`release_image`](Self::release_image) when done to return the buffer.
+  pub(crate) fn acquire_image(&mut self, width: u32, height: u32) -> Result<RgbaImage> {
+    let needed = (width * height * 4) as usize;
+    let raw = self.acquire(needed);
+
+    RgbaImage::from_raw(width, height, raw).ok_or_else(|| {
+      ImageError::Parameter(ParameterError::from_kind(
+        ParameterErrorKind::DimensionMismatch,
+      ))
+      .into()
+    })
+  }
+
+  /// Returns a previously acquired image's backing buffer to the pool for reuse.
+  ///
+  /// If the pool is currently at its memory limit, the buffer is dropped instead.
+  pub(crate) fn release_image(&mut self, image: RgbaImage) {
+    self.release(image.into_raw());
+  }
+}
+
 /// A canvas that can be used to draw images onto.
 pub struct Canvas {
   pub(crate) image: RgbaImage,
@@ -401,6 +487,7 @@ pub struct Canvas {
   // Since canvas is shared with mutable borrows everywhere already,
   // we can just include the memory here instead of making the function argument bloated.
   pub(crate) mask_memory: MaskMemory,
+  pub(crate) buffer_pool: BufferPool,
 }
 
 impl Canvas {
@@ -410,13 +497,16 @@ impl Canvas {
       image: RgbaImage::new(size.width, size.height),
       constrains: SmallVec::new(),
       mask_memory: MaskMemory::default(),
+      buffer_pool: BufferPool::default(),
     }
   }
 
-  pub(crate) fn replace_new_image(&mut self) -> RgbaImage {
+  pub(crate) fn replace_new_image(&mut self) -> Result<RgbaImage> {
     let size = self.size();
 
-    std::mem::replace(&mut self.image, RgbaImage::new(size.width, size.height))
+    let new_image = self.buffer_pool.acquire_image(size.width, size.height)?;
+
+    Ok(replace(&mut self.image, new_image))
   }
 
   pub(crate) fn push_constrain(&mut self, overflow_constrain: CanvasConstrain) {

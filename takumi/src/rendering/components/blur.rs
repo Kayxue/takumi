@@ -1,7 +1,8 @@
 use image::RgbaImage;
 use wide::{u32x4, u32x8, u32x16};
 
-use crate::rendering::{premultiply_alpha, unpremultiply_alpha};
+use crate::Result;
+use crate::rendering::{BufferPool, premultiply_alpha, unpremultiply_alpha};
 
 const PIXEL_STRIDE: usize = 4;
 
@@ -220,15 +221,20 @@ const fn detect_best_simd() -> SimdBestFit {
 
 /// Applies a Gaussian approximation using 3-pass Box Blur with SIMD.
 /// Automatically selects the best SIMD implementation available at runtime.
-pub(crate) fn apply_blur(image: &mut RgbaImage, radius: f32, blur_type: BlurType) {
+pub(crate) fn apply_blur(
+  image: &mut RgbaImage,
+  radius: f32,
+  blur_type: BlurType,
+  pool: &mut BufferPool,
+) -> Result<()> {
   let sigma = blur_type.to_sigma(radius);
   if sigma <= 0.5 {
-    return;
+    return Ok(());
   }
 
   let (width, height) = image.dimensions();
   if width == 0 || height == 0 {
-    return;
+    return Ok(());
   }
 
   // Detect best SIMD implementation once and cache it
@@ -236,33 +242,37 @@ pub(crate) fn apply_blur(image: &mut RgbaImage, radius: f32, blur_type: BlurType
 
   match simd_impl {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    SimdBestFit::U32x16 => unsafe {
-      apply_blur_avx512(image, sigma);
-    },
+    SimdBestFit::U32x16 => unsafe { apply_blur_avx512(image, sigma, pool) },
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    SimdBestFit::U32x8 => unsafe {
-      apply_blur_avx2(image, sigma);
-    },
-    SimdBestFit::U32x4 => apply_blur_impl::<u32x4>(image, sigma),
+    SimdBestFit::U32x8 => unsafe { apply_blur_avx2(image, sigma, pool) },
+    SimdBestFit::U32x4 => apply_blur_impl::<u32x4>(image, sigma, pool),
   }
 }
 
 /// AVX-512 implementation wrapper with target feature enabled
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx512f")]
-unsafe fn apply_blur_avx512(image: &mut RgbaImage, sigma: f32) {
-  apply_blur_impl::<u32x16>(image, sigma);
+unsafe fn apply_blur_avx512(
+  image: &mut RgbaImage,
+  sigma: f32,
+  pool: &mut BufferPool,
+) -> Result<()> {
+  apply_blur_impl::<u32x16>(image, sigma, pool)
 }
 
 /// AVX2 implementation wrapper with target feature enabled
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
-unsafe fn apply_blur_avx2(image: &mut RgbaImage, sigma: f32) {
-  apply_blur_impl::<u32x8>(image, sigma);
+unsafe fn apply_blur_avx2(image: &mut RgbaImage, sigma: f32, pool: &mut BufferPool) -> Result<()> {
+  apply_blur_impl::<u32x8>(image, sigma, pool)
 }
 
 #[inline(always)]
-fn apply_blur_impl<V: PixelVector>(image: &mut RgbaImage, sigma: f32) {
+fn apply_blur_impl<V: PixelVector>(
+  image: &mut RgbaImage,
+  sigma: f32,
+  pool: &mut BufferPool,
+) -> Result<()> {
   let box_radius = (((4.0 * sigma * sigma + 1.0).sqrt() - 1.0) * 0.5)
     .round()
     .max(1.0) as u32;
@@ -273,7 +283,8 @@ fn apply_blur_impl<V: PixelVector>(image: &mut RgbaImage, sigma: f32) {
     premultiply_alpha(pixel);
   }
 
-  let mut temp_data = vec![0u8; (width * height * 4) as usize];
+  let mut temp_image = pool.acquire_image(width, height)?;
+  let temp_data = &mut *temp_image;
   let img_data = &mut **image;
   let stride = width as usize * PIXEL_STRIDE;
   let div = 2 * box_radius + 1;
@@ -289,13 +300,17 @@ fn apply_blur_impl<V: PixelVector>(image: &mut RgbaImage, sigma: f32) {
 
   // 3-pass Box Blur to approximate Gaussian
   for _ in 0..3 {
-    box_blur_h(img_data, &mut temp_data, pass_params);
-    box_blur_v::<V>(&temp_data, img_data, pass_params);
+    box_blur_h(img_data, temp_data, pass_params);
+    box_blur_v::<V>(temp_data, img_data, pass_params);
   }
+
+  pool.release_image(temp_image);
 
   for pixel in image.pixels_mut() {
     unpremultiply_alpha(pixel);
   }
+
+  Ok(())
 }
 
 /// Horizontal Box Blur Pass - Use u32x4 to process RGBA of one pixel with correct sliding window

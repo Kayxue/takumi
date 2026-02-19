@@ -7,7 +7,7 @@ use taffy::Size;
 use crate::{
   Result,
   layout::{node::resolve_image, style::*},
-  rendering::{BorderProperties, MaskMemory, RenderContext, Sizing, overlay_image},
+  rendering::{BorderProperties, BufferPool, MaskMemory, RenderContext, Sizing, overlay_image},
 };
 
 pub(crate) struct TileLayer {
@@ -26,12 +26,13 @@ pub(crate) fn rasterize_layers(
   border: BorderProperties,
   transform: Affine,
   mask_memory: &mut MaskMemory,
-) -> Option<BackgroundTile> {
+  buffer_pool: &mut BufferPool,
+) -> Result<Option<BackgroundTile>> {
   if layers.is_empty() {
-    return None;
+    return Ok(None);
   }
 
-  let mut composed = RgbaImage::new(size.width, size.height);
+  let mut composed = buffer_pool.acquire_image(size.width, size.height)?;
 
   for layer in layers {
     for &x in &layer.xs {
@@ -50,7 +51,7 @@ pub(crate) fn rasterize_layers(
     }
   }
 
-  Some(BackgroundTile::Image(composed))
+  Ok(Some(BackgroundTile::Image(composed)))
 }
 
 pub(crate) struct ColorTile {
@@ -455,6 +456,7 @@ pub(crate) fn create_mask(
   context: &RenderContext,
   border_box: Size<f32>,
   mask_memory: &mut MaskMemory,
+  buffer_pool: &mut BufferPool,
 ) -> Result<Option<Vec<u8>>> {
   let mask_image = context
     .style
@@ -536,8 +538,15 @@ pub(crate) fn create_mask(
       BorderProperties::default(),
       Affine::IDENTITY,
       mask_memory,
-    )
-    .map(|tile| tile.pixels().map(|(_, _, pixel)| pixel.0[3]).collect()),
+      buffer_pool,
+    )?
+    .map(|tile| {
+      let alpha: Vec<u8> = tile.pixels().map(|(_, _, pixel)| pixel.0[3]).collect();
+      if let BackgroundTile::Image(image) = tile {
+        buffer_pool.release_image(image);
+      }
+      alpha
+    }),
   )
 }
 

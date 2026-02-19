@@ -99,7 +99,7 @@ pub(crate) fn draw_glyph_clip_image<I: GenericImageView<Pixel = Rgba<u8>>>(
   mut transform: Affine,
   inline_offset: Point<f32>,
   clip_image: &I,
-) {
+) -> Result<()> {
   transform *= Affine::translation(inline_offset.x, inline_offset.y);
 
   match glyph {
@@ -114,7 +114,9 @@ pub(crate) fn draw_glyph_clip_image<I: GenericImageView<Pixel = Rgba<u8>>>(
         .copied()
         .collect::<Vec<_>>();
 
-      let mut bottom = RgbaImage::new(bitmap.placement.width, bitmap.placement.height);
+      let mut bottom = canvas
+        .buffer_pool
+        .acquire_image(bitmap.placement.width, bitmap.placement.height)?;
 
       let fill_dimensions = clip_image.dimensions();
 
@@ -152,11 +154,13 @@ pub(crate) fn draw_glyph_clip_image<I: GenericImageView<Pixel = Rgba<u8>>>(
         ImageScalingAlgorithm::Auto,
         BlendMode::Normal,
       );
+
+      canvas.buffer_pool.release_image(bottom);
     }
     ResolvedGlyph::Outline(outline) => {
       // If the transform is not invertible, we can't draw the glyph
       let Some(inverse) = transform.invert() else {
-        return;
+        return Ok(());
       };
 
       let paths = collect_outline_paths(outline);
@@ -204,6 +208,8 @@ pub(crate) fn draw_glyph_clip_image<I: GenericImageView<Pixel = Rgba<u8>>>(
       draw_text_stroke_clip_image(canvas, style, transform, &paths, clip_image, inline_offset);
     }
   }
+
+  Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -265,21 +271,6 @@ pub(crate) fn draw_glyph(
   }
 
   Ok(())
-}
-
-pub(crate) fn draw_glyph_text_shadow(
-  glyph: &ResolvedGlyph,
-  canvas: &mut Canvas,
-  style: &SizedFontStyle,
-  mut transform: Affine,
-  inline_offset: Point<f32>,
-) {
-  transform *= Affine::translation(inline_offset.x, inline_offset.y);
-
-  if let ResolvedGlyph::Outline(outline) = glyph {
-    let paths = collect_outline_paths(outline);
-    draw_text_shadow(canvas, style, transform, &paths);
-  }
 }
 
 fn draw_text_stroke_clip_image<I: GenericImageView<Pixel = Rgba<u8>>>(
@@ -386,22 +377,33 @@ fn draw_text_shadow(
   style: &SizedFontStyle,
   transform: Affine,
   paths: &[Command],
-) {
+) -> Result<()> {
   let Some(ref shadows) = style.text_shadow else {
-    return;
+    return Ok(());
   };
 
   for shadow in shadows.iter() {
-    shadow.draw_outset(
-      &mut canvas.image,
-      &mut canvas.mask_memory,
-      &canvas.constrains,
-      paths,
-      transform,
-      Default::default(),
-      None,
-    );
+    shadow.draw_outset(canvas, paths, transform, Default::default(), None)?;
   }
+
+  Ok(())
+}
+
+pub(crate) fn draw_glyph_text_shadow(
+  glyph: &ResolvedGlyph,
+  canvas: &mut Canvas,
+  style: &SizedFontStyle,
+  mut transform: Affine,
+  inline_offset: Point<f32>,
+) -> Result<()> {
+  transform *= Affine::translation(inline_offset.x, inline_offset.y);
+
+  if let ResolvedGlyph::Outline(outline) = glyph {
+    let paths = collect_outline_paths(outline);
+    draw_text_shadow(canvas, style, transform, &paths)?;
+  }
+
+  Ok(())
 }
 
 pub(crate) fn collect_outline_paths(outline: &Outline) -> Vec<Command> {

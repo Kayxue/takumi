@@ -22,8 +22,8 @@ use crate::{
     },
   },
   rendering::{
-    BorderProperties, Canvas, RenderContext, SizedShadow, collect_background_layers,
-    rasterize_layers,
+    BackgroundTile, BorderProperties, Canvas, RenderContext, SizedShadow,
+    collect_background_layers, rasterize_layers,
   },
   resources::task::FetchTaskCollection,
 };
@@ -286,14 +286,12 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
       element_border_radius.append_mask_commands(&mut element_paths, layout.size, Point::ZERO);
 
       shadow.draw_outset(
-        &mut canvas.image,
-        &mut canvas.mask_memory,
-        &canvas.constrains,
+        canvas,
         &paths,
         context.transform,
         Fill::NonZero.into(),
         Some(&element_paths),
-      );
+      )?;
     }
 
     Ok(())
@@ -320,7 +318,7 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
           context.current_color,
           layout.size,
         );
-        shadow.draw_inset(context.transform, border_radius, canvas, layout);
+        shadow.draw_inset(context.transform, border_radius, canvas, layout)?;
       }
     }
     Ok(())
@@ -358,7 +356,7 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
 
         let layers = collect_background_layers(context, layout.size)?;
 
-        let Some(rasterized) = rasterize_layers(
+        if let Some(tile) = rasterize_layers(
           layers,
           Size {
             width: (layout.size.width - layout.border.left - layout.border.right) as u32,
@@ -368,17 +366,20 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
           border_radius,
           Affine::translation(-layout.border.left, -layout.border.top),
           &mut canvas.mask_memory,
-        ) else {
-          return Ok(());
-        };
+          &mut canvas.buffer_pool,
+        )? {
+          canvas.overlay_image(
+            &tile,
+            BorderProperties::default(),
+            context.transform * Affine::translation(layout.border.left, layout.border.top),
+            context.style.image_rendering,
+            BlendMode::Normal,
+          );
 
-        canvas.overlay_image(
-          &rasterized,
-          BorderProperties::default(),
-          context.transform * Affine::translation(layout.border.left, layout.border.top),
-          context.style.image_rendering,
-          BlendMode::Normal,
-        );
+          if let BackgroundTile::Image(image) = tile {
+            canvas.buffer_pool.release_image(image);
+          }
+        }
       }
       BackgroundClip::ContentBox => {
         border_radius.inset_by_border_width();
@@ -386,7 +387,7 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
 
         let layers = collect_background_layers(context, layout.size)?;
 
-        let Some(rasterized) = rasterize_layers(
+        if let Some(tile) = rasterize_layers(
           layers,
           layout.content_box_size().map(|x| x as u32),
           context,
@@ -396,21 +397,24 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
             -layout.padding.top - layout.border.top,
           ),
           &mut canvas.mask_memory,
-        ) else {
-          return Ok(());
-        };
+          &mut canvas.buffer_pool,
+        )? {
+          canvas.overlay_image(
+            &tile,
+            BorderProperties::default(),
+            context.transform
+              * Affine::translation(
+                layout.padding.left + layout.border.left,
+                layout.padding.top + layout.border.top,
+              ),
+            context.style.image_rendering,
+            BlendMode::Normal,
+          );
 
-        canvas.overlay_image(
-          &rasterized,
-          BorderProperties::default(),
-          context.transform
-            * Affine::translation(
-              layout.padding.left + layout.border.left,
-              layout.padding.top + layout.border.top,
-            ),
-          context.style.image_rendering,
-          BlendMode::Normal,
-        );
+          if let BackgroundTile::Image(image) = tile {
+            canvas.buffer_pool.release_image(image);
+          }
+        }
       }
       _ => {}
     }
@@ -437,16 +441,15 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
     layout: Layout,
   ) -> Result<()> {
     let clip_image = if context.style.background_clip == BackgroundClip::BorderArea {
-      let layers = collect_background_layers(context, layout.size)?;
-
       rasterize_layers(
-        layers,
+        collect_background_layers(context, layout.size)?,
         layout.size.map(|x| x as u32),
         context,
         BorderProperties::default(),
         Affine::IDENTITY,
         &mut canvas.mask_memory,
-      )
+        &mut canvas.buffer_pool,
+      )?
     } else {
       None
     };
@@ -457,6 +460,10 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
       context.transform,
       clip_image.as_ref(),
     );
+
+    if let Some(BackgroundTile::Image(image)) = clip_image {
+      canvas.buffer_pool.release_image(image);
+    }
     Ok(())
   }
 
