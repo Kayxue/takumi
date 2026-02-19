@@ -692,7 +692,14 @@ impl<const DEFAULT_AUTO: bool> Length<DEFAULT_AUTO> {
 impl<const DEFAULT_AUTO: bool> MakeComputed for Length<DEFAULT_AUTO> {
   fn make_computed(&mut self, sizing: &Sizing) {
     if let Self::Em(em) = *self {
-      *self = Self::Px(em * sizing.font_size);
+      let dpr = sizing.viewport.device_pixel_ratio;
+      let font_size = if dpr > 0.0 {
+        sizing.font_size / dpr
+      } else {
+        sizing.font_size
+      };
+
+      *self = Self::Px(em * font_size);
       return;
     }
 
@@ -863,5 +870,14 @@ mod tests {
   fn to_px_applies_device_pixel_ratio_for_absolute_units() {
     let px = Length::<true>::Rem(2.0).to_px(&sizing(), 100.0);
     assert_near(px, 64.0);
+  }
+
+  #[test]
+  fn make_computed_em_applies_dpr_only_once_in_to_px() {
+    let mut value: Length<true> = Length::Em(1.5);
+    let sizing = sizing();
+    value.make_computed(&sizing);
+    assert_eq!(value, Length::Px(7.5));
+    assert_eq!(value.to_px(&sizing, 0.0), 15.0);
   }
 }
