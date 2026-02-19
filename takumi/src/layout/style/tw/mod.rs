@@ -64,8 +64,96 @@ impl TailwindValues {
   }
 
   pub(crate) fn apply(&self, style: &mut Style, viewport: Viewport) {
+    let mut background_image_state = TwGradientState::default();
+
     for value in self.iter() {
-      value.apply(style, viewport);
+      value.apply(style, viewport, &mut background_image_state);
+    }
+
+    background_image_state.apply(style);
+  }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct TwGradientState {
+  pub gradient_type: TwGradientType,
+  pub angle: Option<Angle>,
+  pub from: Option<ColorInput>,
+  pub to: Option<ColorInput>,
+  pub via: Option<ColorInput>,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub(crate) enum TwGradientType {
+  #[default]
+  Linear,
+  Radial,
+  Conic,
+}
+
+impl TwGradientState {
+  pub(crate) fn apply(self, style: &mut Style) {
+    if self.from.is_none() && self.to.is_none() && self.via.is_none() && self.angle.is_none() {
+      return;
+    }
+
+    let angle = self.angle.unwrap_or_else(|| Angle::new(180.0));
+
+    let from_color = self.from.unwrap_or(ColorInput::Value(Color([0, 0, 0, 0])));
+    let to_color = self.to.unwrap_or_else(|| {
+      if let ColorInput::Value(from_c) = from_color {
+        ColorInput::Value(Color([from_c.0[0], from_c.0[1], from_c.0[2], 0]))
+      } else {
+        ColorInput::Value(Color([0, 0, 0, 0]))
+      }
+    });
+
+    let mut stops = Vec::new();
+    stops.push(GradientStop::ColorHint {
+      color: from_color,
+      hint: Some(StopPosition(Length::Percentage(0.0))),
+    });
+
+    if let Some(via_color) = self.via {
+      stops.push(GradientStop::ColorHint {
+        color: via_color,
+        hint: Some(StopPosition(Length::Percentage(50.0))),
+      });
+    }
+
+    stops.push(GradientStop::ColorHint {
+      color: to_color,
+      hint: Some(StopPosition(Length::Percentage(100.0))),
+    });
+
+    match self.gradient_type {
+      TwGradientType::Linear => {
+        let gradient = LinearGradient {
+          angle,
+          stops: stops.into_boxed_slice(),
+        };
+
+        style.background_image = [BackgroundImage::Linear(gradient)].into();
+      }
+      TwGradientType::Radial => {
+        let gradient = RadialGradient {
+          shape: RadialShape::Ellipse,
+          size: RadialSize::FarthestCorner,
+          center: BackgroundPosition::default(),
+          stops: stops.into_boxed_slice(),
+        };
+
+        style.background_image = [BackgroundImage::Radial(gradient)].into();
+      }
+      TwGradientType::Conic => {
+        let gradient = ConicGradient {
+          from_angle: angle,
+          center: BackgroundPosition::default(),
+          stops: stops.into_boxed_slice(),
+        };
+
+        style.background_image = [BackgroundImage::Conic(gradient)].into();
+      }
     }
   }
 }
@@ -93,14 +181,19 @@ pub struct TailwindValue {
 }
 
 impl TailwindValue {
-  pub(crate) fn apply(&self, style: &mut Style, viewport: Viewport) {
+  pub(crate) fn apply(
+    &self,
+    style: &mut Style,
+    viewport: Viewport,
+    gradient_state: &mut TwGradientState,
+  ) {
     if let Some(breakpoint) = self.breakpoint
       && !breakpoint.matches(viewport)
     {
       return;
     }
 
-    self.property.apply(style);
+    self.property.apply(style, gradient_state);
   }
 
   /// Parse a tailwind value from a token.
@@ -474,6 +567,18 @@ pub enum TailwindProperty {
   Visibility(Visibility),
   /// `vertical-align` property.
   VerticalAlign(VerticalAlign),
+  /// `bg-linear` property.
+  BgLinearAngle(Angle),
+  /// `bg-radial` property.
+  BgRadial,
+  /// `bg-conic` property.
+  BgConicAngle(Angle),
+  /// `from` property.
+  GradientFrom(ColorInput),
+  /// `to` property.
+  GradientTo(ColorInput),
+  /// `via` property.
+  GradientVia(ColorInput),
 }
 
 fn extract_arbitrary_value(suffix: &str) -> Option<Cow<'_, str>> {
@@ -600,8 +705,28 @@ impl TailwindProperty {
     None
   }
 
-  pub(crate) fn apply(&self, style: &mut Style) {
+  pub(crate) fn apply(&self, style: &mut Style, gradient_state: &mut TwGradientState) {
     match *self {
+      TailwindProperty::BgLinearAngle(angle) => {
+        gradient_state.gradient_type = TwGradientType::Linear;
+        gradient_state.angle = Some(angle);
+      }
+      TailwindProperty::BgRadial => {
+        gradient_state.gradient_type = TwGradientType::Radial;
+      }
+      TailwindProperty::BgConicAngle(angle) => {
+        gradient_state.gradient_type = TwGradientType::Conic;
+        gradient_state.angle = Some(angle);
+      }
+      TailwindProperty::GradientFrom(color) => {
+        gradient_state.from = Some(color);
+      }
+      TailwindProperty::GradientTo(color) => {
+        gradient_state.to = Some(color);
+      }
+      TailwindProperty::GradientVia(color) => {
+        gradient_state.via = Some(color);
+      }
       TailwindProperty::BackgroundClip(background_clip) => {
         style.background_clip = background_clip.into();
       }
@@ -1104,6 +1229,8 @@ impl TailwindProperty {
 
 #[cfg(test)]
 mod tests {
+  use crate::layout::style::{CssValue, Style, properties::BackgroundImage};
+
   use super::*;
 
   #[test]
@@ -1477,19 +1604,21 @@ mod tests {
 
     let mut style = Style::default();
 
+    let mut gradient_state = TwGradientState::default();
+
     // Apply blur
     if let Some(blur_prop) = TailwindProperty::parse("blur-sm") {
-      blur_prop.apply(&mut style);
+      blur_prop.apply(&mut style, &mut gradient_state);
     }
 
     // Apply brightness - this should APPEND, not override
     if let Some(brightness_prop) = TailwindProperty::parse("brightness-150") {
-      brightness_prop.apply(&mut style);
+      brightness_prop.apply(&mut style, &mut gradient_state);
     }
 
     // Apply contrast - this should also APPEND
     if let Some(contrast_prop) = TailwindProperty::parse("contrast-125") {
-      contrast_prop.apply(&mut style);
+      contrast_prop.apply(&mut style, &mut gradient_state);
     }
 
     assert_eq!(
@@ -1572,6 +1701,44 @@ mod tests {
       TailwindProperty::parse("decoration-[3px]"),
       Some(TailwindProperty::TextDecorationThickness(
         TextDecorationThickness::Length(Length::Px(3.0))
+      ))
+    );
+  }
+
+  #[test]
+  fn test_linear_gradient_apply() {
+    let mut style = Style::default();
+    let viewport = (100, 100).into();
+    let Ok(values) =
+      TailwindValues::from_str("bg-linear-to-r from-red-500 via-green-500 to-blue-500")
+    else {
+      unreachable!()
+    };
+
+    values.apply(&mut style, viewport);
+
+    assert_eq!(
+      style.background_image,
+      CssValue::Value(Some(
+        [BackgroundImage::Linear(LinearGradient {
+          angle: Angle::new(90.0),
+          stops: [
+            GradientStop::ColorHint {
+              color: ColorInput::Value(Color([239, 68, 68, 255])),
+              hint: Some(StopPosition(Length::Percentage(0.0))),
+            },
+            GradientStop::ColorHint {
+              color: ColorInput::Value(Color([34, 197, 94, 255])),
+              hint: Some(StopPosition(Length::Percentage(50.0))),
+            },
+            GradientStop::ColorHint {
+              color: ColorInput::Value(Color([59, 130, 246, 255])),
+              hint: Some(StopPosition(Length::Percentage(100.0))),
+            },
+          ]
+          .into(),
+        })]
+        .into()
       ))
     );
   }

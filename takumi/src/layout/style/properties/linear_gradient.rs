@@ -249,8 +249,17 @@ impl From<Angle> for zeno::Angle {
 
 impl TailwindPropertyParser for Angle {
   fn parse_tw(token: &str) -> Option<Self> {
-    if token.eq_ignore_ascii_case("none") {
-      return Some(Angle::zero());
+    match token.to_ascii_lowercase().as_str() {
+      "none" => return Some(Angle::zero()),
+      "to-t" => return Some(Angle::new(0.0)),
+      "to-tr" => return Some(Angle::new(45.0)),
+      "to-r" => return Some(Angle::new(90.0)),
+      "to-br" => return Some(Angle::new(135.0)),
+      "to-b" => return Some(Angle::new(180.0)),
+      "to-bl" => return Some(Angle::new(225.0)),
+      "to-l" => return Some(Angle::new(270.0)),
+      "to-tl" => return Some(Angle::new(315.0)),
+      _ => {}
     }
 
     let angle = token.parse::<f32>().ok()?;
