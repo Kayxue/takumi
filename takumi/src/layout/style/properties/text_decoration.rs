@@ -2,7 +2,10 @@ use bitflags::bitflags;
 use cssparser::{Parser, Token, match_ignore_ascii_case};
 
 use crate::{
-  layout::style::{CssToken, FromCss, Length, MakeComputed, ParseResult, properties::ColorInput},
+  layout::style::{
+    CssToken, FromCss, Length, MakeComputed, ParseResult, declare_enum_from_css_impl,
+    properties::ColorInput, tw::TailwindPropertyParser,
+  },
   rendering::Sizing,
 };
 
@@ -65,12 +68,67 @@ impl<'i> FromCss<'i> for TextDecorationLines {
 
 impl MakeComputed for TextDecorationLines {}
 
+/// Represents text decoration thickness options.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TextDecorationThickness {
+  /// Use the font's default thickness, fallback to `auto` if not available.
+  FromFont,
+  /// Use a specific length.
+  Length(Length),
+}
+
+impl MakeComputed for TextDecorationThickness {
+  fn make_computed(&mut self, sizing: &Sizing) {
+    if let Self::Length(length) = self {
+      length.make_computed(sizing);
+    }
+  }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum SizedTextDecorationThickness {
+  FromFont,
+  Value(f32),
+}
+
+impl<'i> FromCss<'i> for TextDecorationThickness {
+  fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
+    if input
+      .try_parse(|input| input.expect_ident_matching("from-font"))
+      .is_ok()
+    {
+      return Ok(Self::FromFont);
+    }
+
+    Ok(Self::Length(Length::from_css(input)?))
+  }
+
+  fn valid_tokens() -> &'static [CssToken] {
+    &[CssToken::Keyword("from-font"), CssToken::Token("length")]
+  }
+}
+
+impl TailwindPropertyParser for TextDecorationThickness {
+  fn parse_tw(token: &str) -> Option<Self> {
+    if let Ok(number) = token.parse::<f32>() {
+      return Some(Self::Length(Length::Px(number)));
+    }
+
+    Self::from_str(token).ok()
+  }
+}
+
 /// Represents text decoration style options (currently only solid is supported).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TextDecorationStyle {
   /// Solid text decoration style.
   Solid,
 }
+
+declare_enum_from_css_impl!(
+  TextDecorationStyle,
+  "solid" => Self::Solid
+);
 
 /// Parsed `text-decoration` value.
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -82,14 +140,13 @@ pub struct TextDecoration {
   /// Optional text decoration color.
   pub color: Option<ColorInput>,
   /// Optional text decoration thickness.
-  pub thickness: Option<Length>,
+  pub thickness: Option<TextDecorationThickness>,
 }
-
-impl MakeComputed for TextDecorationStyle {}
 
 impl MakeComputed for TextDecoration {
   fn make_computed(&mut self, sizing: &Sizing) {
     self.color.make_computed(sizing);
+    self.thickness.make_computed(sizing);
   }
 }
 
@@ -116,7 +173,7 @@ impl<'i> FromCss<'i> for TextDecoration {
         continue;
       }
 
-      if let Ok(value) = input.try_parse(Length::from_css) {
+      if let Ok(value) = input.try_parse(TextDecorationThickness::from_css) {
         thickness = Some(value);
         continue;
       }
@@ -147,25 +204,6 @@ impl<'i> FromCss<'i> for TextDecoration {
       CssToken::Keyword("solid"),
       CssToken::Token("color"),
     ]
-  }
-}
-
-impl<'i> FromCss<'i> for TextDecorationStyle {
-  fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    let location = input.current_source_location();
-    let token = input.next()?;
-
-    if let Token::Ident(ident) = token
-      && ident.eq_ignore_ascii_case("solid")
-    {
-      return Ok(TextDecorationStyle::Solid);
-    }
-
-    Err(Self::unexpected_token_error(location, token))
-  }
-
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Keyword("solid")]
   }
 }
 

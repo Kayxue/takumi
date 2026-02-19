@@ -239,7 +239,7 @@ pub enum TailwindProperty {
   /// `text-decoration-color` property.
   TextDecorationColor(ColorInput),
   /// `text-decoration-thickness` property.
-  TextDecorationThickness(TwDecoration),
+  TextDecorationThickness(TextDecorationThickness),
   /// `text-transform` property.
   TextTransform(TextTransform),
   /// `width` and `height` property.
@@ -680,8 +680,8 @@ impl TailwindProperty {
       TailwindProperty::TextDecorationColor(color_input) => {
         style.text_decoration_color = Some(color_input).into();
       }
-      TailwindProperty::TextDecorationThickness(tw_decoration) => {
-        style.text_decoration_thickness = Some(tw_decoration.0).into();
+      TailwindProperty::TextDecorationThickness(thickness) => {
+        style.text_decoration_thickness = Some(thickness).into();
       }
       TailwindProperty::TextTransform(text_transform) => {
         style.text_transform = text_transform.into();
@@ -1552,21 +1552,27 @@ mod tests {
   fn test_parse_decoration_thickness() {
     assert_eq!(
       TailwindProperty::parse("decoration-4"),
-      Some(TailwindProperty::TextDecorationThickness(TwDecoration(
-        Length::Px(4.0)
-      )))
+      Some(TailwindProperty::TextDecorationThickness(
+        TextDecorationThickness::Length(Length::Px(4.0))
+      ))
     );
     assert_eq!(
       TailwindProperty::parse("decoration-auto"),
-      Some(TailwindProperty::TextDecorationThickness(TwDecoration(
-        Length::Auto
-      )))
+      Some(TailwindProperty::TextDecorationThickness(
+        TextDecorationThickness::Length(Length::Auto)
+      ))
+    );
+    assert_eq!(
+      TailwindProperty::parse("decoration-from-font"),
+      Some(TailwindProperty::TextDecorationThickness(
+        TextDecorationThickness::FromFont
+      ))
     );
     assert_eq!(
       TailwindProperty::parse("decoration-[3px]"),
-      Some(TailwindProperty::TextDecorationThickness(TwDecoration(
-        Length::Px(3.0)
-      )))
+      Some(TailwindProperty::TextDecorationThickness(
+        TextDecorationThickness::Length(Length::Px(3.0))
+      ))
     );
   }
 }

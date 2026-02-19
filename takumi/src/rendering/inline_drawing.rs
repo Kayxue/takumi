@@ -12,7 +12,7 @@ use crate::{
     node::Node,
     style::{
       Affine, BackgroundClip, BlendMode, Color, ImageScalingAlgorithm, SizedFontStyle,
-      TextDecorationLines, TextDecorationSkipInk,
+      SizedTextDecorationThickness, TextDecorationLines, TextDecorationSkipInk,
     },
     tree::LayoutTree,
   },
@@ -275,7 +275,10 @@ fn draw_glyph_run_under_overline(
     .contains(TextDecorationLines::UNDERLINE)
   {
     let offset = glyph_run.baseline() - metrics.underline_offset;
-    let size = glyph_run.style().brush.decoration_thickness;
+    let size = match brush.decoration_thickness {
+      SizedTextDecorationThickness::Value(v) => v,
+      SizedTextDecorationThickness::FromFont => metrics.underline_size,
+    };
 
     if context.transform.only_translation()
       && brush.decoration_skip_ink != TextDecorationSkipInk::None
@@ -314,7 +317,10 @@ fn draw_glyph_run_under_overline(
       glyph_run,
       glyph_run.style().brush.decoration_color,
       glyph_run.baseline() - metrics.ascent - metrics.underline_offset,
-      glyph_run.style().brush.decoration_thickness,
+      match brush.decoration_thickness {
+        SizedTextDecorationThickness::Value(v) => v,
+        SizedTextDecorationThickness::FromFont => metrics.underline_size,
+      },
       layout,
       context.transform,
     );
@@ -337,7 +343,10 @@ fn draw_glyph_run_line_through(
   }
 
   let metrics = glyph_run.run().metrics();
-  let size = glyph_run.style().brush.decoration_thickness;
+  let size = match brush.decoration_thickness {
+    SizedTextDecorationThickness::Value(v) => v,
+    SizedTextDecorationThickness::FromFont => metrics.strikethrough_size,
+  };
   let offset = glyph_run.baseline() - metrics.strikethrough_offset;
 
   draw_decoration(

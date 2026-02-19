@@ -7,7 +7,7 @@ use crate::test_utils::run_fixture_test;
 
 #[test]
 fn test_style_text_decoration_thickness() {
-  let make_line = |label: &str, thickness: Length| {
+  let make_line = |label: &str, thickness: TextDecorationThickness| {
     TextNode {
       preset: None,
       tw: None,
@@ -47,10 +47,11 @@ fn test_style_text_decoration_thickness() {
     ),
     children: Some(
       [
-        make_line("auto (48/18=2.66px)", Auto),
-        make_line("2px", Px(2.0)),
-        make_line("5px", Px(5.0)),
-        make_line("10px", Px(10.0)),
+        make_line("auto (48/18=2.66px)", TextDecorationThickness::Length(Auto)),
+        make_line("from-font", TextDecorationThickness::FromFont),
+        make_line("2px", TextDecorationThickness::Length(Px(2.0))),
+        make_line("5px", TextDecorationThickness::Length(Px(5.0))),
+        make_line("10px", TextDecorationThickness::Length(Px(10.0))),
       ]
       .into(),
     ),

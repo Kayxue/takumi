@@ -268,7 +268,7 @@ define_style!(
   text_decoration: TextDecoration => [text_decoration_line, text_decoration_color, text_decoration_thickness],
   text_decoration_line: Option<TextDecorationLines>,
   text_decoration_color: Option<ColorInput>,
-  text_decoration_thickness: Option<Length>,
+  text_decoration_thickness: Option<TextDecorationThickness>,
   text_decoration_skip_ink: TextDecorationSkipInk where inherit = true,
   letter_spacing: Option<Length> where inherit = true,
   word_spacing: Option<Length> where inherit = true,
@@ -300,7 +300,7 @@ pub(crate) struct SizedFontStyle<'s> {
   pub color: Color,
   pub text_stroke_color: Color,
   pub text_decoration_color: Color,
-  pub text_decoration_thickness: f32,
+  pub text_decoration_thickness: SizedTextDecorationThickness,
   pub sizing: Sizing,
 }
 
@@ -763,8 +763,12 @@ impl InheritedStyle {
         .text_decoration_thickness
         .or(self.text_decoration.thickness)
       {
-        Some(Length::Auto) | None => context.sizing.font_size / 18.0,
-        Some(thickness) => thickness.to_px(&context.sizing, context.sizing.font_size),
+        Some(TextDecorationThickness::Length(Length::Auto))
+        | None
+        | Some(TextDecorationThickness::FromFont) => SizedTextDecorationThickness::FromFont,
+        Some(TextDecorationThickness::Length(thickness)) => SizedTextDecorationThickness::Value(
+          thickness.to_px(&context.sizing, context.sizing.font_size),
+        ),
       },
     }
   }

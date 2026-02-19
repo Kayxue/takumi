@@ -8,8 +8,8 @@ use crate::{
   layout::{
     node::Node,
     style::{
-      Color, FontSynthesis, SizedFontStyle, TextDecorationLines, TextDecorationSkipInk,
-      TextOverflow, TextWrapStyle, VerticalAlign,
+      Color, FontSynthesis, SizedFontStyle, SizedTextDecorationThickness, TextDecorationLines,
+      TextDecorationSkipInk, TextOverflow, TextWrapStyle, VerticalAlign,
     },
     tree::RenderNode,
   },
@@ -109,10 +109,10 @@ pub enum InlineContentKind<'c> {
 pub type InlineLayout = parley::Layout<InlineBrush>;
 
 #[derive(Clone, PartialEq, Copy, Debug)]
-pub struct InlineBrush {
+pub(crate) struct InlineBrush {
   pub color: Color,
   pub decoration_color: Color,
-  pub decoration_thickness: f32,
+  pub decoration_thickness: SizedTextDecorationThickness,
   pub decoration_line: TextDecorationLines,
   pub decoration_skip_ink: TextDecorationSkipInk,
   pub stroke_color: Color,
@@ -125,7 +125,7 @@ impl Default for InlineBrush {
     Self {
       color: Color::black(),
       decoration_color: Color::black(),
-      decoration_thickness: 0.0,
+      decoration_thickness: SizedTextDecorationThickness::Value(0.0),
       decoration_line: TextDecorationLines::empty(),
       decoration_skip_ink: TextDecorationSkipInk::default(),
       stroke_color: Color::black(),
