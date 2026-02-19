@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use parley::InlineBox;
+use parley::{InlineBox, PositionedLayoutItem};
 use taffy::{AvailableSpace, Layout, Rect, Size};
 
 use crate::{
@@ -370,8 +370,7 @@ pub(crate) fn break_lines(
   breaker.finish();
 }
 
-/// Truncates text and inline boxes in the layout and appends an ellipsis character.
-/// This function handles both text spans with their individual styles and inline boxes.
+/// Truncates text in the layout to fit within `max_width` and appends an ellipsis.
 fn make_ellipsis_layout<'c, 'g: 'c, N: Node<N> + 'c>(
   layout: &mut InlineLayout,
   spans: &mut Vec<ProcessedInlineSpan<'c, 'g, N>>,
@@ -380,61 +379,127 @@ fn make_ellipsis_layout<'c, 'g: 'c, N: Node<N> + 'c>(
   root_style: &'c SizedFontStyle,
   global: &GlobalContext,
 ) {
-  loop {
-    let (mut new_layout, text) = global
-      .font_context
-      .tree_builder(root_style.into(), |builder| {
-        for span in spans.iter() {
-          match span {
-            ProcessedInlineSpan::Text { text, style } => {
-              builder.push_style_span(style.into());
-              builder.push_text(text);
-              builder.pop_style_span();
-            }
-            ProcessedInlineSpan::Box(item) => {
-              builder.push_inline_box(item.inline_box.clone());
-            }
+  let ellipsis_char = root_style.parent.ellipsis_char();
+
+  let ellipsis_style = spans
+    .iter()
+    .rev()
+    .find_map(|span| {
+      if let ProcessedInlineSpan::Text { style, .. } = span {
+        Some(Cow::Owned(style.clone()))
+      } else {
+        None
+      }
+    })
+    .unwrap_or(Cow::Borrowed(root_style));
+
+  let ellipsis_w = {
+    let (mut ellipsis_layout, _) =
+      global
+        .font_context
+        .tree_builder((&*ellipsis_style).into(), |builder| {
+          builder.push_text(ellipsis_char);
+        });
+    ellipsis_layout.break_all_lines(None);
+    ellipsis_layout
+      .lines()
+      .next()
+      .map(|l| l.runs().map(|r| r.advance()).sum::<f32>())
+      .unwrap_or(0.0)
+  };
+
+  let available_w = (max_width - ellipsis_w).max(0.0);
+
+  let truncate_at: Option<usize> = layout.lines().last().and_then(|last_line| {
+    let mut accumulated = 0.0_f32;
+    let mut last_fitting_byte: Option<usize> = Some(0);
+    // items() may split one Run into multiple GlyphRuns by style; only scan clusters once per Run.
+    let mut last_run_index: Option<usize> = None;
+
+    'outer: for item in last_line.items() {
+      match item {
+        PositionedLayoutItem::InlineBox(inline_box) => {
+          if accumulated + inline_box.width <= available_w {
+            accumulated += inline_box.width;
+          } else {
+            break 'outer;
           }
         }
+        PositionedLayoutItem::GlyphRun(glyph_run) => {
+          let run = glyph_run.run();
+          if last_run_index == Some(run.index()) {
+            continue;
+          }
+          last_run_index = Some(run.index());
 
-        builder.push_text(root_style.parent.ellipsis_char());
-      });
-
-    break_lines(&mut new_layout, max_width, max_height);
-
-    // If there are no spans, return the new layout
-    if spans.is_empty() {
-      *layout = new_layout;
-      return;
-    }
-
-    // Check if all content (including ellipsis) is visible
-    if let Some(last_line) = new_layout.lines().last()
-      && last_line.text_range().end == text.len()
-    {
-      *layout = new_layout;
-      return;
-    }
-
-    // Try to truncate from the last span
-    let Some(last_span) = spans.last_mut() else {
-      *layout = new_layout;
-      return;
-    };
-
-    match last_span {
-      ProcessedInlineSpan::Box { .. } => {
-        // Remove the last inline box if it overflows
-        spans.pop();
-      }
-      ProcessedInlineSpan::Text { text, .. } => {
-        if let Some((char_idx, _)) = text.char_indices().next_back() {
-          text.truncate(char_idx);
-        } else {
-          // Text span is empty, remove it
-          spans.pop();
+          for cluster in run.visual_clusters() {
+            let cluster_w = cluster.advance();
+            if accumulated + cluster_w > available_w {
+              break 'outer;
+            }
+            accumulated += cluster_w;
+            last_fitting_byte = Some(cluster.text_range().end);
+          }
         }
       }
     }
+
+    last_fitting_byte
+  });
+
+  if let Some(cut) = truncate_at {
+    let mut remaining = cut;
+    let mut span_cut_idx = spans.len();
+
+    for (i, span) in spans.iter_mut().enumerate() {
+      match span {
+        ProcessedInlineSpan::Text { text, .. } => {
+          let len = text.len();
+          if remaining <= len {
+            let safe_cut = (0..=remaining.min(len))
+              .rev()
+              .find(|&b| text.is_char_boundary(b))
+              .unwrap_or(0);
+            text.truncate(safe_cut);
+            span_cut_idx = i + 1;
+            break;
+          }
+          remaining -= len;
+        }
+        ProcessedInlineSpan::Box(_) => {
+          if remaining == 0 {
+            span_cut_idx = i;
+            break;
+          }
+        }
+      }
+    }
+
+    spans.truncate(span_cut_idx);
+  } else {
+    spans.clear();
   }
+
+  let (mut final_layout, _) = global
+    .font_context
+    .tree_builder(root_style.into(), |builder| {
+      for span in spans.iter() {
+        match span {
+          ProcessedInlineSpan::Text { text, style } => {
+            builder.push_style_span(style.into());
+            builder.push_text(text);
+            builder.pop_style_span();
+          }
+          ProcessedInlineSpan::Box(item) => {
+            builder.push_inline_box(item.inline_box.clone());
+          }
+        }
+      }
+      builder.push_style_span((&*ellipsis_style).into());
+      builder.push_text(ellipsis_char);
+      builder.pop_style_span();
+    });
+
+  break_lines(&mut final_layout, max_width, max_height);
+  *layout = final_layout;
 }

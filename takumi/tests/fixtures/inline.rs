@@ -37,6 +37,8 @@ fn text_inline() {
       StyleBuilder::default()
         .font_weight(FontWeight::from(600.0))
         .display(Display::Inline)
+        .color(ColorInput::Value(Color([0, 0, 255, 255])))
+        .font_style(FontStyle::italic())
         .build()
         .unwrap(),
     ),
