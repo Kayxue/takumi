@@ -99,4 +99,9 @@ rayon = ["dep:rayon", "fast_image_resize/rayon"]
 detailed_css_error = []
 
 [dev-dependencies]
+criterion = "0.8"
 serde_json = "1"
+
+[[bench]]
+name = "effects"
+harness = false
