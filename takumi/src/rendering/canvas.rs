@@ -394,17 +394,20 @@ impl MaskMemory {
   }
 }
 
+const BUCKET_COUNT: usize = 32;
+
 /// A pool of reusable RGBA image buffers to avoid repeated heap allocations.
 pub(crate) struct BufferPool {
-  pool: Vec<Vec<u8>>,
+  pools: [Vec<Vec<u8>>; BUCKET_COUNT],
   current_size: usize,
   max_size: usize,
 }
 
 impl Default for BufferPool {
   fn default() -> Self {
+    const EMPTY_VEC: Vec<Vec<u8>> = Vec::new();
     Self {
-      pool: Vec::new(),
+      pools: [EMPTY_VEC; BUCKET_COUNT],
       current_size: 0,
       // Default to 64MB limit to avoid excessive memory usage
       max_size: 64 * 1024 * 1024,
@@ -413,24 +416,41 @@ impl Default for BufferPool {
 }
 
 impl BufferPool {
+  fn bucket_index(capacity: usize) -> usize {
+    if capacity == 0 {
+      return 0;
+    }
+    capacity.next_power_of_two().trailing_zeros() as usize
+  }
+
   /// Acquires a zero-filled `Vec<u8>` of the given capacity from the pool.
   /// Call [`release`](Self::release) when done to return the buffer.
   pub(crate) fn acquire(&mut self, capacity: usize) -> Vec<u8> {
-    // Find the smallest buffer that satisfies the requirement (since pool is sorted ascending)
-    let index_opt = self.pool.iter().position(|b| b.capacity() >= capacity);
-
-    if let Some(index) = index_opt {
-      // Use remove to maintain the sorted order of the pool
-      let mut buf = self.pool.remove(index);
-      self.current_size -= buf.capacity();
-
-      // Zero-fill only the portion we'll use.
-      buf.clear();
-      buf.resize(capacity, 0);
-      buf
-    } else {
-      vec![0u8; capacity]
+    let mut index = Self::bucket_index(capacity);
+    if index >= BUCKET_COUNT {
+      index = BUCKET_COUNT - 1;
     }
+
+    // Find the smallest non-empty bucket that can satisfy this capacity
+    for i in index..BUCKET_COUNT {
+      if let Some(mut buf) = self.pools[i].pop() {
+        self.current_size -= buf.capacity();
+
+        buf.clear();
+        buf.resize(capacity, 0);
+
+        return buf;
+      }
+    }
+
+    // Always allocate at least the power-of-2 size so we neatly fit buckets
+    let alloc_cap = (1_usize.checked_shl(index as u32).unwrap_or(capacity)).max(capacity);
+    let mut buf = Vec::with_capacity(alloc_cap);
+
+    // For safety, we zero-initialize newly allocated OS memory
+    // to avoid potential UB or data leaks from uninitialized OS pages.
+    buf.resize(capacity, 0);
+    buf
   }
 
   /// Returns a previously acquired buffer to the pool for reuse.
@@ -439,18 +459,18 @@ impl BufferPool {
 
     // If adding this buffer exceeds our size limit, just let it be dropped.
     if self.current_size + cap > self.max_size {
-      // Alternatively, we could pop the smallest buffers to make room,
+      // Actually if dropping it exceeds memory but it's large, we might want to pop smaller ones,
       // but simpler to just drop this one.
       return;
     }
 
+    let mut index = Self::bucket_index(cap);
+    if index >= BUCKET_COUNT {
+      index = BUCKET_COUNT - 1;
+    }
+
     self.current_size += cap;
-    // Maintain the pool sorted by capacity ascending
-    let pos = self
-      .pool
-      .binary_search_by_key(&cap, Vec::capacity)
-      .unwrap_or_else(|e| e);
-    self.pool.insert(pos, buffer);
+    self.pools[index].push(buffer);
   }
 
   /// Acquires a zeroed `RgbaImage` of the given dimensions from the pool.
