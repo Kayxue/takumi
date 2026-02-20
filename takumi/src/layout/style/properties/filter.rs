@@ -299,6 +299,7 @@ pub(crate) fn apply_filters<'f, F: Iterator<Item = &'f Filter>>(
 ///
 /// This extracts the region of the canvas that will be covered by the element,
 /// applies the specified filters to it, and composites it back to the canvas.
+#[allow(clippy::needless_range_loop)]
 pub(crate) fn apply_backdrop_filter(
   canvas: &mut Canvas,
   border: BorderProperties,
@@ -358,18 +359,15 @@ pub(crate) fn apply_backdrop_filter(
     .acquire_image(region_width, region_height)?;
 
   {
-    let canvas_width = canvas.image.width();
+    let canvas_width = canvas.image.width() as usize;
     let canvas_raw = canvas.image.as_raw();
     let backdrop_raw = backdrop_image.as_mut();
 
-    for y in 0..region_height {
-      let src_y = region_y + y;
-      let src_offset = (src_y * canvas_width + region_x) as usize * 4;
-      let dest_offset = (y * region_width) as usize * 4;
-      let row_bytes = region_width as usize * 4;
-
-      backdrop_raw[dest_offset..dest_offset + row_bytes]
-        .copy_from_slice(&canvas_raw[src_offset..src_offset + row_bytes]);
+    let row_bytes = region_width as usize * 4;
+    for (y, dest_row) in backdrop_raw.chunks_exact_mut(row_bytes).enumerate() {
+      let src_y = region_y as usize + y;
+      let src_start = (src_y * canvas_width + region_x as usize) * 4;
+      dest_row.copy_from_slice(&canvas_raw[src_start..src_start + row_bytes]);
     }
   }
 
@@ -386,46 +384,51 @@ pub(crate) fn apply_backdrop_filter(
   let mask_offset_x = (region_x as i32 - placement.left) as u32;
   let mask_offset_y = (region_y as i32 - placement.top) as u32;
 
-  let canvas_width = canvas.image.width();
+  let canvas_width = canvas.image.width() as usize;
   let canvas_raw = canvas.image.as_mut();
   let backdrop_raw = backdrop_image.as_raw();
+
+  let region_row_bytes = region_width as usize * 4;
 
   for y in 0..region_height {
     let mask_y = mask_offset_y + y;
     if mask_y >= placement.height {
-      continue;
+      break;
     }
 
     let canvas_y = region_y + y;
-    let canvas_y_offset = (canvas_y * canvas_width + region_x) as usize * 4;
-    let backdrop_y_offset = (y * region_width) as usize * 4;
-    let mask_y_offset = (mask_y * placement.width + mask_offset_x) as usize;
+    let canvas_start = (canvas_y as usize * canvas_width + region_x as usize) * 4;
+    let canvas_row = &mut canvas_raw[canvas_start..canvas_start + region_row_bytes];
 
-    for x in 0..region_width {
-      let mask_idx = mask_y_offset + x as usize;
-      let alpha = mask_data[mask_idx];
+    let backdrop_start = (y * region_width) as usize * 4;
+    let backdrop_row = &backdrop_raw[backdrop_start..backdrop_start + region_row_bytes];
 
+    let mask_start = (mask_y * placement.width + mask_offset_x) as usize;
+    let mask_row = &mask_data[mask_start..mask_start + region_width as usize];
+
+    assert_eq!(canvas_row.len(), region_row_bytes);
+    assert_eq!(backdrop_row.len(), region_row_bytes);
+    assert_eq!(mask_row.len(), region_width as usize);
+
+    for x in 0..region_width as usize {
+      let alpha = mask_row[x];
       if alpha == 0 {
         continue;
       }
 
-      let c_idx = canvas_y_offset + x as usize * 4;
-      let b_idx = backdrop_y_offset + x as usize * 4;
+      let px_idx = x * 4;
+      let b_chunk = &backdrop_row[px_idx..px_idx + 4];
+      let c_chunk = &mut canvas_row[px_idx..px_idx + 4];
 
       if alpha == 255 {
-        canvas_raw[c_idx] = backdrop_raw[b_idx];
-        canvas_raw[c_idx + 1] = backdrop_raw[b_idx + 1];
-        canvas_raw[c_idx + 2] = backdrop_raw[b_idx + 2];
-        canvas_raw[c_idx + 3] = backdrop_raw[b_idx + 3];
+        c_chunk.copy_from_slice(b_chunk);
       } else {
         let src_a = alpha as u32;
         let inv_a = 255 - src_a;
 
-        for i in 0..3 {
-          canvas_raw[c_idx + i] = fast_div_255(
-            backdrop_raw[b_idx + i] as u32 * src_a + canvas_raw[c_idx + i] as u32 * inv_a,
-          );
-        }
+        c_chunk[0] = fast_div_255(b_chunk[0] as u32 * src_a + c_chunk[0] as u32 * inv_a);
+        c_chunk[1] = fast_div_255(b_chunk[1] as u32 * src_a + c_chunk[1] as u32 * inv_a);
+        c_chunk[2] = fast_div_255(b_chunk[2] as u32 * src_a + c_chunk[2] as u32 * inv_a);
       }
     }
   }

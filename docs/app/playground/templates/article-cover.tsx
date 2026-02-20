@@ -20,7 +20,7 @@ export default function Article() {
             <span tw="text-indigo-400">Image Generation </span>
             <span>with Rust</span>
           </h1>
-          <p tw="text-3xl text-zinc-400 leading-relaxed">
+          <p tw="text-3xl text-zinc-400 leading-relaxed text-pretty">
             A deep dive into the architecture and optimizations that make Takumi
             the fastest image generation engine.
           </p>
