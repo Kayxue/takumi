@@ -108,7 +108,7 @@ pub(crate) fn draw_glyph_clip_image<I: GenericImageView<Pixel = Rgba<u8>>>(
       transform *= Affine::translation(bitmap.placement.left as f32, -bitmap.placement.top as f32);
 
       let mask_capacity = (bitmap.placement.width * bitmap.placement.height) as usize;
-      let mut mask = canvas.buffer_pool.acquire(mask_capacity);
+      let mut mask = canvas.buffer_pool.acquire_dirty(mask_capacity);
       for (i, alpha) in bitmap.data.iter().skip(3).step_by(4).copied().enumerate() {
         if i < mask.len() {
           mask[i] = alpha;

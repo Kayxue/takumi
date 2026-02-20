@@ -556,12 +556,15 @@ pub(crate) fn create_mask(
     )?
     .map(|tile| {
       let (w, h) = tile.dimensions();
-      let mut alpha = buffer_pool.acquire((w * h) as usize);
+      let mut alpha = buffer_pool.acquire_dirty((w * h) as usize);
 
       if let Some(raw) = tile.as_raw() {
         let count = alpha.len().min(raw.len() / 4);
         for i in 0..count {
           alpha[i] = raw[i * 4 + 3];
+        }
+        for alpha_val in alpha.iter_mut().skip(count) {
+          *alpha_val = 0;
         }
       } else {
         let mut i = 0;
@@ -572,6 +575,9 @@ pub(crate) fn create_mask(
               i += 1;
             }
           }
+        }
+        for alpha_val in alpha.iter_mut().skip(i) {
+          *alpha_val = 0;
         }
       }
 

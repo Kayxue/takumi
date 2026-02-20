@@ -453,6 +453,39 @@ impl BufferPool {
     buf
   }
 
+  /// Acquires an uninitialized `Vec<u8>` of the given capacity from the pool.
+  /// Call [`release`](Self::release) when done to return the buffer.
+  #[allow(clippy::uninit_vec)]
+  pub(crate) fn acquire_dirty(&mut self, capacity: usize) -> Vec<u8> {
+    let mut index = Self::bucket_index(capacity);
+    if index >= BUCKET_COUNT {
+      index = BUCKET_COUNT - 1;
+    }
+
+    // Find the smallest non-empty bucket that can satisfy this capacity
+    for i in index..BUCKET_COUNT {
+      if let Some(mut buf) = self.pools[i].pop() {
+        self.current_size -= buf.capacity();
+
+        buf.clear();
+        unsafe {
+          buf.set_len(capacity);
+        }
+
+        return buf;
+      }
+    }
+
+    // Always allocate at least the power-of-2 size so we neatly fit buckets
+    let alloc_cap = (1_usize.checked_shl(index as u32).unwrap_or(capacity)).max(capacity);
+    let mut buf = Vec::with_capacity(alloc_cap);
+
+    unsafe {
+      buf.set_len(capacity);
+    }
+    buf
+  }
+
   /// Returns a previously acquired buffer to the pool for reuse.
   pub(crate) fn release(&mut self, buffer: Vec<u8>) {
     let cap = buffer.capacity();
@@ -481,6 +514,19 @@ impl BufferPool {
   pub(crate) fn acquire_image(&mut self, width: u32, height: u32) -> Result<RgbaImage> {
     let needed = (width * height * 4) as usize;
     let raw = self.acquire(needed);
+
+    RgbaImage::from_raw(width, height, raw).ok_or_else(|| {
+      ImageError::Parameter(ParameterError::from_kind(
+        ParameterErrorKind::DimensionMismatch,
+      ))
+      .into()
+    })
+  }
+
+  /// Acquires an uninitialized `RgbaImage` of the given dimensions from the pool.
+  pub(crate) fn acquire_image_dirty(&mut self, width: u32, height: u32) -> Result<RgbaImage> {
+    let needed = (width * height * 4) as usize;
+    let raw = self.acquire_dirty(needed);
 
     RgbaImage::from_raw(width, height, raw).ok_or_else(|| {
       ImageError::Parameter(ParameterError::from_kind(

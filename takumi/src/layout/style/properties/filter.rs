@@ -461,7 +461,7 @@ fn apply_drop_shadow_filter(
   let shadow_width = canvas_width + 2 * padding;
   let shadow_height = canvas_height + 2 * padding;
 
-  let mut shadow_alpha = buffer_pool.acquire((shadow_width * shadow_height) as usize);
+  let mut shadow_alpha = buffer_pool.acquire_dirty((shadow_width * shadow_height) as usize);
 
   let offset_x = shadow.offset_x.round() as i32;
   let offset_y = shadow.offset_y.round() as i32;
@@ -472,26 +472,30 @@ fn apply_drop_shadow_filter(
 
   let canvas_raw = canvas.as_raw();
 
-  for y in 0..canvas_height {
-    let src_y_idx = (y * canvas_width) as usize * 4;
-    let dest_y = y as i32 + offset_y + padding as i32;
+  for y in 0..shadow_height {
+    let dest_y_offset = (y * shadow_width) as usize;
+    let src_y = y as i32 - offset_y - padding as i32;
 
-    if dest_y < 0 || dest_y >= shadow_height as i32 {
-      continue;
-    }
+    if src_y >= 0 && src_y < canvas_height as i32 {
+      let src_y_idx = src_y as usize * canvas_width as usize * 4;
 
-    let dest_y_offset = dest_y as usize * shadow_width as usize;
+      for x in 0..shadow_width {
+        let src_x = x as i32 - offset_x - padding as i32;
 
-    for x in 0..canvas_width {
-      let alpha = canvas_raw[src_y_idx + x as usize * 4 + 3];
-      if alpha == 0 {
-        continue;
+        if src_x >= 0 && src_x < canvas_width as i32 {
+          let alpha = canvas_raw[src_y_idx + src_x as usize * 4 + 3];
+          if alpha > 0 {
+            shadow_alpha[dest_y_offset + x as usize] = fast_div_255(sa as u32 * alpha as u32);
+          } else {
+            shadow_alpha[dest_y_offset + x as usize] = 0;
+          }
+        } else {
+          shadow_alpha[dest_y_offset + x as usize] = 0;
+        }
       }
-
-      let dest_x = x as i32 + offset_x + padding as i32;
-      if dest_x >= 0 && dest_x < shadow_width as i32 {
-        let d_idx = dest_y_offset + dest_x as usize;
-        shadow_alpha[d_idx] = fast_div_255(sa as u32 * alpha as u32);
+    } else {
+      for x in 0..shadow_width {
+        shadow_alpha[dest_y_offset + x as usize] = 0;
       }
     }
   }

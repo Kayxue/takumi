@@ -91,14 +91,14 @@ pub(crate) fn build_color_lut(
       .map(|s| s.color)
       .unwrap_or(crate::layout::style::Color::transparent());
 
-    let mut lut = buffer_pool.acquire(lut_size * 4);
+    let mut lut = buffer_pool.acquire_dirty(lut_size * 4);
     for chunk in lut.chunks_exact_mut(4) {
       chunk.copy_from_slice(&color.0);
     }
     return lut;
   }
 
-  let mut lut = buffer_pool.acquire(lut_size * 4);
+  let mut lut = buffer_pool.acquire_dirty(lut_size * 4);
   for (i, chunk) in lut.chunks_exact_mut(4).enumerate() {
     let t = i as f32 / (lut_size - 1) as f32;
     let position_px = t * axis_length;

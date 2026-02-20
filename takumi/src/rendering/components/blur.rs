@@ -112,7 +112,7 @@ pub(crate) fn apply_blur(
         premultiply_alpha(chunk);
       }
 
-      let mut temp_image = pool.acquire_image(width, height)?;
+      let mut temp_image = pool.acquire_image_dirty(width, height)?;
       let temp_data = &mut *temp_image;
       let img_data = image.as_mut();
 
@@ -128,7 +128,7 @@ pub(crate) fn apply_blur(
       }
     }
     BlurFormat::Alpha { data, .. } => {
-      let mut temp_image = pool.acquire((width * height) as usize);
+      let mut temp_image = pool.acquire_dirty((width * height) as usize);
       let temp_data = &mut *temp_image;
 
       for _ in 0..3 {
