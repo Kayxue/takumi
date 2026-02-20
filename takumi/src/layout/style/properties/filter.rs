@@ -10,8 +10,8 @@ use crate::{
     PercentageNumber, TextShadow, tw::TailwindPropertyParser,
   },
   rendering::{
-    BlurType, BorderProperties, BufferPool, Canvas, RenderContext, SizedShadow, Sizing, apply_blur,
-    blend_pixel, fast_div_255,
+    BlurFormat, BlurType, BorderProperties, BufferPool, Canvas, RenderContext, SizedShadow, Sizing,
+    apply_blur, blend_pixel, fast_div_255,
   },
 };
 
@@ -267,7 +267,7 @@ pub(crate) fn apply_filters<'f, F: Iterator<Item = &'f Filter>>(
           }
           Filter::Blur(blur) => {
             apply_blur(
-              image,
+              BlurFormat::Rgba(image),
               blur.to_px(sizing, 1.0),
               BlurType::Filter,
               buffer_pool,
@@ -451,17 +451,17 @@ fn apply_drop_shadow_filter(
 
   let shadow_width = canvas_width + 2 * padding;
   let shadow_height = canvas_height + 2 * padding;
-  let mut shadow_image = buffer_pool.acquire_image(shadow_width, shadow_height)?;
+
+  let mut shadow_alpha = buffer_pool.acquire((shadow_width * shadow_height) as usize);
 
   let offset_x = shadow.offset_x.round() as i32;
   let offset_y = shadow.offset_y.round() as i32;
 
-  // Populate shadow image with source alpha and shadow color
+  // Populate shadow alpha with source alpha
   let shadow_color: Rgba<u8> = shadow.color.into();
   let [sr, sg, sb, sa] = shadow_color.0;
 
   let canvas_raw = canvas.as_raw();
-  let shadow_raw = shadow_image.as_mut();
 
   for y in 0..canvas_height {
     let src_y_idx = (y * canvas_width) as usize * 4;
@@ -471,7 +471,7 @@ fn apply_drop_shadow_filter(
       continue;
     }
 
-    let dest_y_offset = (dest_y as usize * shadow_width as usize) * 4;
+    let dest_y_offset = dest_y as usize * shadow_width as usize;
 
     for x in 0..canvas_width {
       let alpha = canvas_raw[src_y_idx + x as usize * 4 + 3];
@@ -481,32 +481,38 @@ fn apply_drop_shadow_filter(
 
       let dest_x = x as i32 + offset_x + padding as i32;
       if dest_x >= 0 && dest_x < shadow_width as i32 {
-        let d_idx = dest_y_offset + dest_x as usize * 4;
-        shadow_raw[d_idx] = sr;
-        shadow_raw[d_idx + 1] = sg;
-        shadow_raw[d_idx + 2] = sb;
-        shadow_raw[d_idx + 3] = fast_div_255(sa as u32 * alpha as u32);
+        let d_idx = dest_y_offset + dest_x as usize;
+        shadow_alpha[d_idx] = fast_div_255(sa as u32 * alpha as u32);
       }
     }
   }
 
-  // Apply blur to the shadow image
+  // Apply blur to the shadow alpha
   apply_blur(
-    &mut shadow_image,
+    BlurFormat::Alpha {
+      data: &mut shadow_alpha,
+      width: shadow_width,
+      height: shadow_height,
+    },
     blur_radius,
     BlurType::Shadow,
     buffer_pool,
   )?;
 
   // Draw source element OVER the blurred shadow
-  // Since we already copied the source alpha to shadow_image, we can blend in-place
-  for (x, y, canvas_pixel) in canvas.enumerate_pixels_mut() {
-    let mut final_px = *shadow_image.get_pixel(x + padding, y + padding);
-    blend_pixel(&mut final_px, *canvas_pixel, BlendMode::Normal);
-    *canvas_pixel = final_px;
+  for y in 0..canvas_height {
+    for x in 0..canvas_width {
+      let sa_px = shadow_alpha[((y + padding) * shadow_width + (x + padding)) as usize];
+      if sa_px > 0 {
+        let canvas_pixel = canvas.get_pixel_mut(x, y);
+        let mut final_px = Rgba([sr, sg, sb, sa_px]);
+        blend_pixel(&mut final_px, *canvas_pixel, BlendMode::Normal);
+        *canvas_pixel = final_px;
+      }
+    }
   }
 
-  buffer_pool.release_image(shadow_image);
+  buffer_pool.release(shadow_alpha);
   Ok(())
 }
 

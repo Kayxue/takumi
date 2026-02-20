@@ -6,8 +6,8 @@ use crate::{
   Result,
   layout::style::{Affine, BlendMode, BoxShadow, Color, ImageScalingAlgorithm, Sides, TextShadow},
   rendering::{
-    BlurType, BorderProperties, BufferPool, Canvas, MaskMemory, Sizing, apply_blur, draw_mask,
-    overlay_image,
+    BlurFormat, BlurType, BorderProperties, BufferPool, Canvas, MaskMemory, Sizing, apply_blur,
+    draw_mask, overlay_image,
   },
 };
 
@@ -120,7 +120,7 @@ impl SizedShadow {
     canvas.buffer_pool.release(mask);
 
     apply_blur(
-      &mut image,
+      BlurFormat::Rgba(&mut image),
       self.blur_radius,
       BlurType::Shadow,
       &mut canvas.buffer_pool,
@@ -269,7 +269,7 @@ pub(crate) fn draw_inset_shadow(
   }
 
   apply_blur(
-    &mut shadow_image,
+    BlurFormat::Rgba(&mut shadow_image),
     shadow.blur_radius,
     BlurType::Shadow,
     buffer_pool,
