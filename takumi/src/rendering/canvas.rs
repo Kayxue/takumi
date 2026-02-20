@@ -673,11 +673,6 @@ fn draw_pixel(
   unsafe { canvas.unsafe_put_pixel(x, y, current) };
 }
 
-/// Removes 2 LSBs from the alpha value.
-pub(crate) fn quantize_alpha(alpha: u8) -> u8 {
-  alpha & 0b1111_1100
-}
-
 #[inline(always)]
 pub(crate) fn apply_mask_alpha_to_pixel(pixel: &mut Rgba<u8>, alpha: u8) {
   match alpha {

@@ -1,7 +1,7 @@
 use std::{borrow::Cow, io::Write};
 
 use image::{ExtendedColorType, ImageEncoder, ImageFormat, RgbaImage, codecs::jpeg::JpegEncoder};
-use png::{BitDepth, ColorType, Compression, Filter};
+use png::{ColorType, Compression, Filter};
 use serde::Deserialize;
 
 use image_webp::WebPEncoder;
@@ -9,7 +9,7 @@ use image_webp::WebPEncoder;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
-use crate::{Error::IoError, Result, Xxh3HashMap, rendering::quantize_alpha};
+use crate::{Error::IoError, Result};
 
 /// Output format for rendered images.
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
@@ -87,106 +87,6 @@ fn has_any_alpha_pixel(image: &RgbaImage) -> bool {
     .any(|chunk| chunk[3] != u8::MAX)
 }
 
-/// Palette data for indexed PNG.
-struct PaletteData {
-  /// RGB palette, 3 bytes per color.
-  palette: Vec<u8>,
-  /// Alpha channel for palette entries, 1 byte per color.
-  trns: Vec<u8>,
-  /// Indexed pixel data (packed according to bit_depth).
-  indices: Vec<u8>,
-  /// Optimal bit depth for this palette (1, 2, 4, or 8).
-  bit_depth: BitDepth,
-}
-
-/// Try to collect a palette from the image.
-/// Returns None if there are more than MAX_PALETTE_SIZE unique colors.
-fn try_collect_palette(image: &RgbaImage) -> Option<PaletteData> {
-  // Pass 1: Collect unique colors with their first occurrence position
-  // This preserves spatial locality for better PNG filter compression
-  let mut color_positions: Xxh3HashMap<[u8; 4], usize> =
-    Xxh3HashMap::with_capacity_and_hasher(256, Default::default());
-
-  for (idx, chunk) in image.as_raw().chunks_exact(4).enumerate() {
-    let rgba = [chunk[0], chunk[1], chunk[2], quantize_alpha(chunk[3])];
-
-    if !color_positions.contains_key(&rgba) {
-      if color_positions.len() >= 256 {
-        return None;
-      }
-      color_positions.insert(rgba, idx);
-    }
-  }
-
-  // Sort colors by first occurrence position (preserves spatial locality)
-  let mut sorted_colors: Vec<([u8; 4], usize)> = color_positions.into_iter().collect();
-  sorted_colors.sort_unstable_by_key(|(_, pos)| *pos);
-
-  // Build palette and color map
-  let mut palette = Vec::with_capacity(sorted_colors.len() * 3);
-  let mut trns = Vec::with_capacity(sorted_colors.len());
-  let mut color_map: Xxh3HashMap<[u8; 4], u8> =
-    Xxh3HashMap::with_capacity_and_hasher(sorted_colors.len(), Default::default());
-
-  for (rgba, _) in sorted_colors.iter() {
-    let i = color_map.len() as u8;
-
-    color_map.insert(*rgba, i);
-    palette.extend_from_slice(&rgba[..3]);
-
-    trns.push(rgba[3]);
-  }
-
-  // Determine optimal bit depth based on palette size
-  let (bit_depth, bits_per_pixel) = match sorted_colors.len() {
-    0..=2 => (BitDepth::One, 1),
-    3..=4 => (BitDepth::Two, 2),
-    5..=16 => (BitDepth::Four, 4),
-    _ => (BitDepth::Eight, 8),
-  };
-
-  // Pass 2: Build indices (packed according to bit depth)
-  let width = image.width() as usize;
-  let pixels_per_byte = 8 / bits_per_pixel;
-  let row_bytes = width.div_ceil(pixels_per_byte);
-
-  let mut indices: Vec<u8> = Vec::with_capacity(row_bytes * image.height() as usize);
-
-  let row_stride = width * 4;
-  for row in image.as_raw().chunks_exact(row_stride) {
-    let mut current_byte: u8 = 0;
-    let mut bit_offset = 8 - bits_per_pixel;
-
-    for pixel in row.chunks_exact(4) {
-      let rgba = [pixel[0], pixel[1], pixel[2], quantize_alpha(pixel[3])];
-
-      let idx = color_map.get(&rgba).copied().unwrap_or(0);
-
-      current_byte |= idx << bit_offset;
-
-      if bit_offset == 0 {
-        indices.push(current_byte);
-        current_byte = 0;
-        bit_offset = 8 - bits_per_pixel;
-      } else {
-        bit_offset -= bits_per_pixel;
-      }
-    }
-
-    // Push remaining byte if row doesn't align to byte boundary
-    if bit_offset != 8 - bits_per_pixel {
-      indices.push(current_byte);
-    }
-  }
-
-  Some(PaletteData {
-    palette,
-    trns,
-    indices,
-    bit_depth,
-  })
-}
-
 /// Writes a single rendered image to `destination` using `format`.
 pub fn write_image<T: Write>(
   image: &RgbaImage,
@@ -204,50 +104,36 @@ pub fn write_image<T: Write>(
     ImageOutputFormat::Png => {
       let mut encoder = png::Encoder::new(destination, image.width(), image.height());
 
-      if let Some(palette) = try_collect_palette(image) {
-        // Use color quantization when there are too many unique colors
-        encoder.set_color(ColorType::Indexed);
-        encoder.set_depth(palette.bit_depth);
-        encoder.set_palette(palette.palette);
+      let has_alpha = has_any_alpha_pixel(image);
 
-        if palette.trns.iter().any(|&a| a != u8::MAX) {
-          encoder.set_trns(palette.trns);
-        }
-
-        encoder.set_compression(Compression::Fast);
-
-        // For sub-byte depths, up filter works better.
-        encoder.set_filter(match palette.bit_depth {
-          BitDepth::Eight => Filter::Sub,
-          _ => Filter::Up,
-        });
-
-        let mut writer = encoder.write_header()?;
-        writer.write_image_data(&palette.indices)?;
-        writer.finish()?;
+      let image_data = if has_alpha {
+        Cow::Borrowed(image.as_raw())
       } else {
-        // Final fallback to RGB/RGBA if quantization fails
-        let has_alpha = has_any_alpha_pixel(image);
+        Cow::Owned(strip_alpha_channel(image))
+      };
 
-        let image_data = if has_alpha {
-          Cow::Borrowed(image.as_raw())
-        } else {
-          Cow::Owned(strip_alpha_channel(image))
-        };
+      encoder.set_color(if has_alpha {
+        ColorType::Rgba
+      } else {
+        ColorType::Rgb
+      });
 
-        encoder.set_color(if has_alpha {
-          ColorType::Rgba
-        } else {
-          ColorType::Rgb
-        });
-
+      // Use quality settings to determine compression level.
+      // Higher quality settings map to better compression ratio (slower).
+      // If quality is not specified or < 90, we favor speed.
+      let quality = quality.unwrap_or(75);
+      if quality >= 90 {
+        encoder.set_compression(Compression::Balanced);
+      } else {
         encoder.set_compression(Compression::Fast);
-        encoder.set_filter(Filter::Sub);
-
-        let mut writer = encoder.write_header()?;
-        writer.write_image_data(&image_data)?;
-        writer.finish()?;
       }
+
+      // Fast subtraction filter handles smooth gradients well with minimal overhead.
+      encoder.set_filter(Filter::Sub);
+
+      let mut writer = encoder.write_header()?;
+      writer.write_image_data(&image_data)?;
+      writer.finish()?;
     }
     ImageOutputFormat::WebP => {
       let encoder = WebPEncoder::new(destination);

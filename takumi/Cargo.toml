@@ -105,3 +105,7 @@ serde_json = "1"
 [[bench]]
 name = "effects"
 harness = false
+
+[[bench]]
+name = "gradient"
+harness = false

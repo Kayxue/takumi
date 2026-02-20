@@ -52,11 +52,21 @@ summary(() => {
     });
   });
 
-  bench("createNode + render (png)", async () => {
+  bench("createNode + render (png, fdeflate)", async () => {
     const node = await createNode();
     return renderer.render(node, {
       width: 1200,
       height: 630,
+      quality: 75,
+    });
+  });
+
+  bench("createNode + render (png, flate2)", async () => {
+    const node = await createNode();
+    return renderer.render(node, {
+      width: 1200,
+      height: 630,
+      quality: 100,
     });
   });
 

@@ -107,7 +107,7 @@ pub mod error;
 /// External resource management (fonts, images)
 pub mod resources;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 pub use error::{Result, TakumiError as Error};
 
@@ -132,5 +132,3 @@ pub struct GlobalContext {
 
 /// Type alias for HashSet using XXH3 hasher
 pub(crate) type Xxh3HashSet<T> = HashSet<T, Xxh3DefaultBuilder>;
-
-pub(crate) type Xxh3HashMap<K, V> = HashMap<K, V, Xxh3DefaultBuilder>;
