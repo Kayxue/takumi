@@ -83,7 +83,7 @@ features = ["derive", "rc"]
 [dependencies.image]
 default-features = false
 version = "0.25"
-features = ["jpeg", "png", "webp"]
+features = ["jpeg", "png", "webp", "gif"]
 
 [dependencies.resvg]
 version = "0.47"
