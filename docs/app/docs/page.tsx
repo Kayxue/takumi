@@ -1,4 +1,3 @@
-import browserCollections from ".source/browser";
 import {
   getPageTreePeers,
   type Root as PageTreeRoot,
@@ -20,6 +19,7 @@ import { Accordion, Accordions } from "~/components/accordion";
 import { TypeTable } from "~/components/type-table";
 import { baseOptions } from "~/layout-config";
 import { source } from "~/source";
+import browserCollections from "../../.source/browser";
 import type { Route } from "./+types/page";
 
 const components = {

@@ -1,4 +1,3 @@
-import { docs } from ".source/server";
 import { loader } from "fumadocs-core/source";
 import defaultAttributes from "lucide-react/dist/esm/defaultAttributes";
 import { __iconNode as arrowBigRightIconNode } from "lucide-react/dist/esm/icons/arrow-big-right";
@@ -16,6 +15,7 @@ import { __iconNode as typeIconNode } from "lucide-react/dist/esm/icons/type";
 import { __iconNode as windIconNode } from "lucide-react/dist/esm/icons/wind";
 import { __iconNode as zapIconNode } from "lucide-react/dist/esm/icons/zap";
 import { createElement } from "react";
+import { docs } from "../.source/server";
 
 const iconProps = {
   ...defaultAttributes,
