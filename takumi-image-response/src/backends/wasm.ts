@@ -92,26 +92,34 @@ function getRenderer(options?: ImageResponseOptions) {
   return renderer;
 }
 
+let initPromise: Promise<void> | null = null;
+
 function createStream(component: ReactNode, options: ImageResponseOptions) {
   return new ReadableStream({
     async start(controller) {
       try {
-        if ("module" in options) {
-          let moduleResolved = await options.module;
+        if ("module" in options && !renderer) {
+          if (!initPromise) {
+            initPromise = (async () => {
+              let moduleResolved = await options.module;
 
-          if (
-            typeof moduleResolved === "object" &&
-            "default" in moduleResolved
-          ) {
-            moduleResolved = moduleResolved.default;
+              if (
+                typeof moduleResolved === "object" &&
+                "default" in moduleResolved
+              ) {
+                moduleResolved = moduleResolved.default;
+              }
+
+              await init({
+                module_or_path: moduleResolved,
+              });
+            })();
           }
 
-          await init({
-            module_or_path: moduleResolved,
-          });
+          await initPromise;
         }
 
-        const renderer = getRenderer(options);
+        const rendererInstance = getRenderer(options);
 
         const node = await fromJsx(component, options.jsx);
 
@@ -123,7 +131,7 @@ function createStream(component: ReactNode, options: ImageResponseOptions) {
           }
         }
 
-        const image = renderer.render(node, options);
+        const image = rendererInstance.render(node, options);
         const bytes = image.asUint8Array().slice(); // mandatory to avoid use-after-free
 
         image.free();
