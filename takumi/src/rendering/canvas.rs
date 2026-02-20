@@ -6,9 +6,8 @@
 use std::{borrow::Cow, mem::replace};
 
 use image::{
-  GenericImageView, ImageError, Rgba, RgbaImage,
+  GenericImage, GenericImageView, ImageError, Rgba, RgbaImage,
   error::{ParameterError, ParameterErrorKind},
-  imageops::{interpolate_bilinear, interpolate_nearest},
 };
 use smallvec::SmallVec;
 use taffy::{Layout, Point, Size};
@@ -600,10 +599,12 @@ fn draw_pixel(
     }
   }
 
-  // image-rs blend will skip the operation if the source color is fully transparent
-  let pixel = canvas.get_pixel_mut(x, y);
+  // SAFETY: draw_pixel is only called from overlay_area which bounds x and y to image dimensions
+  let mut current = unsafe { canvas.unsafe_get_pixel(x, y) };
 
-  blend_pixel(pixel, color, mode);
+  blend_pixel(&mut current, color, mode);
+
+  unsafe { canvas.unsafe_put_pixel(x, y, current) };
 }
 
 /// Removes 2 LSBs from the alpha value.
@@ -688,6 +689,77 @@ pub(crate) fn sample_transformed_pixel<I: GenericImageView<Pixel = Rgba<u8>>>(
   }
 }
 
+#[inline(always)]
+pub(crate) fn interpolate_nearest<I: GenericImageView<Pixel = Rgba<u8>>>(
+  image: &I,
+  x: f32,
+  y: f32,
+) -> Option<Rgba<u8>> {
+  let (w, h) = image.dimensions();
+  if w == 0 || h == 0 {
+    return None;
+  }
+
+  // We accept coordinates slightly outside the boundary due to float precision,
+  // clamping to the nearest valid pixel index.
+  let px = x.floor().max(0.0) as u32;
+  let px = px.min(w.saturating_sub(1));
+  let py = y.floor().max(0.0) as u32;
+  let py = py.min(h.saturating_sub(1));
+
+  Some(image.get_pixel(px, py))
+}
+
+#[inline(always)]
+#[allow(clippy::needless_range_loop)]
+pub(crate) fn interpolate_bilinear<I: GenericImageView<Pixel = Rgba<u8>>>(
+  image: &I,
+  x: f32,
+  y: f32,
+) -> Option<Rgba<u8>> {
+  let (w, h) = image.dimensions();
+  if w == 0 || h == 0 {
+    return None;
+  }
+
+  // Map continuous coordinates [0, w] to pixel center coordinates [0, w-1]
+  let x = (x - 0.5).clamp(0.0, w.saturating_sub(1) as f32);
+  let y = (y - 0.5).clamp(0.0, h.saturating_sub(1) as f32);
+
+  let uf = x.floor() as u32;
+  let vf = y.floor() as u32;
+  let uc = (uf + 1).min(w - 1);
+  let vc = (vf + 1).min(h - 1);
+
+  let p00 = image.get_pixel(uf, vf);
+  let p01 = image.get_pixel(uf, vc);
+  let p10 = image.get_pixel(uc, vf);
+  let p11 = image.get_pixel(uc, vc);
+
+  let u_ratio = ((x - uf as f32) * 256.0) as u32;
+  let v_ratio = ((y - vf as f32) * 256.0) as u32;
+
+  let u_opposite = 256 - u_ratio;
+  let v_opposite = 256 - v_ratio;
+
+  let w00 = u_opposite * v_opposite;
+  let w01 = u_opposite * v_ratio;
+  let w10 = u_ratio * v_opposite;
+  let w11 = u_ratio * v_ratio;
+
+  let mut out = [0u8; 4];
+  for i in 0..4 {
+    let val = (p00.0[i] as u32 * w00
+      + p10.0[i] as u32 * w10
+      + p01.0[i] as u32 * w01
+      + p11.0[i] as u32 * w11)
+      >> 16;
+    out[i] = val as u8;
+  }
+
+  Some(image::Rgba(out))
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn overlay_image<I: GenericImageView<Pixel = Rgba<u8>>>(
   canvas: &mut RgbaImage,
@@ -719,55 +791,78 @@ pub(crate) fn overlay_image<I: GenericImageView<Pixel = Rgba<u8>>>(
   let (mask, placement) = mask_memory.render(&paths, Some(transform), None, buffer_pool);
 
   let inverse = transform.invert();
+  let is_identity = transform.is_identity() && placement.left >= 0 && placement.top >= 0;
 
-  let get_original_pixel = |x, y| {
-    let alpha = mask[mask_index_from_coord(x, y, placement.width)];
+  if is_identity {
+    let get_original_pixel = |x, y| {
+      // SAFETY: x < placement.width and y < placement.height are guaranteed by overlay_area bounds
+      let alpha = unsafe { *mask.get_unchecked(mask_index_from_coord(x, y, placement.width)) };
 
-    if alpha == 0 {
-      return Color::transparent().into();
-    }
+      if alpha == 0 {
+        return Color::transparent().into();
+      }
 
-    // Fast path: If only border radius is applied, we can just map the pixel directly
-    if transform.is_identity() && placement.left >= 0 && placement.top >= 0 {
       let mut pixel = image.get_pixel(x + placement.left as u32, y + placement.top as u32);
 
       apply_mask_alpha_to_pixel(&mut pixel, alpha);
 
-      return pixel;
-    }
+      pixel
+    };
 
-    let Some(mut pixel) = inverse.and_then(|inverse| {
-      sample_transformed_pixel(
+    overlay_area(
+      canvas,
+      Point {
+        x: placement.left as f32,
+        y: placement.top as f32,
+      },
+      Size {
+        width: placement.width,
+        height: placement.height,
+      },
+      mode,
+      constrains,
+      get_original_pixel,
+    );
+  } else if let Some(inverse) = inverse {
+    let get_original_pixel = |x, y| {
+      // SAFETY: x < placement.width and y < placement.height are guaranteed by overlay_area bounds
+      let alpha = unsafe { *mask.get_unchecked(mask_index_from_coord(x, y, placement.width)) };
+
+      if alpha == 0 {
+        return Color::transparent().into();
+      }
+
+      let Some(mut pixel) = sample_transformed_pixel(
         image,
         inverse,
         algorithm,
-        (x as i32 + placement.left) as f32,
-        (y as i32 + placement.top) as f32,
+        (x as i32 + placement.left) as f32 + 0.5,
+        (y as i32 + placement.top) as f32 + 0.5,
         Point::ZERO,
-      )
-    }) else {
-      return Color::transparent().into();
+      ) else {
+        return Color::transparent().into();
+      };
+
+      apply_mask_alpha_to_pixel(&mut pixel, alpha);
+
+      pixel
     };
 
-    apply_mask_alpha_to_pixel(&mut pixel, alpha);
-
-    pixel
-  };
-
-  overlay_area(
-    canvas,
-    Point {
-      x: placement.left as f32,
-      y: placement.top as f32,
-    },
-    Size {
-      width: placement.width,
-      height: placement.height,
-    },
-    mode,
-    constrains,
-    get_original_pixel,
-  );
+    overlay_area(
+      canvas,
+      Point {
+        x: placement.left as f32,
+        y: placement.top as f32,
+      },
+      Size {
+        width: placement.width,
+        height: placement.height,
+      },
+      mode,
+      constrains,
+      get_original_pixel,
+    );
+  }
 
   buffer_pool.release(mask);
 }

@@ -6,37 +6,38 @@ use crate::{
 };
 
 #[inline(always)]
-pub(crate) fn premultiply_alpha(color: &mut Rgba<u8>) {
-  let alpha = color.0[3] as u32;
+pub(crate) fn premultiply_alpha(color: &mut [u8]) {
+  let alpha = color[3] as u32;
 
-  for channel in color.0.iter_mut().take(3) {
-    *channel = fast_div_255(*channel as u32 * alpha);
-  }
+  color[0] = fast_div_255(color[0] as u32 * alpha);
+  color[1] = fast_div_255(color[1] as u32 * alpha);
+  color[2] = fast_div_255(color[2] as u32 * alpha);
 }
 
 #[inline(always)]
-pub(crate) fn unpremultiply_alpha(color: &mut Rgba<u8>) {
+pub(crate) fn unpremultiply_alpha(color: &mut [u8]) {
   const Q16_SHIFT: u32 = 16;
   const Q16_ROUNDING: u32 = 1 << (Q16_SHIFT - 1);
 
-  let alpha = color.0[3] as u32;
+  let alpha = color[3] as u32;
 
   if alpha == 0 {
-    color.0 = [0; 4];
+    color[0] = 0;
+    color[1] = 0;
+    color[2] = 0;
     return;
   }
 
   let inv_alpha = (((255u32 << Q16_SHIFT) + (alpha / 2)) / alpha).min(255u32 << Q16_SHIFT);
 
-  for channel in color.0.iter_mut().take(3) {
-    let unpremul = ((*channel as u32 * inv_alpha) + Q16_ROUNDING) >> Q16_SHIFT;
-    *channel = unpremul.min(255) as u8;
-  }
+  color[0] = (((color[0] as u32 * inv_alpha) + Q16_ROUNDING) >> Q16_SHIFT).min(255) as u8;
+  color[1] = (((color[1] as u32 * inv_alpha) + Q16_ROUNDING) >> Q16_SHIFT).min(255) as u8;
+  color[2] = (((color[2] as u32 * inv_alpha) + Q16_ROUNDING) >> Q16_SHIFT).min(255) as u8;
 }
 
 #[inline(always)]
 pub(crate) fn premultiply_alpha_imm(mut color: Rgba<u8>) -> Rgba<u8> {
-  premultiply_alpha(&mut color);
+  premultiply_alpha(&mut color.0);
   color
 }
 

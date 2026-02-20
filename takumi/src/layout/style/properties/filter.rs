@@ -1,5 +1,5 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
-use image::{Pixel, Rgba, RgbaImage, imageops::colorops::huerotate_in_place};
+use image::{Rgba, RgbaImage, imageops::colorops::huerotate_in_place};
 use smallvec::SmallVec;
 use taffy::{Point, Size};
 
@@ -130,34 +130,40 @@ pub(crate) enum FilterCategory<'f> {
   Complex(&'f Filter),
 }
 
+/// Calculates the luma of an RGB pixel.
+#[inline(always)]
+fn get_luma(pixel: &[u8]) -> f32 {
+  pixel[0] as f32 * 0.2126 + pixel[1] as f32 * 0.7152 + pixel[2] as f32 * 0.0722
+}
+
 /// Applies a single pixel filter inline - used for single filter optimization
 #[inline(always)]
-fn apply_single_pixel_filter(pixel: &mut Rgba<u8>, filter: &Filter) {
+fn apply_single_pixel_filter(pixel: &mut [u8], filter: &Filter) {
   match *filter {
     Filter::Brightness(PercentageNumber(value)) => {
-      for channel in pixel.0.iter_mut().take(3) {
+      for channel in pixel.iter_mut().take(3) {
         *channel = ((*channel) as f32 * value).clamp(0.0, 255.0) as u8;
       }
     }
     Filter::Contrast(PercentageNumber(value)) => {
-      for channel in pixel.0.iter_mut().take(3) {
+      for channel in pixel.iter_mut().take(3) {
         *channel = ((*channel as f32 - 128.0) * value + 128.0).clamp(0.0, 255.0) as u8;
       }
     }
     Filter::Grayscale(PercentageNumber(amount)) => {
-      let lum = pixel.to_luma().0[0] as f32;
-      for channel in pixel.0.iter_mut().take(3) {
+      let lum = get_luma(pixel);
+      for channel in pixel.iter_mut().take(3) {
         *channel = ((*channel as f32 * (1.0 - amount)) + (lum * amount)).clamp(0.0, 255.0) as u8;
       }
     }
     Filter::Saturate(PercentageNumber(value)) => {
-      let lum = pixel.to_luma().0[0] as f32;
-      for channel in pixel.0.iter_mut().take(3) {
+      let lum = get_luma(pixel);
+      for channel in pixel.iter_mut().take(3) {
         *channel = (lum * (1.0 - value) + *channel as f32 * value).clamp(0.0, 255.0) as u8;
       }
     }
     Filter::Invert(PercentageNumber(amount)) => {
-      for channel in pixel.0.iter_mut().take(3) {
+      for channel in pixel.iter_mut().take(3) {
         let inverted = u8::MAX.saturating_sub(*channel);
         *channel =
           ((*channel as f32 * (1.0 - amount)) + (inverted as f32 * amount)).clamp(0.0, 255.0) as u8;
@@ -165,20 +171,20 @@ fn apply_single_pixel_filter(pixel: &mut Rgba<u8>, filter: &Filter) {
     }
     Filter::Sepia(PercentageNumber(amount)) => {
       // Sepia tone matrix coefficients
-      let r = pixel.0[0] as f32;
-      let g = pixel.0[1] as f32;
-      let b = pixel.0[2] as f32;
+      let r = pixel[0] as f32;
+      let g = pixel[1] as f32;
+      let b = pixel[2] as f32;
 
       let sepia_r = (r * 0.393 + g * 0.769 + b * 0.189).clamp(0.0, 255.0);
       let sepia_g = (r * 0.349 + g * 0.686 + b * 0.168).clamp(0.0, 255.0);
       let sepia_b = (r * 0.272 + g * 0.534 + b * 0.131).clamp(0.0, 255.0);
 
-      pixel.0[0] = (r * (1.0 - amount) + sepia_r * amount).clamp(0.0, 255.0) as u8;
-      pixel.0[1] = (g * (1.0 - amount) + sepia_g * amount).clamp(0.0, 255.0) as u8;
-      pixel.0[2] = (b * (1.0 - amount) + sepia_b * amount).clamp(0.0, 255.0) as u8;
+      pixel[0] = (r * (1.0 - amount) + sepia_r * amount).clamp(0.0, 255.0) as u8;
+      pixel[1] = (g * (1.0 - amount) + sepia_g * amount).clamp(0.0, 255.0) as u8;
+      pixel[2] = (b * (1.0 - amount) + sepia_b * amount).clamp(0.0, 255.0) as u8;
     }
     Filter::Opacity(PercentageNumber(value)) => {
-      pixel.0[3] = ((pixel.0[3]) as f32 * value).clamp(0.0, 255.0) as u8;
+      pixel[3] = ((pixel[3]) as f32 * value).clamp(0.0, 255.0) as u8;
     }
     // Complex filters are not handled here
     Filter::Blur(_) | Filter::DropShadow(_) | Filter::HueRotate(_) => {}
@@ -210,8 +216,8 @@ fn apply_batched_pixel_filters(image: &mut RgbaImage, filters: &[&Filter]) {
     })
     .collect();
 
-  for pixel in image.pixels_mut() {
-    if pixel.0[3] == 0 {
+  for pixel in image.chunks_exact_mut(4) {
+    if pixel[3] == 0 {
       continue;
     }
 
@@ -219,18 +225,18 @@ fn apply_batched_pixel_filters(image: &mut RgbaImage, filters: &[&Filter]) {
       match p {
         PreparedFilter::Matrix(f) => apply_single_pixel_filter(pixel, f),
         PreparedFilter::RgbLut(t) => {
-          pixel.0[0] = t[pixel.0[0] as usize];
-          pixel.0[1] = t[pixel.0[1] as usize];
-          pixel.0[2] = t[pixel.0[2] as usize];
+          pixel[0] = t[pixel[0] as usize];
+          pixel[1] = t[pixel[1] as usize];
+          pixel[2] = t[pixel[2] as usize];
         }
         PreparedFilter::AlphaLut(t) => {
-          pixel.0[3] = t[pixel.0[3] as usize];
+          pixel[3] = t[pixel[3] as usize];
         }
         PreparedFilter::BothLut(rgb, alpha) => {
-          pixel.0[0] = rgb[pixel.0[0] as usize];
-          pixel.0[1] = rgb[pixel.0[1] as usize];
-          pixel.0[2] = rgb[pixel.0[2] as usize];
-          pixel.0[3] = alpha[pixel.0[3] as usize];
+          pixel[0] = rgb[pixel[0] as usize];
+          pixel[1] = rgb[pixel[1] as usize];
+          pixel[2] = rgb[pixel[2] as usize];
+          pixel[3] = alpha[pixel[3] as usize];
         }
       }
     }

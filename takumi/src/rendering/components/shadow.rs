@@ -139,8 +139,10 @@ impl SizedShadow {
 
       let img_w = image.width() as i32;
       let img_h = image.height() as i32;
+      let img_w_usize = img_w as usize;
 
       if !erase_mask.is_empty() {
+        let data = image.as_mut();
         for my in 0..erase_placement.height as i32 {
           for mx in 0..erase_placement.width as i32 {
             let canvas_x = erase_placement.left + mx;
@@ -152,8 +154,10 @@ impl SizedShadow {
               let mask_alpha =
                 erase_mask[(my as u32 * erase_placement.width + mx as u32) as usize] as u32;
               if mask_alpha > 0 {
-                let pixel = image.get_pixel_mut(ix as u32, iy as u32);
-                pixel.0[3] = ((pixel.0[3] as u32 * (255 - mask_alpha)) / 255) as u8;
+                let idx = (iy as usize * img_w_usize + ix as usize) * 4;
+                // SAFETY: We verified ix and iy are within bounds.
+                let alpha = unsafe { data.get_unchecked_mut(idx + 3) };
+                *alpha = ((*alpha as u32 * (255 - mask_alpha)) / 255) as u8;
               }
             }
           }
@@ -250,6 +254,8 @@ pub(crate) fn draw_inset_shadow(
   if !mask.is_empty() {
     let img_w = shadow_image.width() as i32;
     let img_h = shadow_image.height() as i32;
+    let img_w_usize = img_w as usize;
+    let data = shadow_image.as_mut();
 
     for my in 0..placement.height as i32 {
       for mx in 0..placement.width as i32 {
@@ -259,8 +265,10 @@ pub(crate) fn draw_inset_shadow(
         if ix >= 0 && iy >= 0 && ix < img_w && iy < img_h {
           let mask_alpha = mask[(my as u32 * placement.width + mx as u32) as usize] as u32;
           if mask_alpha > 0 {
-            let pixel = shadow_image.get_pixel_mut(ix as u32, iy as u32);
-            pixel.0[3] = ((pixel.0[3] as u32 * (255 - mask_alpha)) / 255) as u8;
+            let idx = (iy as usize * img_w_usize + ix as usize) * 4;
+            // SAFETY: ix and iy are verified within valid image dimensions.
+            let alpha = unsafe { data.get_unchecked_mut(idx + 3) };
+            *alpha = ((*alpha as u32 * (255 - mask_alpha)) / 255) as u8;
           }
         }
       }

@@ -81,18 +81,10 @@ fn strip_alpha_channel(image: &RgbaImage) -> Vec<u8> {
 }
 
 fn has_any_alpha_pixel(image: &RgbaImage) -> bool {
-  #[cfg(feature = "rayon")]
-  {
-    image
-      .par_pixels()
-      .with_min_len(1024)
-      .any(|pixel| pixel[3] != u8::MAX)
-  }
-
-  #[cfg(not(feature = "rayon"))]
-  {
-    image.pixels().any(|pixel| pixel[3] != u8::MAX)
-  }
+  image
+    .as_raw()
+    .chunks_exact(4)
+    .any(|chunk| chunk[3] != u8::MAX)
 }
 
 /// Palette data for indexed PNG.
@@ -112,66 +104,19 @@ struct PaletteData {
 fn try_collect_palette(image: &RgbaImage) -> Option<PaletteData> {
   // Pass 1: Collect unique colors with their first occurrence position
   // This preserves spatial locality for better PNG filter compression
-  #[cfg(feature = "rayon")]
-  let color_positions: Xxh3HashMap<[u8; 4], usize> = {
-    use rayon::prelude::*;
+  let mut color_positions: Xxh3HashMap<[u8; 4], usize> =
+    Xxh3HashMap::with_capacity_and_hasher(256, Default::default());
 
-    let map = image
-      .par_enumerate_pixels()
-      .with_min_len(4096)
-      .fold(
-        || Xxh3HashMap::with_capacity_and_hasher(256, Default::default()),
-        |mut acc, (x, y, pixel)| {
-          let mut rgba: [u8; 4] = pixel.0;
-          rgba[3] = quantize_alpha(rgba[3]);
+  for (idx, chunk) in image.as_raw().chunks_exact(4).enumerate() {
+    let rgba = [chunk[0], chunk[1], chunk[2], quantize_alpha(chunk[3])];
 
-          // Only insert if not seen before (keeps first occurrence)
-          acc
-            .entry(rgba)
-            .or_insert_with(|| (y as usize) * (image.width() as usize) + (x as usize));
-
-          acc
-        },
-      )
-      .reduce(
-        || Xxh3HashMap::with_capacity_and_hasher(256, Default::default()),
-        |mut a, b| {
-          // Merge keeping the minimum (first) position for each color
-          for (color, pos) in b {
-            a.entry(color)
-              .and_modify(|p| *p = (*p).min(pos))
-              .or_insert(pos);
-          }
-          a
-        },
-      );
-
-    // Only check total after merge - individual chunks may have duplicates
-    if map.len() > 256 {
-      return None;
-    }
-
-    map
-  };
-
-  #[cfg(not(feature = "rayon"))]
-  let color_positions: Xxh3HashMap<[u8; 4], usize> = {
-    let mut map = Xxh3HashMap::with_capacity_and_hasher(256, Default::default());
-
-    for (idx, pixel) in image.pixels().enumerate() {
-      let mut rgba: [u8; 4] = pixel.0;
-      rgba[3] = quantize_alpha(rgba[3]);
-
-      if !map.contains_key(&rgba) {
-        if map.len() >= 256 {
-          return None;
-        }
-        map.insert(rgba, idx);
+    if !color_positions.contains_key(&rgba) {
+      if color_positions.len() >= 256 {
+        return None;
       }
+      color_positions.insert(rgba, idx);
     }
-
-    map
-  };
+  }
 
   // Sort colors by first occurrence position (preserves spatial locality)
   let mut sorted_colors: Vec<([u8; 4], usize)> = color_positions.into_iter().collect();
@@ -207,13 +152,13 @@ fn try_collect_palette(image: &RgbaImage) -> Option<PaletteData> {
 
   let mut indices: Vec<u8> = Vec::with_capacity(row_bytes * image.height() as usize);
 
-  for row in image.rows() {
+  let row_stride = width * 4;
+  for row in image.as_raw().chunks_exact(row_stride) {
     let mut current_byte: u8 = 0;
     let mut bit_offset = 8 - bits_per_pixel;
 
-    for pixel in row {
-      let mut rgba: [u8; 4] = pixel.0;
-      rgba[3] = quantize_alpha(rgba[3]);
+    for pixel in row.chunks_exact(4) {
+      let rgba = [pixel[0], pixel[1], pixel[2], quantize_alpha(pixel[3])];
 
       let idx = color_map.get(&rgba).copied().unwrap_or(0);
 

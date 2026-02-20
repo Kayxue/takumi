@@ -76,8 +76,8 @@ impl ImageSource {
         let mut image = RgbaImage::from_raw(width, height, pixmap.take())
           .ok_or(ImageResourceError::MismatchedBufferSize)?;
 
-        for pixel in image.pixels_mut() {
-          unpremultiply_alpha(pixel);
+        for chunk in image.chunks_exact_mut(4) {
+          unpremultiply_alpha(chunk);
         }
 
         Ok(Cow::Owned(image))

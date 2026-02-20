@@ -3,8 +3,6 @@ use image::RgbaImage;
 use crate::Result;
 use crate::rendering::{BufferPool, premultiply_alpha, unpremultiply_alpha};
 
-const PIXEL_STRIDE: usize = 4;
-
 /// Specifies the type of blur operation, which affects how the CSS radius is interpreted.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BlurType {
@@ -69,7 +67,7 @@ impl<'a> BlurFormat<'a> {
 
 /// Applies a Gaussian approximation using 3-pass Box Blur.
 pub(crate) fn apply_blur(
-  mut format: BlurFormat<'_>,
+  format: BlurFormat<'_>,
   radius: f32,
   blur_type: BlurType,
   pool: &mut BufferPool,
@@ -93,7 +91,7 @@ pub(crate) fn apply_blur(
   let (mul_val, shg) = compute_mul_shg(div);
 
   let stride = match format {
-    BlurFormat::Rgba(_) => width as usize * PIXEL_STRIDE,
+    BlurFormat::Rgba(_) => width as usize * 4,
     BlurFormat::Alpha { .. } => width as usize,
   };
 
@@ -109,14 +107,14 @@ pub(crate) fn apply_blur(
   let mut col_sums = vec![0u32; stride];
 
   match format {
-    BlurFormat::Rgba(ref mut image) => {
-      for pixel in image.pixels_mut() {
-        premultiply_alpha(pixel);
+    BlurFormat::Rgba(image) => {
+      for chunk in image.chunks_exact_mut(4) {
+        premultiply_alpha(chunk);
       }
 
       let mut temp_image = pool.acquire_image(width, height)?;
       let temp_data = &mut *temp_image;
-      let img_data = &mut ***image;
+      let img_data = image.as_mut();
 
       for _ in 0..3 {
         box_blur_h::<4>(img_data, temp_data, pass_params);
@@ -125,11 +123,11 @@ pub(crate) fn apply_blur(
 
       pool.release_image(temp_image);
 
-      for pixel in image.pixels_mut() {
-        unpremultiply_alpha(pixel);
+      for chunk in image.chunks_exact_mut(4) {
+        unpremultiply_alpha(chunk);
       }
     }
-    BlurFormat::Alpha { ref mut data, .. } => {
+    BlurFormat::Alpha { data, .. } => {
       let mut temp_image = pool.acquire((width * height) as usize);
       let temp_data = &mut *temp_image;
 
@@ -145,13 +143,34 @@ pub(crate) fn apply_blur(
   Ok(())
 }
 
+macro_rules! update_h_pixel {
+  ($src:expr, $dst:expr, $sum:expr, $out:expr, $entering:expr, $leaving:expr, $mul:expr, $shift:expr) => {
+    if $sum[STRIDE - 1] == 0 && unsafe { *$src.get_unchecked($entering + STRIDE - 1) } == 0 {
+      for c in 0..STRIDE {
+        unsafe {
+          *$dst.get_unchecked_mut($out + c) = 0;
+        }
+      }
+    } else {
+      for c in 0..STRIDE {
+        unsafe {
+          *$dst.get_unchecked_mut($out + c) = (($sum[c] * $mul) >> $shift) as u8;
+          $sum[c] += *$src.get_unchecked($entering + c) as u32;
+          $sum[c] -= *$src.get_unchecked($leaving + c) as u32;
+        }
+      }
+    }
+  };
+}
+
 /// Horizontal Box Blur Pass
 // Kept as a range loop for forced unrolling and to avoid iterator overhead
 #[allow(clippy::needless_range_loop)]
 fn box_blur_h<const STRIDE: usize>(src: &[u8], dst: &mut [u8], params: BlurPassParams) {
-  let r = params.radius as usize;
-  let w = params.width as usize;
-  let mul = params.mul_val;
+  let radius = params.radius as usize;
+  let width = params.width as usize;
+  let multiplier = params.mul_val;
+  let shift = params.shg;
   let stride = params.stride;
 
   assert!(src.len() >= params.height as usize * stride);
@@ -163,70 +182,94 @@ fn box_blur_h<const STRIDE: usize>(src: &[u8], dst: &mut [u8], params: BlurPassP
 
     let first_px = line_offset;
     for c in 0..STRIDE {
-      sum[c] = unsafe { *src.get_unchecked(first_px + c) } as u32 * (r as u32 + 1);
+      sum[c] = unsafe { *src.get_unchecked(first_px + c) } as u32 * (radius as u32 + 1);
     }
 
-    for dx in 1..=r {
-      let px = dx.min(w - 1);
+    for dx in 1..=radius {
+      let px = dx.min(width - 1);
       let src_offset = line_offset + px * STRIDE;
       for c in 0..STRIDE {
         sum[c] += unsafe { *src.get_unchecked(src_offset + c) } as u32;
       }
     }
 
-    let left_end = (r + 1).min(w);
+    let left_end = (radius + 1).min(width);
     for x in 0..left_end {
       let out_offset = line_offset + x * STRIDE;
-      let entering_x = (x + r + 1).min(w - 1);
+      let entering_x = (x + radius + 1).min(width - 1);
       let entering_offset = line_offset + entering_x * STRIDE;
-
-      for c in 0..STRIDE {
-        unsafe {
-          *dst.get_unchecked_mut(out_offset + c) = ((sum[c] * mul) >> params.shg) as u8;
-          sum[c] += *src.get_unchecked(entering_offset + c) as u32;
-          sum[c] -= *src.get_unchecked(first_px + c) as u32;
-        }
-      }
+      update_h_pixel!(
+        src,
+        dst,
+        sum,
+        out_offset,
+        entering_offset,
+        first_px,
+        multiplier,
+        shift
+      );
     }
 
-    let middle_end = w.saturating_sub(r + 1).max(left_end);
+    let middle_end = width.saturating_sub(radius + 1).max(left_end);
     for x in left_end..middle_end {
       let out_offset = line_offset + x * STRIDE;
-      let leaving_offset = line_offset + (x - r) * STRIDE;
-      let entering_offset = line_offset + (x + r + 1) * STRIDE;
-
-      for c in 0..STRIDE {
-        unsafe {
-          *dst.get_unchecked_mut(out_offset + c) = ((sum[c] * mul) >> params.shg) as u8;
-          sum[c] += *src.get_unchecked(entering_offset + c) as u32;
-          sum[c] -= *src.get_unchecked(leaving_offset + c) as u32;
-        }
-      }
+      let leaving_offset = line_offset + (x - radius) * STRIDE;
+      let entering_offset = line_offset + (x + radius + 1) * STRIDE;
+      update_h_pixel!(
+        src,
+        dst,
+        sum,
+        out_offset,
+        entering_offset,
+        leaving_offset,
+        multiplier,
+        shift
+      );
     }
 
-    let last_px = line_offset + (w - 1) * STRIDE;
-    for x in middle_end..w {
+    let last_px = line_offset + (width - 1) * STRIDE;
+    for x in middle_end..width {
       let out_offset = line_offset + x * STRIDE;
-      let leaving_offset = line_offset + (x - r) * STRIDE;
-
-      for c in 0..STRIDE {
-        unsafe {
-          *dst.get_unchecked_mut(out_offset + c) = ((sum[c] * mul) >> params.shg) as u8;
-          sum[c] += *src.get_unchecked(last_px + c) as u32;
-          sum[c] -= *src.get_unchecked(leaving_offset + c) as u32;
-        }
-      }
+      let leaving_offset = line_offset + (x - radius) * STRIDE;
+      update_h_pixel!(
+        src,
+        dst,
+        sum,
+        out_offset,
+        last_px,
+        leaving_offset,
+        multiplier,
+        shift
+      );
     }
   }
+}
+
+macro_rules! update_v_pixel {
+  ($src:expr, $dst:expr, $sums:expr, $x:expr, $out:expr, $entering:expr, $leaving:expr, $mul:expr, $shift:expr) => {
+    let sum = $sums[$x];
+    let entering = unsafe { *$src.get_unchecked($entering + $x) } as u32;
+    if sum == 0 && entering == 0 {
+      unsafe {
+        *$dst.get_unchecked_mut($out + $x) = 0;
+      }
+    } else {
+      unsafe {
+        *$dst.get_unchecked_mut($out + $x) = ((sum * $mul) >> $shift) as u8;
+        $sums[$x] = sum + entering - *$src.get_unchecked($leaving + $x) as u32;
+      }
+    }
+  };
 }
 
 /// Vertical Box Blur Pass
 // Kept as a range loop for forced unrolling and to avoid iterator overhead in WASM
 #[allow(clippy::needless_range_loop)]
 fn box_blur_v(src: &[u8], dst: &mut [u8], params: BlurPassParams, sums: &mut [u32]) {
-  let r = params.radius as usize;
-  let h = params.height as usize;
-  let mul = params.mul_val;
+  let radius = params.radius as usize;
+  let height = params.height as usize;
+  let multiplier = params.mul_val;
+  let shift = params.shg;
   let stride = params.stride;
 
   assert!(src.len() >= params.height as usize * stride);
@@ -234,59 +277,77 @@ fn box_blur_v(src: &[u8], dst: &mut [u8], params: BlurPassParams, sums: &mut [u3
 
   // Initialize sums with the first row repeated
   for x in 0..stride {
-    sums[x] = unsafe { *src.get_unchecked(x) } as u32 * (r as u32 + 1);
+    sums[x] = unsafe { *src.get_unchecked(x) } as u32 * (radius as u32 + 1);
   }
 
   // Add trailing edge
-  for dy in 1..=r {
-    let py = dy.min(h - 1);
+  for dy in 1..=radius {
+    let py = dy.min(height - 1);
     let row_offset = py * stride;
     for x in 0..stride {
       sums[x] += unsafe { *src.get_unchecked(row_offset + x) } as u32;
     }
   }
 
-  let left_end = (r + 1).min(h);
+  let left_end = (radius + 1).min(height);
   for y in 0..left_end {
     let out_offset = y * stride;
-    let entering_y = (y + r + 1).min(h - 1);
+    let entering_y = (y + radius + 1).min(height - 1);
     let entering_row = entering_y * stride;
 
     for x in 0..stride {
-      unsafe {
-        *dst.get_unchecked_mut(out_offset + x) = ((sums[x] * mul) >> params.shg) as u8;
-        sums[x] += *src.get_unchecked(entering_row + x) as u32;
-        sums[x] -= *src.get_unchecked(x) as u32;
-      }
+      update_v_pixel!(
+        src,
+        dst,
+        sums,
+        x,
+        out_offset,
+        entering_row,
+        0,
+        multiplier,
+        shift
+      );
     }
   }
 
-  let middle_end = h.saturating_sub(r + 1).max(left_end);
+  let middle_end = height.saturating_sub(radius + 1).max(left_end);
   for y in left_end..middle_end {
     let out_offset = y * stride;
-    let leaving_row = (y - r) * stride;
-    let entering_row = (y + r + 1) * stride;
+    let leaving_row = (y - radius) * stride;
+    let entering_row = (y + radius + 1) * stride;
 
     for x in 0..stride {
-      unsafe {
-        *dst.get_unchecked_mut(out_offset + x) = ((sums[x] * mul) >> params.shg) as u8;
-        sums[x] += *src.get_unchecked(entering_row + x) as u32;
-        sums[x] -= *src.get_unchecked(leaving_row + x) as u32;
-      }
+      update_v_pixel!(
+        src,
+        dst,
+        sums,
+        x,
+        out_offset,
+        entering_row,
+        leaving_row,
+        multiplier,
+        shift
+      );
     }
   }
 
-  for y in middle_end..h {
+  let last_row = (height - 1) * stride;
+  for y in middle_end..height {
     let out_offset = y * stride;
-    let leaving_row = (y - r) * stride;
-    let last_row = (h - 1) * stride;
+    let leaving_row = (y - radius) * stride;
 
     for x in 0..stride {
-      unsafe {
-        *dst.get_unchecked_mut(out_offset + x) = ((sums[x] * mul) >> params.shg) as u8;
-        sums[x] += *src.get_unchecked(last_row + x) as u32;
-        sums[x] -= *src.get_unchecked(leaving_row + x) as u32;
-      }
+      update_v_pixel!(
+        src,
+        dst,
+        sums,
+        x,
+        out_offset,
+        last_row,
+        leaving_row,
+        multiplier,
+        shift
+      );
     }
   }
 }

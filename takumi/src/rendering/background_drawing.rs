@@ -108,6 +108,15 @@ impl GenericImageView for BackgroundTile {
   }
 }
 
+impl BackgroundTile {
+  pub(crate) fn as_raw(&self) -> Option<&[u8]> {
+    match self {
+      Self::Image(image) => Some(image.as_raw()),
+      _ => None,
+    }
+  }
+}
+
 pub(crate) fn resolve_length_against_area(unit: Length, area: u32, sizing: &Sizing) -> u32 {
   match unit {
     Length::Auto => area,
@@ -549,9 +558,20 @@ pub(crate) fn create_mask(
       let (w, h) = tile.dimensions();
       let mut alpha = buffer_pool.acquire((w * h) as usize);
 
-      for (i, (_, _, pixel)) in tile.pixels().enumerate() {
-        if i < alpha.len() {
-          alpha[i] = pixel.0[3];
+      if let Some(raw) = tile.as_raw() {
+        let count = alpha.len().min(raw.len() / 4);
+        for i in 0..count {
+          alpha[i] = raw[i * 4 + 3];
+        }
+      } else {
+        let mut i = 0;
+        for y in 0..h {
+          for x in 0..w {
+            if i < alpha.len() {
+              alpha[i] = tile.get_pixel(x, y).0[3];
+              i += 1;
+            }
+          }
         }
       }
 
