@@ -19,6 +19,13 @@
     "url": "git+https://github.com/kane50613/takumi.git"
   },
   "main": "index.js",
+  "exports": {
+    ".": {
+      "import": "./index.js",
+      "require": "./index.js",
+      "types": "./index.d.ts"
+    }
+  },
   "devDependencies": {
     "@napi-rs/cli": "3.5.1",
     "@takumi-rs/helpers": "workspace:*",
