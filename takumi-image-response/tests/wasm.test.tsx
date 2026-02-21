@@ -44,4 +44,29 @@ describe("ImageResponse", () => {
     expect(response.headers.get("content-type")).toBe("image/png");
     expect(await response.arrayBuffer()).toBeDefined();
   });
+
+  test("should resolve concurrent requests via Promise.all without hanging", async () => {
+    const promises = Array.from({ length: 100 }).map(async (_, i) => {
+      const response = new ImageResponse(
+        <div tw="bg-black w-4 h-4 text-white">Concurrent {i}</div>,
+        {
+          module,
+          fonts: [
+            {
+              data: geist,
+              name: "Geist",
+            },
+          ],
+        },
+      );
+      const buffer = await response.arrayBuffer();
+      return buffer;
+    });
+
+    const buffers = await Promise.all(promises);
+    expect(buffers).toHaveLength(100);
+    for (const buffer of buffers) {
+      expect(buffer).toBeDefined();
+    }
+  });
 });
