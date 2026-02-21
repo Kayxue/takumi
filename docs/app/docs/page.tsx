@@ -94,9 +94,9 @@ const clientLoader = browserCollections.docs.createClientLoader({
       >
         <title>{title}</title>
         <meta name="description" content={frontmatter.description} />
-        <meta name="og:title" content={title} />
-        <meta name="og:description" content={frontmatter.description} />
-        <meta name="og:image" content={og} />
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={frontmatter.description} />
+        <meta property="og:image" content={og} />
         <meta name="twitter:image" content={og} />
         <DocsTitle>{frontmatter.title}</DocsTitle>
         <DocsDescription>{frontmatter.description}</DocsDescription>

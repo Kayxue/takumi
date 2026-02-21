@@ -39,7 +39,7 @@ export function meta({ location }: Route.MetaArgs) {
       content: `https://takumi.kane.tw${location.pathname}`,
     },
     {
-      name: "og:url",
+      property: "og:url",
       content: `https://takumi.kane.tw${location.pathname}`,
     },
   ] satisfies Route.MetaDescriptors;
@@ -56,7 +56,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="twitter:image:height" content="630" />
         <meta name="twitter:creator" content="@kanewang_" />
         <meta name="twitter:site" content="@kanewang_" />
-        <meta name="og:site_name" content="Takumi" />
+        <meta property="og:site_name" content="Takumi" />
         <Meta />
         <Links />
       </head>
