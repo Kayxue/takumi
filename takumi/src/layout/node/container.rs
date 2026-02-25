@@ -17,7 +17,7 @@ use crate::layout::{
 ///
 /// Container nodes are used to group other nodes and apply layout
 /// properties like flexbox layout to arrange their children.
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Default)]
 pub struct ContainerNode<Nodes: Node<Nodes>> {
   /// Default style presets from HTML element type (lowest priority)
   pub preset: Option<Style>,

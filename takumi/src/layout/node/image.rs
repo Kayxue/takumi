@@ -21,7 +21,7 @@ use crate::{
 };
 
 /// A node that renders image content.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct ImageNode {
   /// Default style presets from HTML element type (lowest priority)
   pub preset: Option<Style>,

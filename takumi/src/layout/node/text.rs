@@ -21,7 +21,7 @@ use crate::{
 ///
 /// Text nodes display text with configurable font properties,
 /// alignment, and styling options.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct TextNode {
   /// Default style presets from HTML element type (lowest priority)
   pub preset: Option<Style>,
