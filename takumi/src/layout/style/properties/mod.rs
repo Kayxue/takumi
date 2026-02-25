@@ -168,6 +168,25 @@ pub trait FromCss<'i> {
   }
 }
 
+impl<'i, T: FromCss<'i>> FromCss<'i> for Option<T> {
+  fn valid_tokens() -> &'static [CssToken] {
+    // 'none' is intentionally omitted and applied in `expect_message`
+    T::valid_tokens()
+  }
+
+  fn expect_message() -> Cow<'static, str> {
+    Cow::Owned(format!("{} or 'none'", T::expect_message()))
+  }
+
+  fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
+    if input.try_parse(|i| i.expect_ident_matching("none")).is_ok() {
+      return Ok(None);
+    }
+
+    T::from_css(input).map(Some)
+  }
+}
+
 /// Converts a parsed/inherited value into a computed value for the current node context.
 pub(crate) trait MakeComputed {
   /// Default no-op for types that do not need computed-value normalization.
@@ -364,6 +383,21 @@ pub struct BorderRadius(pub Sides<SpacePair<Length<false>>>);
 impl MakeComputed for BorderRadius {
   fn make_computed(&mut self, sizing: &Sizing) {
     self.0.make_computed(sizing);
+  }
+}
+
+impl<'i> FromCss<'i> for Box<BorderRadius> {
+  fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
+    let value = BorderRadius::from_css(input)?;
+    Ok(Box::new(value))
+  }
+
+  fn expect_message() -> Cow<'static, str> {
+    BorderRadius::expect_message()
+  }
+
+  fn valid_tokens() -> &'static [CssToken] {
+    BorderRadius::valid_tokens()
   }
 }
 

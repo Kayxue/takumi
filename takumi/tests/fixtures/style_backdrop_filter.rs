@@ -8,6 +8,9 @@ use crate::test_utils::run_fixture_test;
 /// Creates a single card with backdrop-filter for testing.
 fn create_backdrop_card(filter: &str, label_font_size_px: f32) -> NodeKind {
   ContainerNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
     preset: None,
     tw: None,
     style: Some(
@@ -26,6 +29,9 @@ fn create_backdrop_card(filter: &str, label_font_size_px: f32) -> NodeKind {
     ),
     children: Some(
       [TextNode {
+        class_name: None,
+        id: None,
+        tag_name: None,
         preset: None,
         tw: None,
         style: None,
@@ -64,6 +70,9 @@ fn test_style_backdrop_filter() {
   ];
 
   let container = ContainerNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
     preset: None,
     tw: None,
     style: Some(
@@ -96,6 +105,9 @@ fn test_style_backdrop_filter() {
 #[test]
 fn test_style_backdrop_filter_frosted_glass() {
   let container = ContainerNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
     preset: None,
     tw: None,
     style: Some(
@@ -114,6 +126,9 @@ fn test_style_backdrop_filter_frosted_glass() {
     ),
     children: Some(
       [ContainerNode {
+        class_name: None,
+        id: None,
+        tag_name: None,
         preset: None,
         tw: None,
         style: Some(
@@ -124,7 +139,7 @@ fn test_style_backdrop_filter_frosted_glass() {
             .justify_content(JustifyContent::Center)
             .backdrop_filter(Filters::from_str("blur(16px)").unwrap())
             .background_color(ColorInput::Value(Color([255, 255, 255, 80])))
-            .border_radius(BorderRadius::from_str("24px").unwrap())
+            .border_radius(Box::new(BorderRadius::from_str("24px").unwrap()))
             .padding(Sides([Px(48.0); 4]))
             .gap(SpacePair::from_pair(Px(16.0), Px(16.0)))
             .build()
@@ -133,6 +148,9 @@ fn test_style_backdrop_filter_frosted_glass() {
         children: Some(
           [
             TextNode {
+              class_name: None,
+              id: None,
+              tag_name: None,
               preset: None,
               tw: None,
               style: Some(
@@ -147,6 +165,9 @@ fn test_style_backdrop_filter_frosted_glass() {
             }
             .into(),
             TextNode {
+              class_name: None,
+              id: None,
+              tag_name: None,
               preset: None,
               tw: None,
               style: Some(

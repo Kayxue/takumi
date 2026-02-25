@@ -8,15 +8,18 @@ use taffy::{
   compute_hidden_layout, compute_leaf_layout, compute_root_layout, round_layout,
 };
 
+#[cfg(feature = "css_stylesheet_parsing")]
+use crate::layout::style::matching::{MatchedDeclarations, match_stylesheets};
 use crate::{
   Result,
   layout::{
+    Viewport,
     inline::{
       InlineLayoutStage, ProcessedInlineSpan, collect_inline_items, create_inline_constraint,
       create_inline_layout, measure_inline_layout,
     },
-    node::Node,
-    style::{Affine, Display, InheritedStyle},
+    node::{Node, NodeStyleLayers},
+    style::{Affine, Display, ResolvedStyle, Style as NodeStyle},
   },
   rendering::{
     Canvas, MaxHeight, RenderContext, Sizing,
@@ -76,6 +79,39 @@ pub(crate) struct RenderNode<'g, N: Node<N>> {
   pub(crate) context: RenderContext<'g>,
   pub(crate) node: Option<N>,
   pub(crate) children: Option<Box<[RenderNode<'g, N>]>>,
+}
+
+fn build_inherited_style(
+  parent_style: &ResolvedStyle,
+  node_layers: NodeStyleLayers,
+  #[cfg(feature = "css_stylesheet_parsing")] matched_declarations: &MatchedDeclarations,
+  viewport: Viewport,
+) -> ResolvedStyle {
+  let mut style = NodeStyle::default();
+
+  if let Some(preset) = node_layers.preset {
+    style.merge_from(preset);
+  }
+
+  #[cfg(feature = "css_stylesheet_parsing")]
+  for declaration in matched_declarations.normal.iter() {
+    declaration.merge_into(&mut style);
+  }
+
+  if let Some(author_tw) = node_layers.author_tw {
+    author_tw.apply_to_style(&mut style, viewport);
+  }
+
+  if let Some(inline) = node_layers.inline {
+    style.merge_from(inline);
+  }
+
+  #[cfg(feature = "css_stylesheet_parsing")]
+  for declaration in matched_declarations.important.iter() {
+    declaration.merge_into(&mut style);
+  }
+
+  style.inherit(parent_style)
 }
 
 fn push_layout_node<'r, 'g, N: Node<N>>(
@@ -497,7 +533,16 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
   }
 
   pub fn from_node(parent_context: &RenderContext<'g>, node: N) -> Self {
-    let mut tree = Self::from_node_impl(parent_context, node);
+    #[cfg(feature = "css_stylesheet_parsing")]
+    let matched_styles = match_stylesheets(&node, &parent_context.stylesheets);
+    let mut preorder_cursor = 0;
+    let mut tree = Self::from_node_impl(
+      parent_context,
+      node,
+      #[cfg(feature = "css_stylesheet_parsing")]
+      &matched_styles,
+      &mut preorder_cursor,
+    );
 
     if tree.is_inline_level() {
       tree.context.style.display.blockify();
@@ -506,9 +551,24 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
     tree
   }
 
-  fn from_node_impl(parent_context: &RenderContext<'g>, mut node: N) -> Self {
-    let mut style =
-      node.create_inherited_style(&parent_context.style, parent_context.sizing.viewport);
+  fn from_node_impl(
+    parent_context: &RenderContext<'g>,
+    mut node: N,
+    #[cfg(feature = "css_stylesheet_parsing")] matched_declarations: &[MatchedDeclarations],
+    preorder_cursor: &mut usize,
+  ) -> Self {
+    let node_index = *preorder_cursor;
+    *preorder_cursor += 1;
+    let layers = node.take_style_layers();
+    let mut style = build_inherited_style(
+      &parent_context.style,
+      layers,
+      #[cfg(feature = "css_stylesheet_parsing")]
+      matched_declarations
+        .get(node_index)
+        .unwrap_or(&MatchedDeclarations::default()),
+      parent_context.sizing.viewport,
+    );
 
     let font_size = style
       .font_size
@@ -532,14 +592,20 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
       draw_debug_border: parent_context.draw_debug_border,
       fetched_resources: parent_context.fetched_resources.clone(),
       sizing,
+      #[cfg(feature = "css_stylesheet_parsing")]
+      stylesheets: parent_context.stylesheets.clone(),
     };
 
     let children = node.take_children().map(|children| {
-      Box::from_iter(
-        children
-          .into_iter()
-          .map(|child| Self::from_node_impl(&render_context, child)),
-      )
+      Box::from_iter(children.into_iter().map(|child| {
+        Self::from_node_impl(
+          &render_context,
+          child,
+          #[cfg(feature = "css_stylesheet_parsing")]
+          matched_declarations,
+          preorder_cursor,
+        )
+      }))
     });
 
     let Some(mut children) = children else {
@@ -580,9 +646,9 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
     let mut final_children = Vec::new();
     let mut inline_group = Vec::new();
 
-    let anonymous_box_style = InheritedStyle {
+    let anonymous_box_style = ResolvedStyle {
       display: Display::Block,
-      ..InheritedStyle::default()
+      ..ResolvedStyle::default()
     };
 
     for item in children {
@@ -723,7 +789,7 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
 fn flush_inline_group<'g, N: Node<N>>(
   inline_group: &mut Vec<RenderNode<'g, N>>,
   final_children: &mut Vec<RenderNode<'g, N>>,
-  anonymous_box_style: &InheritedStyle,
+  anonymous_box_style: &ResolvedStyle,
   parent_render_context: &RenderContext<'g>,
 ) {
   if inline_group.is_empty() {
@@ -748,9 +814,65 @@ fn flush_inline_group<'g, N: Node<N>>(
         current_color: parent_render_context.current_color,
         draw_debug_border: parent_render_context.draw_debug_border,
         fetched_resources: Default::default(),
+        #[cfg(feature = "css_stylesheet_parsing")]
+        stylesheets: parent_render_context.stylesheets.clone(),
       },
       children: Some(take(inline_group).into_boxed_slice()),
       node: None,
     });
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  #[cfg(feature = "css_stylesheet_parsing")]
+  use smallvec::smallvec;
+
+  use super::build_inherited_style;
+  #[cfg(feature = "css_stylesheet_parsing")]
+  use crate::layout::style::{
+    DeclarationMetadata, PropertyId, StyleDeclaration, StyleDeclarationValue,
+    matching::MatchedDeclarations,
+  };
+  use crate::layout::{
+    Viewport,
+    node::NodeStyleLayers,
+    style::{CssValue, Length, ResolvedStyle, Style},
+  };
+
+  #[test]
+  fn stylesheet_important_overrides_inline_normal() {
+    let parent = ResolvedStyle::default();
+    let layers = NodeStyleLayers {
+      inline: Some(Style {
+        width: CssValue::Value(Length::Px(20.0)),
+        ..Default::default()
+      }),
+      ..Default::default()
+    };
+
+    #[cfg(feature = "css_stylesheet_parsing")]
+    let matched = MatchedDeclarations {
+      normal: smallvec![StyleDeclaration {
+        metadata: Default::default(),
+        property: PropertyId::width,
+        value: StyleDeclarationValue::width(Length::Px(20.0)),
+      }],
+      important: smallvec![StyleDeclaration {
+        metadata: DeclarationMetadata { important: true },
+        property: PropertyId::width,
+        value: StyleDeclarationValue::width(Length::Px(30.0)),
+      }],
+    };
+
+    let resolved = build_inherited_style(
+      &parent,
+      layers,
+      #[cfg(feature = "css_stylesheet_parsing")]
+      &matched,
+      Viewport::new(Some(1200), Some(630)),
+    );
+
+    assert_eq!(resolved.width, Length::Px(30.0));
   }
 }

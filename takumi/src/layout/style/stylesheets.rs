@@ -2,30 +2,40 @@ use std::{borrow::Cow, marker::PhantomData};
 
 use derive_builder::Builder;
 use parley::{FontSettings, FontStack, TextStyle};
-use serde::Deserialize;
+use serde::de::IgnoredAny;
 use smallvec::SmallVec;
 use taffy::{Point, Rect, Size, prelude::FromLength};
 
 use crate::{
   layout::{
     inline::InlineBrush,
-    style::{CssValue, properties::*},
+    style::{CssGlobalKeyword, CssValue, RawCssValueSeed, parse_css_value_from_raw, properties::*},
   },
   rendering::{RenderContext, SizedShadow, Sizing},
 };
 
-/// Helper macro to define the `Style` struct and `InheritedStyle` struct.
+/// Helper macro to define the `Style` struct and `ResolvedStyle` struct.
 macro_rules! define_style_apply_clears {
   ($self:ident, $other:ident, $trigger:ident, [$($clear:ident),* $(,)?]) => {
-    if !matches!(&$other.$trigger, CssValue::Unset) {
+    if !matches!(&$other.$trigger, CssValue::Keyword(CssGlobalKeyword::Unset)) {
       $(
-        if matches!(&$other.$clear, CssValue::Unset) {
-          $self.$clear = CssValue::Unset;
+        if matches!(&$other.$clear, CssValue::Keyword(CssGlobalKeyword::Unset)) {
+          $self.$clear = CssValue::Keyword(CssGlobalKeyword::Unset);
         }
       )*
     }
   };
   ($self:ident, $other:ident, $trigger:ident) => {};
+}
+
+macro_rules! define_style_declaration_clears {
+  ($style:ident $(, [$($clear:ident),* $(,)?])?) => {
+    $(
+      $(
+        $style.$clear = CssValue::Keyword(CssGlobalKeyword::Unset);
+      )*
+    )?
+  };
 }
 
 macro_rules! define_style {
@@ -35,9 +45,157 @@ macro_rules! define_style {
       $(where inherit = $inherit:expr)?
       $(=> [$($merge_clear:ident),* $(,)?])?,
   )*) => {
+    /// Metadata attached to a parsed CSS declaration.
+    #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+    pub(crate) struct DeclarationMetadata {
+      /// Whether the declaration was marked with `!important`.
+      pub important: bool,
+    }
+
+    #[allow(non_camel_case_types)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub(crate) enum PropertyId {
+      Ignored,
+      $(
+        $property,
+      )*
+    }
+
+    impl PropertyId {
+      fn from_alias(name: &str) -> Option<Self> {
+        match name {
+          "-webkit-text-stroke" => Some(Self::webkit_text_stroke),
+          "-webkit-text-stroke-width" => Some(Self::webkit_text_stroke_width),
+          "-webkit-text-stroke-color" => Some(Self::webkit_text_stroke_color),
+          "-webkit-text-fill-color" => Some(Self::webkit_text_fill_color),
+          _ => None,
+        }
+      }
+
+      fn from_normalized_name(name: &str) -> Self {
+        match name {
+          $(
+            stringify!($property) => PropertyId::$property,
+          )*
+          _ => Self::Ignored,
+        }
+      }
+
+      fn from_kebab_case(name: &str) -> Self {
+        if name.starts_with("--") {
+          return Self::Ignored;
+        }
+
+        if let Some(property) = Self::from_alias(name) {
+          return property;
+        }
+
+        let normalized = name
+          .chars()
+          .map(|ch| match ch {
+            '-' => '_',
+            _ => ch.to_ascii_lowercase(),
+          })
+          .collect::<String>();
+        Self::from_normalized_name(&normalized)
+      }
+
+      #[allow(dead_code)]
+      pub(crate) fn from_camel_case(name: &str) -> Self {
+        match name {
+          "textStroke" | "WebkitTextStroke" => return Self::webkit_text_stroke,
+          "textStrokeWidth" | "WebkitTextStrokeWidth" => return Self::webkit_text_stroke_width,
+          "textStrokeColor" | "WebkitTextStrokeColor" => return Self::webkit_text_stroke_color,
+          "textFillColor" | "WebkitTextFillColor" => return Self::webkit_text_fill_color,
+          _ => {}
+        }
+        let mut normalized = String::with_capacity(name.len() + 4);
+        for ch in name.chars() {
+          if ch.is_ascii_uppercase() {
+            normalized.push('_');
+            normalized.push(ch.to_ascii_lowercase());
+          } else {
+            normalized.push(ch);
+          }
+        }
+        let normalized = normalized.trim_start_matches('_');
+        Self::from_normalized_name(normalized)
+      }
+    }
+
+    #[allow(non_camel_case_types)]
+    #[derive(Debug, Clone)]
+    pub(crate) enum StyleDeclarationValue {
+      Ignored,
+      $(
+        $property($type),
+      )*
+    }
+
+    /// A parsed CSS declaration with metadata that can be applied to a [`Style`].
+    #[derive(Debug, Clone)]
+    pub struct StyleDeclaration {
+      /// Declaration metadata such as `!important`.
+      pub(crate) metadata: DeclarationMetadata,
+      pub(crate) property: PropertyId,
+      pub(crate) value: StyleDeclarationValue,
+    }
+
+    impl StyleDeclaration {
+      pub(crate) fn parse<'i>(
+        name: &str,
+        input: &mut cssparser::Parser<'i, '_>,
+      ) -> Result<Self, cssparser::ParseError<'i, Cow<'i, str>>> {
+        let property = PropertyId::from_kebab_case(name);
+        let value = match property {
+          PropertyId::Ignored => {
+            while input.next_including_whitespace_and_comments().is_ok() {}
+            StyleDeclarationValue::Ignored
+          }
+          $(
+            PropertyId::$property => {
+              let value = <$type as FromCss>::from_css(input)?;
+              StyleDeclarationValue::$property(value)
+            }
+          )*
+        };
+
+        Ok(Self {
+          metadata: DeclarationMetadata::default(),
+          property,
+          value,
+        })
+      }
+
+      pub(crate) fn with_metadata(
+        mut self,
+        metadata: DeclarationMetadata,
+      ) -> Self {
+        self.metadata = metadata;
+        self
+      }
+
+      pub(crate) fn merge_into(&self, style: &mut Style) {
+        match (&self.property, &self.value) {
+          (PropertyId::Ignored, StyleDeclarationValue::Ignored) => {}
+          $(
+            (PropertyId::$property, StyleDeclarationValue::$property(value)) => {
+              define_style_declaration_clears!(style $(, [$($merge_clear),*])?);
+              style.$property = value.clone().into();
+            }
+          )*
+          #[cfg(not(debug_assertions))]
+          _ => {}
+          #[cfg(debug_assertions)]
+          _ => unreachable!("StyleDeclaration property/value variant mismatch"),
+        }
+      }
+    }
+
+    pub(crate) type StyleDeclarations = SmallVec<[StyleDeclaration; 8]>;
+
     /// Defines the style of an element.
-    #[derive(Debug, Default, Clone, Deserialize, Builder, PartialEq)]
-    #[serde(default, rename_all = "camelCase")]
+    #[derive(Debug, Default, Clone, Builder, PartialEq)]
     #[builder(default, setter(into))]
     pub struct Style {
       $(
@@ -47,10 +205,52 @@ macro_rules! define_style {
       )*
     }
 
+    impl<'de> serde::Deserialize<'de> for Style {
+      fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+      where
+        D: serde::Deserializer<'de>,
+      {
+        struct StyleVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for StyleVisitor {
+          type Value = Style;
+
+          fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a style object")
+          }
+
+          fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+          where
+            A: serde::de::MapAccess<'de>,
+          {
+            let mut style = Style::default();
+
+            while let Some(key) = map.next_key::<Cow<'de, str>>()? {
+              match PropertyId::from_camel_case(&key) {
+                PropertyId::Ignored => {
+                  map.next_value::<IgnoredAny>()?;
+                  continue;
+                },
+                $(
+                  PropertyId::$property => {
+                    let raw_value = map.next_value_seed(RawCssValueSeed)?;
+                    style.$property = parse_css_value_from_raw(raw_value)?;
+                  }
+                )*
+              }
+            }
+
+            Ok(style)
+          }
+        }
+
+        deserializer.deserialize_map(StyleVisitor)
+      }
+    }
     impl Style {
       /// Inherits the style from the parent element.
-      pub(crate) fn inherit(self, parent: &InheritedStyle) -> InheritedStyle {
-        InheritedStyle {
+      pub(crate) fn inherit(self, parent: &ResolvedStyle) -> ResolvedStyle {
+        ResolvedStyle {
           $( $property: self.$property.inherit_value(&parent.$property), )*
         }
       }
@@ -70,11 +270,11 @@ macro_rules! define_style {
 
     /// A resolved set of style properties.
     #[derive(Clone, Debug, Default)]
-    pub struct InheritedStyle {
+    pub struct ResolvedStyle {
       $( pub(crate) $property: $type, )*
     }
 
-    impl InheritedStyle {
+    impl ResolvedStyle {
       pub(crate) fn make_computed_values(&mut self, sizing: &Sizing) {
         $(
           self.$property.make_computed(sizing);
@@ -161,7 +361,7 @@ define_style!(
   flex: Option<Flex> => [flex_basis, flex_grow, flex_shrink],
   flex_grow: Option<FlexGrow>,
   flex_shrink: Option<FlexGrow>,
-  border_radius: BorderRadius => [
+  border_radius: Box<BorderRadius> => [
     border_top_left_radius,
     border_top_right_radius,
     border_bottom_right_radius,
@@ -251,17 +451,13 @@ define_style!(
   font_synthesis_style: Option<FontSynthesic> where inherit = true,
   line_clamp: Option<LineClamp> where inherit = true,
   text_align: TextAlign where inherit = true,
-  #[serde(rename = "WebkitTextStroke", alias = "textStroke")]
   webkit_text_stroke: Option<TextStroke> where inherit = true => [
     webkit_text_stroke_width,
     webkit_text_stroke_color,
     webkit_text_fill_color,
   ],
-  #[serde(rename = "WebkitTextStrokeWidth", alias = "textStrokeWidth")]
   webkit_text_stroke_width: Option<Length<false>> where inherit = true,
-  #[serde(rename = "WebkitTextStrokeColor", alias = "textStrokeColor")]
   webkit_text_stroke_color: Option<ColorInput> where inherit = true,
-  #[serde(rename = "WebkitTextFillColor", alias = "textFillColor")]
   webkit_text_fill_color: Option<ColorInput> where inherit = true,
   stroke_linejoin: LineJoin where inherit = true,
   text_shadow: Option<TextShadows> where inherit = true,
@@ -291,7 +487,7 @@ define_style!(
 /// Sized font style with resolved font size and line height.
 #[derive(Clone)]
 pub(crate) struct SizedFontStyle<'s> {
-  pub parent: &'s InheritedStyle,
+  pub parent: &'s ResolvedStyle,
   pub line_height: parley::LineHeight,
   pub stroke_width: f32,
   pub letter_spacing: Option<f32>,
@@ -375,7 +571,7 @@ impl<'s> From<&'s SizedFontStyle<'s>> for TextStyle<'s, InlineBrush> {
   }
 }
 
-impl InheritedStyle {
+impl ResolvedStyle {
   /// Normalize inheritable text-related values to computed values for this node.
   pub(crate) fn make_computed(&mut self, sizing: &Sizing) {
     // `font-size` computed value is already resolved in `sizing.font_size`.
@@ -880,10 +1076,11 @@ mod tests {
 
   use taffy::Size;
 
+  use super::PropertyId;
   use crate::{
     layout::{
       Viewport,
-      style::{CssValue, InheritedStyle, Style, properties::*},
+      style::{CssGlobalKeyword, CssValue, ResolvedStyle, Style, properties::*},
     },
     rendering::Sizing,
   };
@@ -919,6 +1116,52 @@ mod tests {
   }
 
   #[test]
+  fn property_id_accepts_kebab_and_camel_case() {
+    let padding_left_kebab = PropertyId::from_kebab_case("padding-left");
+    let padding_left_camel = PropertyId::from_camel_case("paddingLeft");
+    assert_ne!(padding_left_kebab, PropertyId::Ignored);
+    assert_ne!(padding_left_camel, PropertyId::Ignored);
+    assert_eq!(padding_left_kebab, padding_left_camel);
+
+    let webkit_text_fill_color_kebab = PropertyId::from_kebab_case("-webkit-text-fill-color");
+    let webkit_text_fill_color_camel = PropertyId::from_camel_case("WebkitTextFillColor");
+    assert_ne!(webkit_text_fill_color_kebab, PropertyId::Ignored);
+    assert_ne!(webkit_text_fill_color_camel, PropertyId::Ignored);
+    assert_eq!(
+      webkit_text_fill_color_kebab,
+      PropertyId::webkit_text_fill_color
+    );
+    assert_eq!(
+      webkit_text_fill_color_camel,
+      PropertyId::webkit_text_fill_color
+    );
+  }
+
+  #[test]
+  fn custom_properties_do_not_map_to_supported_properties() {
+    assert_eq!(
+      PropertyId::from_kebab_case("--padding-left"),
+      PropertyId::Ignored
+    );
+    assert_eq!(
+      PropertyId::from_kebab_case("--webkit-mask-image"),
+      PropertyId::Ignored
+    );
+  }
+
+  #[test]
+  fn property_id_accepts_webkit_aliases() {
+    assert_eq!(
+      PropertyId::from_kebab_case("-webkit-text-fill-color"),
+      PropertyId::webkit_text_fill_color
+    );
+    assert_eq!(
+      PropertyId::from_kebab_case("-webkit-text-stroke-color"),
+      PropertyId::webkit_text_stroke_color
+    );
+  }
+
+  #[test]
   fn test_merge_from_margin_shorthand_clears_lower_priority_longhands() {
     let mut preset_style = Style {
       margin_top: Some(Length::Em(0.67)).into(),
@@ -935,7 +1178,7 @@ mod tests {
 
     preset_style.merge_from(inline_style);
 
-    let inherited = preset_style.inherit(&InheritedStyle::default());
+    let inherited = preset_style.inherit(&ResolvedStyle::default());
     let resolved = inherited.resolved_margin();
     assert_eq!(resolved.top, Length::Px(0.0));
     assert_eq!(resolved.right, Length::Px(0.0));
@@ -959,7 +1202,7 @@ mod tests {
 
     preset_style.merge_from(inline_style);
 
-    let inherited = preset_style.inherit(&InheritedStyle::default());
+    let inherited = preset_style.inherit(&ResolvedStyle::default());
     let resolved = inherited.resolved_margin();
     assert_eq!(resolved.top, Length::Px(8.0));
     assert_eq!(resolved.right, Length::Px(0.0));
@@ -987,7 +1230,7 @@ mod tests {
 
     preset_style.merge_from(inline_style);
 
-    let inherited = preset_style.inherit(&InheritedStyle::default());
+    let inherited = preset_style.inherit(&ResolvedStyle::default());
     assert_eq!(inherited.text_decoration_color, None);
     assert_eq!(
       inherited.text_decoration.line,
@@ -1015,7 +1258,7 @@ mod tests {
 
     preset_style.merge_from(inline_style);
 
-    let inherited = preset_style.inherit(&InheritedStyle::default());
+    let inherited = preset_style.inherit(&ResolvedStyle::default());
     let resolved = inherited.resolved_border_width();
     assert_eq!(resolved.top, Length::Px(2.0));
     assert_eq!(resolved.right, Length::Px(2.0));
@@ -1037,19 +1280,19 @@ mod tests {
 
     preset_style.merge_from(inline_style);
 
-    let inherited = preset_style.inherit(&InheritedStyle::default());
+    let inherited = preset_style.inherit(&ResolvedStyle::default());
     assert_eq!(inherited.background_color, None);
   }
 
   #[test]
   fn test_unset_follows_default_inherit_flag() {
     // Non-inheriting property (DEFAULT_INHERIT = false)
-    let unset_width: CssValue<Length, false> = CssValue::Unset;
+    let unset_width: CssValue<Length, false> = CssValue::default();
     let result = unset_width.inherit_value(&Length::Px(100.0));
     assert_eq!(result, Length::Auto); // Should use default (Auto), not inherit
 
     // Inheriting property (DEFAULT_INHERIT = true)
-    let unset_color: CssValue<ColorInput, true> = CssValue::Unset;
+    let unset_color: CssValue<ColorInput, true> = CssValue::default();
     let parent_color = ColorInput::Value(Color([255, 0, 0, 255]));
     let result = unset_color.inherit_value(&parent_color);
     assert_eq!(result, parent_color); // Should inherit from parent
@@ -1059,7 +1302,7 @@ mod tests {
   fn test_or_method() {
     let high_priority = CssValue::Value(Length::Px(100.0));
     let low_priority = CssValue::Value(Length::Rem(10.0));
-    let unset: CssValue<Length> = CssValue::Unset;
+    let unset: CssValue<Length> = CssValue::default();
 
     // High priority value should be kept
     assert_eq!(high_priority.or(low_priority), high_priority);
@@ -1068,10 +1311,10 @@ mod tests {
     assert_eq!(unset.or(low_priority), low_priority);
 
     // Initial/Inherit should be kept even when or-ing with Value
-    let initial: CssValue<Length> = CssValue::Initial;
+    let initial: CssValue<Length> = CssValue::Keyword(CssGlobalKeyword::Initial);
     assert_eq!(initial.or(low_priority), initial);
 
-    let inherit: CssValue<Length> = CssValue::Inherit;
+    let inherit: CssValue<Length> = CssValue::Keyword(CssGlobalKeyword::Inherit);
     assert_eq!(inherit.or(low_priority), inherit);
   }
 
@@ -1090,7 +1333,7 @@ mod tests {
       padding_left: Some(Length::Px(50.0)).into(),
       ..Default::default()
     }
-    .inherit(&InheritedStyle::default());
+    .inherit(&ResolvedStyle::default());
 
     let resolved = inherited.resolved_padding();
 
@@ -1113,7 +1356,7 @@ mod tests {
       border_top_width: Some(Length::Px(4.0)).into(),
       ..Default::default()
     }
-    .inherit(&InheritedStyle::default());
+    .inherit(&ResolvedStyle::default());
 
     let resolved = inherited.resolved_border_width();
 
@@ -1125,7 +1368,7 @@ mod tests {
 
   #[test]
   fn test_isolated_for_clip_path_and_mask_image() {
-    let mut style = InheritedStyle::default();
+    let mut style = ResolvedStyle::default();
     assert!(!style.is_isolated());
 
     style.clip_path = BasicShape::from_str("inset(10px)").ok();
@@ -1139,7 +1382,7 @@ mod tests {
 
   #[test]
   fn test_non_identity_transform_detection() {
-    let mut style = InheritedStyle::default();
+    let mut style = ResolvedStyle::default();
     let sizing = Sizing {
       viewport: Viewport::new(Some(1200), Some(630)),
       font_size: 16.0,
@@ -1161,7 +1404,7 @@ mod tests {
 
   #[test]
   fn test_text_overflow_ellipsis_forces_single_line_clamp_on_nowrap() {
-    let style = InheritedStyle {
+    let style = ResolvedStyle {
       text_wrap_mode: Some(TextWrapMode::NoWrap),
       text_overflow: TextOverflow::Ellipsis,
       ..Default::default()
@@ -1187,7 +1430,7 @@ mod tests {
       line_height: LineHeight::Length(Length::Em(1.5)).into(),
       ..Default::default()
     }
-    .inherit(&InheritedStyle::default());
+    .inherit(&ResolvedStyle::default());
     parent.make_computed(&Sizing {
       viewport: Viewport::new(Some(1200), Some(630)),
       font_size: 32.0,

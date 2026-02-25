@@ -95,26 +95,32 @@ function createStream(component: ReactNode, options?: ImageResponseOptions) {
     async start(controller) {
       try {
         const nodePromise = fromJsx(component, options?.jsx).then(
-          async (node) => {
+          async ({ node, stylesheets }) => {
             const fetchedResources = await extractFetchedResources(
               node,
               options,
             );
-            return { node, fetchedResources };
+            return { node, fetchedResources, stylesheets };
           },
         );
 
-        const [renderer, { node, fetchedResources }] = await Promise.all([
-          getRenderer(options),
-          nodePromise,
-        ]);
+        const [renderer, { node, fetchedResources, stylesheets }] =
+          await Promise.all([getRenderer(options), nodePromise]);
+
+        const mergedOptions = {
+          width: options?.width,
+          height: options?.height,
+          format: options?.format,
+          quality: options?.quality,
+          drawDebugBorder: options?.drawDebugBorder,
+          devicePixelRatio: options?.devicePixelRatio,
+          fetchedResources,
+          stylesheets: options?.stylesheets ?? stylesheets,
+        };
 
         const image = await renderer.render(
           node,
-          {
-            ...options,
-            fetchedResources,
-          },
+          mergedOptions,
           options?.signal,
         );
 

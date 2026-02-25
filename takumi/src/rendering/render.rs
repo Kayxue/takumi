@@ -6,6 +6,8 @@ use parley::PositionedLayoutItem;
 use serde::Serialize;
 use taffy::{AvailableSpace, NodeId, geometry::Size};
 
+#[cfg(feature = "css_stylesheet_parsing")]
+use crate::layout::style::selector::StyleSheet;
 use crate::{
   Error, GlobalContext, Result,
   layout::{
@@ -16,7 +18,7 @@ use crate::{
     },
     node::Node,
     style::{
-      Affine, Filter, ImageScalingAlgorithm, InheritedStyle, SpacePair, apply_backdrop_filter,
+      Affine, Filter, ImageScalingAlgorithm, ResolvedStyle, SpacePair, apply_backdrop_filter,
       apply_filters,
     },
     tree::{LayoutResults, LayoutTree, RenderNode},
@@ -43,6 +45,9 @@ pub struct RenderOptions<'g, N: Node<N>> {
   /// The resources fetched externally.
   #[builder(default)]
   pub(crate) fetched_resources: HashMap<Arc<str>, Arc<ImageSource>>,
+  /// CSS stylesheets to apply before layout/rendering.
+  #[builder(default)]
+  pub(crate) stylesheets: Vec<String>,
 }
 
 /// Information about a text run in an inline layout.
@@ -79,10 +84,19 @@ pub struct MeasuredNode {
 
 /// Measures the layout of a node.
 pub fn measure_layout<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<MeasuredNode> {
-  let render_context = RenderContext {
-    draw_debug_border: options.draw_debug_border,
-    ..RenderContext::new(options.global, options.viewport, options.fetched_resources)
-  };
+  #[cfg(feature = "css_stylesheet_parsing")]
+  let parsed_stylesheets = StyleSheet::parse_list(options.stylesheets.iter().map(String::as_str));
+  #[cfg(feature = "css_stylesheet_parsing")]
+  let mut render_context = RenderContext::new(
+    options.global,
+    options.viewport,
+    options.fetched_resources,
+    parsed_stylesheets,
+  );
+  #[cfg(not(feature = "css_stylesheet_parsing"))]
+  let mut render_context =
+    RenderContext::new(options.global, options.viewport, options.fetched_resources);
+  render_context.draw_debug_border = options.draw_debug_border;
   let root = RenderNode::from_node(&render_context, options.node);
   let mut tree = LayoutTree::from_render_node(&root);
   tree.compute_layout(render_context.sizing.viewport.into());
@@ -215,10 +229,18 @@ fn collect_measure_result<'g, Nodes: Node<Nodes>>(
 /// Renders a node to an image.
 pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage> {
   let viewport = options.viewport;
-  let render_context = RenderContext {
-    draw_debug_border: options.draw_debug_border,
-    ..RenderContext::new(options.global, options.viewport, options.fetched_resources)
-  };
+  #[cfg(feature = "css_stylesheet_parsing")]
+  let parsed_stylesheets = StyleSheet::parse_list(options.stylesheets.iter().map(String::as_str));
+  #[cfg(feature = "css_stylesheet_parsing")]
+  let mut render_context = RenderContext::new(
+    options.global,
+    viewport,
+    options.fetched_resources,
+    parsed_stylesheets,
+  );
+  #[cfg(not(feature = "css_stylesheet_parsing"))]
+  let mut render_context = RenderContext::new(options.global, viewport, options.fetched_resources);
+  render_context.draw_debug_border = options.draw_debug_border;
 
   let mut root = RenderNode::from_node(&render_context, options.node);
   let mut tree = LayoutTree::from_render_node(&root);
@@ -263,7 +285,7 @@ impl<'g, Nodes: Node<Nodes>> RenderNode<'g, Nodes> {
 
 fn apply_transform(
   transform: &mut Affine,
-  style: &InheritedStyle,
+  style: &ResolvedStyle,
   border_box: Size<f32>,
   sizing: &Sizing,
 ) {

@@ -63,7 +63,7 @@ impl TailwindValues {
     self.inner.iter()
   }
 
-  pub(crate) fn apply(&self, style: &mut Style, viewport: Viewport) {
+  pub(crate) fn apply_to_style(&self, style: &mut Style, viewport: Viewport) {
     let mut background_image_state = TwGradientState::default();
 
     for value in self.iter() {
@@ -181,12 +181,7 @@ pub struct TailwindValue {
 }
 
 impl TailwindValue {
-  pub(crate) fn apply(
-    &self,
-    style: &mut Style,
-    viewport: Viewport,
-    gradient_state: &mut TwGradientState,
-  ) {
+  fn apply(&self, style: &mut Style, viewport: Viewport, gradient_state: &mut TwGradientState) {
     if let Some(breakpoint) = self.breakpoint
       && !breakpoint.matches(viewport)
     {
@@ -654,7 +649,7 @@ impl Neg for TailwindProperty {
 /// If no filters exist, creates a new filter Vec with the single filter.
 macro_rules! append_filter {
   ($style:expr, $field:ident, $filter:expr) => {{
-    if let crate::layout::style::CssValue::Value(existing_filters) = &mut $style.$field {
+    if let CssValue::Value(existing_filters) = &mut $style.$field {
       existing_filters.push($filter);
     } else {
       $style.$field = vec![$filter].into();
@@ -928,7 +923,8 @@ impl TailwindProperty {
         style.outline_offset = Some(outline_offset.0).into();
       }
       TailwindProperty::Rounded(rounded) => {
-        style.border_radius = BorderRadius(Sides([SpacePair::from_single(rounded.0); 4])).into();
+        style.border_radius =
+          Box::new(BorderRadius(Sides([SpacePair::from_single(rounded.0); 4]))).into();
       }
       TailwindProperty::VerticalAlign(vertical_align) => {
         style.vertical_align = vertical_align.into();
@@ -1715,7 +1711,7 @@ mod tests {
       unreachable!()
     };
 
-    values.apply(&mut style, viewport);
+    values.apply_to_style(&mut style, viewport);
 
     assert_eq!(
       style.background_image,

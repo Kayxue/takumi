@@ -13,6 +13,9 @@ const ROTATED_ANGLES: &[f32] = &[0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 31
 #[test]
 fn test_rotate_image() {
   let image = ContainerNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
     preset: None,
     style: Some(
       StyleBuilder::default()
@@ -27,6 +30,9 @@ fn test_rotate_image() {
     tw: None,
     children: Some(
       [ImageNode {
+        class_name: None,
+        id: None,
+        tag_name: None,
         preset: None,
         style: Some(
           StyleBuilder::default()
@@ -50,6 +56,9 @@ fn test_rotate_image() {
 #[test]
 fn test_rotate() {
   let container = ContainerNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
     preset: None,
     tw: None,
     style: Some(
@@ -64,6 +73,9 @@ fn test_rotate() {
     ),
     children: Some(
       [ContainerNode {
+        class_name: None,
+        id: None,
+        tag_name: None,
         preset: None,
         style: Some(
           StyleBuilder::default()
@@ -88,6 +100,9 @@ fn test_rotate() {
 #[test]
 fn test_style_transform_origin_center() {
   let container = ContainerNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
     preset: None,
     tw: None,
     style: Some(
@@ -109,6 +124,9 @@ fn test_style_transform_origin_center() {
 #[test]
 fn test_style_transform_origin_top_left() {
   let container = ContainerNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
     preset: None,
     tw: None,
     style: Some(
@@ -143,6 +161,9 @@ fn test_style_transform_origin_top_left() {
 
 fn create_rotated_container(angle: f32, transform_origin: BackgroundPosition) -> ImageNode {
   ImageNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
     preset: None,
     tw: None,
     style: Some(
@@ -158,7 +179,9 @@ fn create_rotated_container(angle: f32, transform_origin: BackgroundPosition) ->
         .background_color(ColorInput::Value(Color([255, 0, 0, 30])))
         .border_width(Some(Sides([Px(1.0); 4])))
         .border_style(Some(BorderStyle::Solid))
-        .border_radius(BorderRadius(Sides([SpacePair::from_single(Px(12.0)); 4])))
+        .border_radius(Box::new(BorderRadius(Sides(
+          [SpacePair::from_single(Px(12.0)); 4],
+        ))))
         .build()
         .unwrap(),
     ),
@@ -171,6 +194,9 @@ fn create_rotated_container(angle: f32, transform_origin: BackgroundPosition) ->
 #[test]
 fn test_style_transform_translate_and_scale() {
   let mut container = ContainerNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
     preset: None,
     tw: None,
     style: Some(
@@ -187,6 +213,9 @@ fn test_style_transform_translate_and_scale() {
   };
 
   let position = ContainerNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
     preset: None,
     tw: None,
     style: Some(
@@ -199,6 +228,9 @@ fn test_style_transform_translate_and_scale() {
     ),
     children: Some(
       [TextNode {
+        class_name: None,
+        id: None,
+        tag_name: None,
         preset: None,
         text: "200px x 100px".to_string(),
         tw: None,
@@ -210,6 +242,9 @@ fn test_style_transform_translate_and_scale() {
   };
 
   let translated = ContainerNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
     preset: None,
     tw: None,
     style: Some(
@@ -225,6 +260,9 @@ fn test_style_transform_translate_and_scale() {
     ),
     children: Some(
       [ImageNode {
+        class_name: None,
+        id: None,
+        tag_name: None,
         preset: None,
         tw: None,
         src: "assets/images/yeecord.png".into(),
@@ -244,6 +282,9 @@ fn test_style_transform_translate_and_scale() {
   };
 
   let scaled = ContainerNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
     preset: None,
     tw: None,
     style: Some(
@@ -260,6 +301,9 @@ fn test_style_transform_translate_and_scale() {
     ),
     children: Some(
       [TextNode {
+        class_name: None,
+        id: None,
+        tag_name: None,
         preset: None,
         text: "100px x 100px, scale(2.0, 2.0)".to_string(),
         tw: None,
@@ -271,6 +315,9 @@ fn test_style_transform_translate_and_scale() {
   };
 
   let rotated = ContainerNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
     preset: None,
     tw: None,
     style: Some(
@@ -288,6 +335,9 @@ fn test_style_transform_translate_and_scale() {
     ),
     children: Some(
       [TextNode {
+        class_name: None,
+        id: None,
+        tag_name: None,
         preset: None,
         text: "200px x 200px, rotate(45deg)".to_string(),
         tw: None,
