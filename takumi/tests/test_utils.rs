@@ -61,6 +61,16 @@ const TEST_FONTS: &[(&str, &str, GenericFamily)] = &[
     "Noto Sans Devanagari",
     GenericFamily::Serif,
   ),
+  (
+    "fonts/poppins/poppins-v24-devanagari_latin-regular.woff2",
+    "Poppins",
+    GenericFamily::SansSerif,
+  ),
+  (
+    "fonts/poppins/poppins-v24-devanagari_latin-700.woff2",
+    "Poppins Bold",
+    GenericFamily::SansSerif,
+  ),
 ];
 
 fn create_test_context() -> GlobalContext {

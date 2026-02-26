@@ -1184,9 +1184,42 @@ fn text_chinese_ellipsis() {
 
 #[test]
 fn text_devanagari_noto_sans() {
-  let text = "नमस्ते दुनिया, यह देवनागरी लिपि का एक परीक्षण है।";
+  fn create_node(weight: f32, font_family: &str) -> TextNode {
+    let text = "नमस्ते दुनिया, यह देवनागरी लिपि का एक परीक्षण है।";
 
-  let node = TextNode {
+    TextNode {
+      class_name: None,
+      id: None,
+      tag_name: None,
+      preset: None,
+      tw: None,
+      style: Some(
+        StyleBuilder::default()
+          .width(Percentage(100.0))
+          .height(Percentage(100.0))
+          .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
+          .font_size(Some(Px(48.0)))
+          .padding(Sides::from(Px(24.0)))
+          .font_family(FontFamily::from_str(font_family).ok())
+          .font_weight(FontWeight::from(weight))
+          .build()
+          .unwrap(),
+      ),
+      text: text.to_string(),
+    }
+  }
+
+  let nodes = [
+    (400.0, "Noto Sans Devanagari"),
+    (700.0, "Noto Sans Devanagari"),
+    (400.0, "Poppins"),
+    (700.0, "Poppins Bold"),
+  ]
+  .iter()
+  .map(|(weight, font_family)| create_node(*weight, font_family).into())
+  .collect::<Vec<_>>();
+
+  let container = ContainerNode {
     class_name: None,
     id: None,
     tag_name: None,
@@ -1194,17 +1227,16 @@ fn text_devanagari_noto_sans() {
     tw: None,
     style: Some(
       StyleBuilder::default()
-        .width(Percentage(100.0))
-        .height(Percentage(100.0))
         .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
-        .font_size(Some(Px(64.0)))
-        .padding(Sides::from(Px(24.0)))
-        .font_family(FontFamily::from_str("Noto Sans Devanagari").ok())
+        .width(Percentage(100.0))
+        .flex_direction(FlexDirection::Column)
+        .padding(Sides([Px(20.0); 4]))
+        .gap(SpacePair::from_single(Px(12.0)))
         .build()
         .unwrap(),
     ),
-    text: text.to_string(),
+    children: Some(nodes.into_boxed_slice()),
   };
 
-  run_fixture_test(node.into(), "text_devanagari_noto_sans");
+  run_fixture_test(container.into(), "text_devanagari_noto_sans");
 }
