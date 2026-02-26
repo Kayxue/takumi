@@ -11,7 +11,7 @@ use image::{
 };
 use smallvec::SmallVec;
 use taffy::{Layout, Point, Size};
-use zeno::{Mask, PathData, Placement, Scratch};
+use zeno::{Command, Mask, Placement, Scratch};
 
 use crate::{Result, layout::style::BlendMode};
 use crate::{
@@ -364,17 +364,15 @@ pub(crate) struct MaskMemory {
 }
 
 impl MaskMemory {
-  pub(crate) fn render<D: PathData>(
+  pub(crate) fn render(
     &mut self,
-    paths: D,
+    paths: &[Command],
     transform: Option<Affine>,
     style: Option<zeno::Style>,
     buffer_pool: &mut BufferPool,
   ) -> (Vec<u8>, Placement) {
     let style = style.unwrap_or_default();
-    let mut bounds = self
-      .scratch
-      .bounds(&paths, style, transform.map(Into::into));
+    let mut bounds = self.scratch.bounds(paths, style, transform.map(Into::into));
 
     bounds.min = bounds.min.floor();
     bounds.max = bounds.max.ceil();

@@ -378,17 +378,23 @@ where
 
 #[cold]
 #[inline(never)]
+fn raw_css_number_unexpected(number: &RawCssNumber) -> de::Unexpected<'_> {
+  match number {
+    RawCssNumber::Signed(value) => de::Unexpected::Signed(*value),
+    RawCssNumber::Unsigned(value) => de::Unexpected::Unsigned(*value),
+    RawCssNumber::Float(value) => de::Unexpected::Float(*value),
+  }
+}
+
+#[cold]
+#[inline(never)]
 fn css_invalid_number<T, E, R>(number: &RawCssNumber) -> Result<R, E>
 where
   T: for<'i> FromCss<'i>,
   E: de::Error,
 {
   let expected = css_expected_message::<T>();
-  let unexpected = match number {
-    RawCssNumber::Signed(value) => de::Unexpected::Signed(*value),
-    RawCssNumber::Unsigned(value) => de::Unexpected::Unsigned(*value),
-    RawCssNumber::Float(value) => de::Unexpected::Float(*value),
-  };
+  let unexpected = raw_css_number_unexpected(number);
   Err(E::invalid_type(unexpected, &expected))
 }
 

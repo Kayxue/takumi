@@ -1,6 +1,6 @@
 use image::RgbaImage;
 use taffy::{Layout, Point, Size};
-use zeno::{Command, Fill, PathData, Placement};
+use zeno::{Command, Fill, Placement};
 
 use crate::{
   Result,
@@ -62,20 +62,18 @@ impl SizedShadow {
 
   /// Draws the outset mask of the shadow.
   #[allow(clippy::too_many_arguments)]
-  pub fn draw_outset<D: PathData>(
+  pub fn draw_outset(
     &self,
     canvas: &mut Canvas,
-    paths: D,
+    paths: &[Command],
     transform: Affine,
     style: zeno::Style,
     cutout_paths: Option<&[Command]>,
   ) -> Result<()> {
-    let (mask, mut placement) = canvas.mask_memory.render(
-      &paths,
-      Some(transform),
-      Some(style),
-      &mut canvas.buffer_pool,
-    );
+    let (mask, mut placement) =
+      canvas
+        .mask_memory
+        .render(paths, Some(transform), Some(style), &mut canvas.buffer_pool);
 
     placement.left += self.offset_x as i32;
     placement.top += self.offset_y as i32;
