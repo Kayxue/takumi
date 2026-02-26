@@ -223,6 +223,32 @@ mod tests {
   }
 
   #[test]
+  fn test_parse_conic_gradient_with_double_position_color_stop() {
+    assert_eq!(
+      ConicGradient::from_str("conic-gradient(red 10% 20%, blue)"),
+      Ok(ConicGradient {
+        from_angle: Angle::zero(),
+        center: BackgroundPosition::default(),
+        stops: [
+          GradientStop::ColorHint {
+            color: Color::from_rgb(0xff0000).into(),
+            hint: Some(StopPosition(Length::Percentage(10.0))),
+          },
+          GradientStop::ColorHint {
+            color: Color::from_rgb(0xff0000).into(),
+            hint: Some(StopPosition(Length::Percentage(20.0))),
+          },
+          GradientStop::ColorHint {
+            color: Color::from_rgb(0x0000ff).into(),
+            hint: None,
+          },
+        ]
+        .into(),
+      })
+    );
+  }
+
+  #[test]
   fn test_parse_conic_gradient_complex() {
     let gradient = ConicGradient::from_str("conic-gradient(from 90deg at 25% 75%, red, blue)");
 

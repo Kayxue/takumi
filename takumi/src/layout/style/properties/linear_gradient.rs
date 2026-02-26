@@ -164,11 +164,41 @@ impl<'i> FromCss<'i> for GradientStops {
 
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
     let mut stops = Vec::new();
+    loop {
+      if let Ok(hint) = input.try_parse(StopPosition::from_css) {
+        stops.push(GradientStop::Hint(hint));
+      } else {
+        let color = ColorInput::from_css(input)?;
+        let first_position = input.try_parse(StopPosition::from_css).ok();
+        let second_position = if first_position.is_some() {
+          input.try_parse(StopPosition::from_css).ok()
+        } else {
+          None
+        };
 
-    stops.push(GradientStop::from_css(input)?);
+        match (first_position, second_position) {
+          (Some(first_position), Some(second_position)) => {
+            stops.push(GradientStop::ColorHint {
+              color: color.clone(),
+              hint: Some(first_position),
+            });
+            stops.push(GradientStop::ColorHint {
+              color,
+              hint: Some(second_position),
+            });
+          }
+          (first_position, None) | (first_position, Some(_)) => {
+            stops.push(GradientStop::ColorHint {
+              color,
+              hint: first_position,
+            });
+          }
+        }
+      }
 
-    while input.try_parse(Parser::expect_comma).is_ok() {
-      stops.push(GradientStop::from_css(input)?);
+      if input.try_parse(Parser::expect_comma).is_err() {
+        break;
+      }
     }
 
     Ok(stops)
@@ -579,6 +609,31 @@ mod tests {
           GradientStop::ColorHint {
             color: ColorInput::Value(Color([0, 0, 255, 255])),
             hint: Some(StopPosition(Length::Percentage(100.0))),
+          },
+        ]
+        .into(),
+      })
+    );
+  }
+
+  #[test]
+  fn test_parse_linear_gradient_with_double_position_color_stop() {
+    assert_eq!(
+      LinearGradient::from_str("linear-gradient(to right, red 10% 20%, blue)"),
+      Ok(LinearGradient {
+        angle: Angle::new(90.0),
+        stops: [
+          GradientStop::ColorHint {
+            color: ColorInput::Value(Color::from_rgb(0xff0000)),
+            hint: Some(StopPosition(Length::Percentage(10.0))),
+          },
+          GradientStop::ColorHint {
+            color: ColorInput::Value(Color::from_rgb(0xff0000)),
+            hint: Some(StopPosition(Length::Percentage(20.0))),
+          },
+          GradientStop::ColorHint {
+            color: ColorInput::Value(Color::from_rgb(0x0000ff)),
+            hint: None,
           },
         ]
         .into(),
