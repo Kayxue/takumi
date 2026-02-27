@@ -1,5 +1,12 @@
 # takumi
 
+## 0.69.3
+
+### Patch Changes
+
+- 8b9642e: Support `<length>` value in `vertical-align`
+- 2dda025: Support `color-mix()` function
+
 ## 0.69.2
 
 ### Patch Changes
