@@ -893,7 +893,6 @@ impl<const DEFAULT_AUTO: bool> MakeComputed for Length<DEFAULT_AUTO> {
 
       if is_near_zero(linear.px) {
         *self = Self::Percentage(linear.percent * 100.0);
-        return;
       }
     }
   }
