@@ -6,29 +6,32 @@
 **Turn JSX into production-ready images fast.**  
 OG cards, banners, and lightweight animations from one Rust engine for Node.js and WebAssembly.
 
-[Playground](https://takumi.kane.tw/playground) · [Docs](https://takumi.kane.tw/docs/) · [Image Bench](https://image-bench.kane.tw/) · [Star on GitHub](https://github.com/kane50613/takumi)
+[Docs](https://takumi.kane.tw/docs/) · [Playground](https://takumi.kane.tw/playground)
 
 </div>
 
 Takumi is inspired by [satori](https://github.com/vercel/satori), with a stronger focus on portability and performance.
+
+## Why teams pick Takumi
+
+- **One-pass rendering** with no SVG-to-image two-step pipeline.
+- **JSX in, pixels out** with cross-runtime delivery.
+- **Node native speed** with WASM fallback for edge and browser workers.
+- **Production text stack**: variable fonts, COLR, WOFF2, and RTL.
+- **Rich output formats**: WebP/PNG/JPEG/APNG or FFmpeg pipelines.
+
+## Performance
+
 In [Image Bench](https://image-bench.kane.tw/), Takumi is typically **2-10x faster** than `next/og`.
+See benchmark runs and templates on [Image Bench](https://image-bench.kane.tw/).
 
-## Why pick Takumi
-
-- One-pass rendering (no SVG-to-image two-step pipeline).
-- Familiar JSX workflow with cross-runtime delivery.
-- Node native bindings with WASM fallback for edge/browser workers.
-- Production text support: variable fonts, COLR, WOFF2, and RTL.
-- Rich visuals and animation output (WebP/APNG, FFmpeg pipelines).
-
-## Quick start
+## First render in 30 seconds
 
 ```bash
 npm i @takumi-rs/image-response
 ```
 
 ```tsx
-/** @jsxImportSource react */
 import { ImageResponse } from "@takumi-rs/image-response";
 
 export function GET() {
