@@ -13,7 +13,15 @@ import {
   DocsPage,
   DocsTitle,
 } from "fumadocs-ui/page";
-import { ArrowBigRight, BookOpen, Hand, Shovel, Sparkles } from "lucide-react";
+import {
+  ArrowBigRight,
+  BookOpen,
+  FileCode2,
+  Hand,
+  Shovel,
+  Sparkles,
+  Wrench,
+} from "lucide-react";
 import { redirect } from "react-router";
 import { Accordion, Accordions } from "~/components/accordion";
 import { TypeTable } from "~/components/type-table";
@@ -27,8 +35,12 @@ const components = {
   ...Twoslash,
   Hand,
   BookOpen,
+  FileCode2,
+  Wrench,
   ArrowBigRight,
   Shovel,
+  Cards,
+  Card,
   DocsCategory,
   Tabs,
   Tab,

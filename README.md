@@ -1,76 +1,103 @@
-<img src="./assets/images/takumi.svg" alt="Takumi" width="64" />
+<div align="center">
+  <img src="./assets/images/takumi.svg" alt="Takumi" width="64" />
 
 # Takumi
 
-Takumi is an **image rendering engine** written in Rust. The design is mainly inspired by [satori](https://github.com/vercel/satori), but with a focus on portability and performance (2-10x compared to next/og in [Image Bench](https://image-bench.kane.tw/)).
+**Turn JSX into production-ready images fast.**  
+OG cards, banners, and lightweight animations from one Rust engine for Node.js and WebAssembly.
 
-You can try out Takumi in [Playground](https://takumi.kane.tw/playground) without installation. Or [Quick Start](https://takumi.kane.tw/docs/) page for usage.
+[Playground](https://takumi.kane.tw/playground) · [Docs](https://takumi.kane.tw/docs/) · [Image Bench](https://image-bench.kane.tw/) · [Star on GitHub](https://github.com/kane50613/takumi)
 
-> [!NOTE]
-> The Showcase section is now open! Share your Takumi-powered projects by opening a pull request to [showcase.ts](./docs/app/data/showcase.ts)!
+</div>
 
-## Why build a satori alternative?
+Takumi is inspired by [satori](https://github.com/vercel/satori), with a stronger focus on portability and performance.
+In [Image Bench](https://image-bench.kane.tw/), Takumi is typically **2-10x faster** than `next/og`.
 
-- All in one. No need to output SVG then have [resvg-js](https://github.com/thx/resvg-js) rendering it again to output PNG.
-- Inline layout support (display `block` or `inline`).
-- RTL support.
-- Tailwind CSS support out of the box.
-- Variable fonts support.
-- COLR font support (e.g. twemoji-colr).
-- WOFF2 font format support.
-- PNG, JPEG, WebP output support.
-- WebP, APNG animation rendering support.
-- Low latency video rendering with [FFmpeg](https://ffmpeg.org/) ([example](./example/ffplay)).
+## Why pick Takumi
 
-## Goals
+- One-pass rendering (no SVG-to-image two-step pipeline).
+- Familiar JSX workflow with cross-runtime delivery.
+- Node native bindings with WASM fallback for edge/browser workers.
+- Production text support: variable fonts, COLR, WOFF2, and RTL.
+- Rich visuals and animation output (WebP/APNG, FFmpeg pipelines).
 
-- Takes your existing JSX components and drops them in, it should just work.
-- Minimal binary size targets to run everywhere.
-- Be the go-to library for image/animation rendering.
-- Have a great developer experience.
+## Quick start
+
+```bash
+npm i @takumi-rs/image-response
+```
+
+```tsx
+/** @jsxImportSource react */
+import { ImageResponse } from "@takumi-rs/image-response";
+
+export function GET() {
+  return new ImageResponse(
+    <div tw="w-full h-full flex items-center justify-center bg-white">
+      <h1 tw="text-6xl font-bold">Hello from Takumi</h1>
+    </div>,
+    {
+      width: 1200,
+      height: 630,
+      format: "webp",
+    },
+  );
+}
+```
+
+For runtime-specific setup (Next.js, Vite SSR, Nitro, Cloudflare, Turbopack), see [Docs](https://takumi.kane.tw/docs/).
+
+## What you can build
+
+- Open Graph and social cards
+- Blog covers and marketing banners
+- JSX-powered dynamic snapshots
+- Component-based motion graphics
 
 ## Showcase
 
-- Takumi's Open Graph Image is generated with Takumi [(source)](./example/twitter-images/components/og-image.tsx).
+- Takumi OG image [(source)](./example/twitter-images/components/og-image.tsx)
 
   ![Takumi OG Image](./example/twitter-images/output/og-image.png)
 
-- X Open Graph Image [(source)](./example/twitter-images/components/x-post-image.tsx).
+- Prisma-style API card [(source)](./example/twitter-images/components/prisma-og-image.tsx)
 
-  ![X OG Image](./example/twitter-images/output/x-post-image.png)
+  ![Prisma OG Image](./example/twitter-images/output/prisma-og-image.png)
 
-- [shiki-image](https://github.com/pi0/shiki-image) Convert code snippets into images.
+- X-style social post [(source)](./example/twitter-images/components/x-post-image.tsx)
 
-  ![Shiki Image Example](https://github.com/pi0/shiki-image/blob/main/test/.snapshot/image.webp)
+  ![X-style Post Image](./example/twitter-images/output/x-post-image.png)
 
-- [(Unofficial) Takumi Playground](https://takumi-playground.kapadiya.net/) In-browser playground for designing and rendering Open Graph style images.
+- [shiki-image](https://github.com/pi0/shiki-image): code snippet images
+
+  ![Shiki Image Example](https://github.com/pi0/shiki-image/blob/main/test/.snapshot/image.webp?raw=true)
+
+- [(Unofficial) Takumi Playground](https://takumi-playground.kapadiya.net/)
+
+> [!NOTE]
+> Showcase submissions are welcome via PR to [showcase.ts](./docs/app/data/showcase.ts).
 
 ## Contributing
 
-Contributions are welcome! Please feel free to open an [issue](https://github.com/kane50613/takumi/issues) or submit a pull request.
-
-By participating in this project, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).
-
-You need to have Rust 1.89+ & Bun installed.
-
-```bash
-bun install
-```
+PRs are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, tests, fixtures, and changesets.
+By participating, you agree to the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## Credits
 
-Takumi wouldn't be possible without the following works:
-
-- [taffy](https://github.com/DioxusLabs/taffy) for the flex & grid layout.
-- [image](https://github.com/image-rs/image) for the image processing.
-- [parley](https://github.com/linebender/parley) for text layout.
-- [swash](https://github.com/linebender/swash) for font shaping.
-- [wuff](https://github.com/nicoburns/wuff) for woff/woff2 decompression.
-- [resvg](https://github.com/linebender/resvg) for SVG parsing & rasterization.
+Takumi builds on excellent OSS:
+[taffy](https://github.com/DioxusLabs/taffy),
+[image](https://github.com/image-rs/image),
+[parley](https://github.com/linebender/parley),
+[swash](https://github.com/linebender/swash),
+[wuff](https://github.com/nicoburns/wuff),
+[resvg](https://github.com/linebender/resvg).
 
 ## License
 
-Licensed under the terms in the [LICENSE](LICENSE) file.
+Licensed under either of:
+
+- [Apache License, Version 2.0](./LICENSE-APACHE)
+- [MIT license](./LICENSE-MIT)
 
 <br/>
 <a href="https://vercel.com/oss">

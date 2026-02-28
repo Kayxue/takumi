@@ -1,258 +1,69 @@
 ---
 title: Quick Start
-description: The fastest and simplest way to start using Takumi.
+description: Get Takumi running in minutes with the high-level ImageResponse API.
 icon: Axe
 ---
 
-Takumi is an **image rendering engine** written in Rust. The design is mainly inspired by [satori](https://github.com/vercel/satori), but with a focus on portability and performance (2-10x compared to next/og in [Image Bench](https://image-bench.kane.tw/)).
+Takumi is a high-performance image renderer in Rust, designed for JSX workflows across Node.js and WebAssembly.
 
-You can try Takumi in [Playground](/playground) without any installation.
+<Cards>
+  <Card title="Try Playground" href="/playground" icon={<Shovel />}>
+    Run Takumi instantly in the browser.
+  </Card>
+  <Card title="Rust Crate Docs" href="https://docs.rs/takumi" icon={<BookOpen />}>
+    Browse low-level Rust APIs on docs.rs.
+  </Card>
+</Cards>
 
-If you are looking for Rust crate documentation, please visit [docs.rs](https://docs.rs/takumi).
-
-## Installation
-
-The fastest/simplest way to use Takumi is with the `ImageResponse` API. It handles the internal state for font & image cache and it tries to be compatible with [Next.js ImageResponse API](https://nextjs.org/docs/app/api-reference/functions/image-response).
+## 1. Install
 
 ```npm
 npm i @takumi-rs/image-response
 ```
 
-### Additional Bundler Setup
+## 2. Pick your runtime
 
-Takumi offers two types of bindings for different environments. [`@takumi-rs/core`](https://www.npmjs.com/package/@takumi-rs/core) for Node.js and [`@takumi-rs/wasm`](https://www.npmjs.com/package/@takumi-rs/wasm) for WebAssembly.
+- Node.js/Bun runtime: `@takumi-rs/image-response` (native, fastest default)
+- Edge/browser/Workers runtime: `@takumi-rs/image-response/wasm` + `@takumi-rs/wasm`
 
-#### Node.js Runtime
+## 3. Return an `ImageResponse`
 
-<Accordions type="single">
-  <Accordion title="Next.js">
+`ImageResponse` extends the standard [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response), so you can use it in route handlers directly.
 
-By default Next.js bundles the `@takumi-rs/core` package, which requires native Node.js `require` function to resolve the native binary. You need to opt-out from the bundling by setting the `serverExternalPackages` option.
-
-```ts title="next.config.ts"
-export const config = {
-  // [!code ++]
-  serverExternalPackages: ["@takumi-rs/image-response"],
-};
-```
-  </Accordion>
-  <Accordion title="Vite (SSR)">
-Opt-out from the bundling by setting the `ssr.external` and `optimizeDeps.exclude` options.
-
-```ts title="vite.config.ts"
-export default defineConfig({
-  optimizeDeps: {
-    // [!code ++]
-    exclude: ["@takumi-rs/core"],
-  },
-  ssr: {
-    // [!code ++:2]
-    external: ["@takumi-rs/core"],
-    noExternal: ["@takumi-rs/image-response"],
-  },
-});
-```
-
-If you still encounter issues after all, try opening issues on GitHub or try the WebAssembly version instead.
-
-  </Accordion>
-  <Accordion title="Nitro (Tanstack Start)">
-First, install the `@takumi-rs/core` package where we grab the optional dependencies from.
-
-```npm
-npm i @takumi-rs/core
-```
-
-Then, configure Nitro to externalize the dependencies and include the optional dependencies in the trace.
-
-```ts title="vite.config.ts"
-import { defineConfig } from "vite";
-import takumiPackageJson from "@takumi-rs/core/package.json" with {
-  type: "json",
-};
-
-export default defineConfig({
-  nitro: {
-    externals: {
-      external: ["@takumi-rs/core"], // [!code ++]
-      traceInclude: Object.keys(takumiPackageJson.optionalDependencies), // [!code ++]
-    }
-  },
-  optimizeDeps: {
-    // [!code ++]
-    exclude: ["@takumi-rs/core"],
-  },
-});
-```
-  </Accordion>
-  <Accordion title="Netlify Functions">
-```toml title="netlify.toml"
-[build]
-  command = "vite build"
-  publish = "dist/client"
-
-[functions]
-  // [!code ++]
-  node_bundler = "esbuild"
-  directory = "netlify/functions"
-  // [!code ++]
-  included_files = ["node_modules/@takumi-rs/core-linux-x64-gnu/**/*.*"]
-```
-    
-  </Accordion>
-</Accordions>
-
-<Callout type="warning">
-If you are using package manager with virtual store such as `pnpm` or `yarn`, add the following to your `.npmrc` file and re-run `pnpm i` to allow hoisting of the native binary.
-
-```text title=".npmrc"
-public-hoist-pattern[]=@takumi-rs/core-*
-```
-</Callout>
-
-#### Edge Runtime / Browser
-
-<Accordions type="single">
-  <Accordion title="Cloudflare Workers">
-Cloudflare Workers prohibited fetching WASM then initialize on the fly. You can import from `@takumi-rs/wasm/takumi_wasm_bg.wasm` and pass it to the `module` option.
-
-```tsx twoslash
+```tsx tab="Node.js / Bun" twoslash
 /** @jsxImportSource react */
 // ---cut-before---
-import { ImageResponse } from "@takumi-rs/image-response/wasm";
-import module from "@takumi-rs/wasm/takumi_wasm_bg.wasm"; // [!code ++]
+import { ImageResponse } from "@takumi-rs/image-response";
 
-export default {
-  fetch() {
-    return new ImageResponse(<div />, {
-      module, // [!code ++]
-      // ...
-    });
-  },
-}
-```
-
-And make sure you have `wrangler.jsonc` / `wrangler.toml` setup to load assets. `compatibility_date` should be set to at least `2025-10-30`.
-
-```jsonc title="wrangler.jsonc"
-{
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "compatibility_date": "2025-10-30",  // [!code ++]
-  "rules": [
+export function GET() {
+  return new ImageResponse(
+    <div tw="w-full h-full flex items-center justify-center bg-white">
+      <h1 tw="text-4xl font-bold">Hello Takumi</h1>
+    </div>,
     {
-      "type": "Data",
-      "globs": ["**/*.ttf", "**/*.woff2"],
-    }
-  ]
-}
-```
-
-Check the [example project](https://github.com/kane50613/takumi/tree/master/example/cloudflare-workers) with wrangler usage.
-  </Accordion>
-  <Accordion title="Vite">
-Load the WASM file as an asset.
-
-```tsx
-import { ImageResponse } from "@takumi-rs/image-response/wasm";
-import module from "@takumi-rs/wasm/takumi_wasm_bg.wasm?url";
-
-new ImageResponse(<div />, {
-  module,
-})
-```
-  </Accordion>
-  <Accordion title="Next.js with Turbopack">
-This works in both Node.js and Edge runtime.
-
-```tsx twoslash
-/** @jsxImportSource react */
-// ---cut-before---
-import { ImageResponse } from "@takumi-rs/image-response/wasm";
-import module from "@takumi-rs/wasm/next";
-
-new ImageResponse(<div />, {
-  module,
-})
-```
-  </Accordion>
-  <Accordion title="Webpack">
-First, configure Webpack to recognize the WASM file as an asset.
-
-```ts title="webpack.config.js"
-module.exports = {
-  module: {
-    rules: [
-      {
-        test: /\.wasm$/,
-        type: 'asset/resource',
-        generator: {
-          filename: 'wasm/[name].[hash][ext]'
-        }
-      }
-    ]
-  }
-};
-```
-
-Then, in your code, import the WASM file and initialize the module:
-
-```ts
-import { ImageResponse } from '@takumi-rs/image-response/wasm';
-import wasmUrl from '@takumi-rs/wasm/takumi_wasm_bg.wasm';
-
-new ImageResponse(<div />, {
-  module: wasmUrl,
-})
-```
-  </Accordion>
-</Accordions>
-
-## Usage
-
-Since `ImageResponse` extends standard [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) class, you can plug it into anywhere you want.
-
-It comes with pre-bundled full axis (which means 100-900 weights available) [Geist](https://vercel.com/font) and Geist Mono as default fonts. [Tailwind CSS](/docs/tailwind-css) is also supported out of the box.
-
-```tsx tab="Next.js" twoslash
-/** @jsxImportSource react */
-// ---cut-before---
-import { ImageResponse, type ImageResponseOptions } from "@takumi-rs/image-response";
-import { serve } from "bun";
-
-serve({
-  fetch() {
-    return new ImageResponse(<Hello />, {
       width: 1200,
       height: 630,
       format: "webp",
       headers: {
         "Cache-Control": "public, max-age=3600",
       },
-    });
-  },
-});
-
-function Hello() {
-  return (
-    <div tw="bg-white w-full h-full flex items-center justify-center">
-      <h1 tw="text-4xl font-bold">Hello</h1>
-    </div>
+    },
   );
 }
 ```
 
-```tsx tab="WebAssembly" twoslash
+```tsx tab="WASM / Edge" twoslash
 /** @jsxImportSource react */
 // ---cut-before---
 import { ImageResponse } from "@takumi-rs/image-response/wasm";
-import { serve } from "bun";
-
-// Check the additional bundler setup section for more details.
 import module from "@takumi-rs/wasm/next";
 
-export default {
-  fetch() {
-    return new ImageResponse(<Hello />, {
+export function GET() {
+  return new ImageResponse(
+    <div tw="w-full h-full flex items-center justify-center bg-white">
+      <h1 tw="text-4xl font-bold">Hello Takumi</h1>
+    </div>,
+    {
       width: 1200,
       height: 630,
       format: "webp",
@@ -260,51 +71,82 @@ export default {
       headers: {
         "Cache-Control": "public, max-age=3600",
       },
-    });
-  },
-}
-
-function Hello() {
-  return (
-    <div tw="bg-white w-full h-full flex items-center justify-center">
-      <h1 tw="text-4xl font-bold">Hello</h1>
-    </div>
+    },
   );
 }
 ```
 
-### Templates
+## 4. Framework notes (only if needed)
 
-If you don't have any idea about where to start, or just want quick and easy way to get started, you can use our built-in [Templates](/docs/templates).
+Most setup issues come from bundling native modules or WASM assets.
 
-They are available via our [Shadcn-compatible Registry](/templates/registry.json) and can be added to your project with a single command:
+```ts tab="Next.js" title="next.config.ts"
+
+const nextConfig = {
+  // [!code ++]
+  serverExternalPackages: ["@takumi-rs/image-response"],
+};
+
+export default nextConfig;
+```
+
+```ts tab="Vite SSR" title="vite.config.ts"
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  optimizeDeps: {
+    // [!code ++]
+    exclude: ["@takumi-rs/core"],
+  },
+  ssr: {
+    // [!code ++]
+    external: ["@takumi-rs/image-response"],
+  },
+});
+```
+
+```tsx tab="Cloudflare Workers" title="worker.ts"
+import { ImageResponse } from "@takumi-rs/image-response/wasm";
+import module from "@takumi-rs/wasm/takumi_wasm_bg.wasm";
+
+export default {
+  fetch() {
+    return new ImageResponse(<div>Hello</div>, { module });
+  },
+};
+```
+
+```toml tab="Cloudflare Workers" title="wrangler.toml"
+// [!code ++]
+compatibility_date = "2025-10-30" # or later
+```
+
+<Callout type="warning">
+If you use `pnpm` or `yarn` with a virtual store, add this to `.npmrc` and reinstall:
+
+```text title=".npmrc"
+public-hoist-pattern[]=@takumi-rs/core-*
+```
+</Callout>
+
+## Templates
+
+Need a fast starting point? Use built-in [Templates](/docs/templates) from the registry:
 
 ```npm
 npx shadcn@latest add https://takumi.kane.tw/templates/registry/docs-template.json
 ```
 
-We need your help to improve and create more templates! Please feel free to submit PRs to add more templates to the [`takumi-template` folder](https://github.com/kane50613/takumi/tree/master/takumi-template/src/templates).
+## Continue
 
-## Examples
-
-Check out the [`example` folder](https://github.com/kane50613/takumi/tree/master/example) for different framework usages.
-
-## Learn More
-
-### Why build a satori alternative?
-
-Takumi's focus is on how to rasterize images fast, while satori outputs SVG.
-
-<Callout type="info">
-More discussion can be found in [this X thread by @shuding_](https://x.com/shuding_/status/1958853749004542445).
-</Callout>
-
-- All in one. No need to output SVG then have [resvg-js](https://github.com/thx/resvg-js) rendering it again to output PNG.
-- Inline layout support (display `block` or `inline`).
-- Tailwind CSS support out of the box.
-- RTL support.
-- Variable fonts support.
-- COLR font support (e.g. twemoji-colr).
-- WOFF2 font format support.
-- PNG, JPEG, WebP output support.
-- WebP, APNG animation rendering support.
+<Cards>
+  <Card title="Migration" href="/docs/migration" icon={<ArrowBigRight />}>
+    Move from Satori or Next.js ImageResponse.
+  </Card>
+  <Card title="Reference" href="/docs/reference" icon={<FileCode2 />}>
+    Full API options and type details.
+  </Card>
+  <Card title="Troubleshooting" href="/docs/troubleshooting" icon={<Wrench />}>
+    Fix bundling, fonts, and runtime issues.
+  </Card>
+</Cards>
