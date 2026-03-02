@@ -111,6 +111,7 @@ fn write_webp(
   destination: &mut impl Write,
   quality: Option<u8>,
 ) -> Result<()> {
+  use libwebp_sys::WebPPreset;
   use webp::{Encoder as WebpEncoder, WebPConfig};
 
   let requested_quality = quality.unwrap_or(100).clamp(0, 100);
@@ -119,16 +120,19 @@ fn write_webp(
   let width = image.width();
   let height = image.height();
 
-  let mut config =
-    WebPConfig::new().map_err(|_| IoError(IoStdError::other("Failed to construct WebP config")))?;
+  let mut config = WebPConfig::new_with_preset(
+    WebPPreset::WEBP_PRESET_TEXT,
+    if is_lossless {
+      20.0
+    } else {
+      requested_quality as f32
+    },
+  )
+  .map_err(|_| IoError(IoStdError::other("Failed to construct WebP config")))?;
+
   config.lossless = if is_lossless { 1 } else { 0 };
   config.alpha_compression = if is_lossless { 0 } else { 1 };
-  config.method = 0;
-  config.quality = if is_lossless {
-    75.0
-  } else {
-    requested_quality as f32
-  };
+  config.method = 1;
 
   let encoded = if has_alpha {
     WebpEncoder::from_rgba(image.as_raw(), width, height)

@@ -26,6 +26,7 @@ libm = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 webp = "0.3"
+libwebp-sys = "0.9"
 
 [dependencies.bytemuck]
 version = "1.25"

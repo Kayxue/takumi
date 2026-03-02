@@ -2558,6 +2558,7 @@ dependencies = [
  "image",
  "image-webp",
  "libm",
+ "libwebp-sys",
  "parley",
  "phf",
  "png",
