@@ -437,3 +437,94 @@ fn test_measure_svg_with_width_only_preserves_intrinsic_ratio() {
   assert_eq!(image.width, 96.0);
   assert_eq!(image.height, 96.0);
 }
+
+#[test]
+fn test_measure_img_svg_attribute_sizing_cases() {
+  let cases = [
+    (
+      r##"<svg xmlns="http://www.w3.org/2000/svg" width="240" height="180" viewBox="0 0 240 180"><rect width="240" height="180" fill="#000"/></svg>"##,
+      Some(60.0),
+      Some(60.0),
+      60.0,
+      60.0,
+    ),
+    (
+      r##"<svg xmlns="http://www.w3.org/2000/svg" width="240" height="180" viewBox="0 0 240 180"><rect width="240" height="180" fill="#000"/></svg>"##,
+      Some(60.0),
+      None,
+      60.0,
+      45.0,
+    ),
+    (
+      r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 180"><rect width="240" height="180" fill="#000"/></svg>"##,
+      Some(60.0),
+      None,
+      60.0,
+      45.0,
+    ),
+    (
+      r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 180"><rect width="240" height="180" fill="#000"/></svg>"##,
+      Some(60.0),
+      Some(60.0),
+      60.0,
+      60.0,
+    ),
+  ];
+
+  for (case_index, (svg, width, height, expected_width, expected_height)) in
+    cases.into_iter().enumerate()
+  {
+    let node: NodeKind = ContainerNode {
+      class_name: None,
+      id: None,
+      tag_name: None,
+      preset: None,
+      tw: None,
+      style: Some(
+        StyleBuilder::default()
+          .width(Percentage(100.0))
+          .height(Percentage(100.0))
+          .display(Display::Flex)
+          .flex_direction(FlexDirection::Column)
+          .build()
+          .unwrap(),
+      ),
+      children: Some(
+        [ImageNode {
+          class_name: None,
+          id: None,
+          tag_name: Some("img".into()),
+          preset: Some(
+            StyleBuilder::default()
+              .display(Display::Inline)
+              .build()
+              .unwrap(),
+          ),
+          tw: None,
+          style: None,
+          src: svg.into(),
+          width,
+          height,
+        }
+        .into()]
+        .into(),
+      ),
+    }
+    .into();
+
+    let result = measure_layout(
+      RenderOptionsBuilder::default()
+        .viewport(create_test_viewport())
+        .node(node)
+        .global(&CONTEXT)
+        .build()
+        .unwrap(),
+    )
+    .unwrap();
+
+    assert_eq!(result.children.len(), 1);
+    let image = &result.children[0];
+    assert_eq!(image.width, expected_width, "case {} width", case_index);
+    assert_eq!(image.height, expected_height, "case {} height", case_index);
+  }
+}

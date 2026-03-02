@@ -10,7 +10,7 @@ use crate::{
   layout::{
     inline::InlineContentKind,
     node::{Node, NodeStyleLayers},
-    style::{Style, tw::TailwindValues},
+    style::{Length, Style, tw::TailwindValues},
   },
   rendering::{Canvas, RenderContext, draw_image},
   resources::{
@@ -63,8 +63,19 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for ImageNode {
   }
 
   fn take_style_layers(&mut self) -> NodeStyleLayers {
+    let mut preset = self.preset.take();
+    if self.width.is_some() || self.height.is_some() {
+      let preset_style = preset.get_or_insert_with(Style::default);
+      if let Some(width) = self.width {
+        preset_style.width = Length::Px(width).into();
+      }
+      if let Some(height) = self.height {
+        preset_style.height = Length::Px(height).into();
+      }
+    }
+
     NodeStyleLayers {
-      preset: self.preset.take(),
+      preset,
       author_tw: self.tw.take(),
       inline: self.style.take(),
     }
@@ -97,12 +108,25 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for ImageNode {
       },
     };
 
-    let preferred_size = Size {
-      width: self.width.unwrap_or(intrinsic_size.width)
-        * context.sizing.viewport.device_pixel_ratio,
-      height: self.height.unwrap_or(intrinsic_size.height)
-        * context.sizing.viewport.device_pixel_ratio,
-    };
+    let intrinsic_aspect_ratio =
+      (intrinsic_size.height != 0.0).then_some(intrinsic_size.width / intrinsic_size.height);
+    let preferred_size = match (self.width, self.height) {
+      (Some(width), Some(height)) => Size { width, height },
+      (Some(width), None) => Size {
+        width,
+        height: intrinsic_aspect_ratio
+          .map(|ratio| width / ratio)
+          .unwrap_or(intrinsic_size.height),
+      },
+      (None, Some(height)) => Size {
+        width: intrinsic_aspect_ratio
+          .map(|ratio| height * ratio)
+          .unwrap_or(intrinsic_size.width),
+        height,
+      },
+      (None, None) => intrinsic_size,
+    }
+    .map(|value| value * context.sizing.viewport.device_pixel_ratio);
 
     let style_known_dimensions = Size {
       width: if style.size.width.is_auto() {
