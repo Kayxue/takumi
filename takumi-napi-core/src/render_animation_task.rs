@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use napi::bindgen_prelude::*;
 use takumi::{
@@ -15,7 +15,7 @@ use crate::{
 
 pub struct RenderAnimationTask {
   pub nodes: Option<Vec<(NodeKind, u32)>>,
-  pub(crate) state: Arc<Mutex<RendererState>>,
+  pub(crate) state: Arc<RwLock<RendererState>>,
   pub viewport: Viewport,
   pub format: AnimationOutputFormat,
   pub draw_debug_border: bool,
@@ -31,7 +31,7 @@ impl Task for RenderAnimationTask {
     };
     let state = self
       .state
-      .lock()
+      .read()
       .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
 
     let frames = nodes

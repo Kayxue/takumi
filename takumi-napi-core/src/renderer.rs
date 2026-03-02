@@ -1,7 +1,7 @@
 use std::{
   borrow::Cow,
   collections::HashSet,
-  sync::{Arc, Mutex},
+  sync::{Arc, RwLock},
 };
 
 use napi::bindgen_prelude::*;
@@ -86,7 +86,7 @@ pub(crate) struct ImageCacheKey {
 /// The main renderer for Takumi image rendering engine (Node.js version).
 #[napi]
 pub struct Renderer {
-  pub(crate) state: Arc<Mutex<RendererState>>,
+  pub(crate) state: Arc<RwLock<RendererState>>,
 }
 
 pub(crate) struct RendererState {
@@ -250,8 +250,8 @@ impl Renderer {
       }
     }
 
-    let mut renderer = Self {
-      state: Arc::new(Mutex::new(RendererState {
+    let renderer = Self {
+      state: Arc::new(RwLock::new(RendererState {
         global,
         persistent_image_cache: HashSet::default(),
       })),
@@ -266,7 +266,7 @@ impl Renderer {
     if let Some(images) = options.persistent_images {
       let state = renderer
         .state
-        .lock()
+        .write()
         .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
       for image in images {
         let buffer = buffer_slice_from_object(env, image.data)?;
@@ -296,7 +296,7 @@ impl Renderer {
     ts_return_type = "Promise<void>"
   )]
   pub fn put_persistent_image_async(
-    &'_ mut self,
+    &self,
     env: Env,
     src: String,
     data: Object,
@@ -311,7 +311,7 @@ impl Renderer {
     ts_return_type = "Promise<void>"
   )]
   pub fn put_persistent_image(
-    &'_ mut self,
+    &self,
     env: Env,
     src: String,
     data: Object,
@@ -331,10 +331,10 @@ impl Renderer {
 
   /// Loads a font synchronously.
   #[napi(ts_args_type = "font: Font")]
-  pub fn load_font_sync(&mut self, env: Env, font: Object) -> Result<()> {
+  pub fn load_font_sync(&self, env: Env, font: Object) -> Result<()> {
     let mut state = self
       .state
-      .lock()
+      .write()
       .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
     if let Ok(buffer) = buffer_slice_from_object(env, font) {
       state
@@ -374,7 +374,7 @@ impl Renderer {
     ts_return_type = "Promise<number>"
   )]
   pub fn load_font_async(
-    &'_ mut self,
+    &self,
     env: Env,
     data: Object,
     signal: Option<AbortSignal>,
@@ -388,7 +388,7 @@ impl Renderer {
     ts_return_type = "Promise<number>"
   )]
   pub fn load_font(
-    &'_ mut self,
+    &self,
     env: Env,
     data: Object,
     signal: Option<AbortSignal>,
@@ -402,7 +402,7 @@ impl Renderer {
     ts_return_type = "Promise<number>"
   )]
   pub fn load_fonts_async(
-    &'_ mut self,
+    &self,
     env: Env,
     fonts: Vec<Object>,
     signal: Option<AbortSignal>,
@@ -416,7 +416,7 @@ impl Renderer {
     ts_return_type = "Promise<number>"
   )]
   pub fn load_fonts(
-    &'_ mut self,
+    &self,
     env: Env,
     fonts: Vec<Object>,
     signal: Option<AbortSignal>,
@@ -449,7 +449,7 @@ impl Renderer {
   /// Clears the renderer's internal image store.
   #[napi]
   pub fn clear_image_store(&self) {
-    if let Ok(state) = self.state.lock() {
+    if let Ok(state) = self.state.write() {
       state.global.persistent_image_store.clear();
     }
   }
@@ -460,7 +460,7 @@ impl Renderer {
     ts_return_type = "Promise<Buffer>"
   )]
   pub fn render(
-    &'_ self,
+    &self,
     env: Env,
     source: Object,
     options: Option<RenderOptions>,
@@ -485,7 +485,7 @@ impl Renderer {
     ts_return_type = "Promise<Buffer>"
   )]
   pub fn render_async(
-    &'_ mut self,
+    &self,
     env: Env,
     source: Object,
     options: Option<RenderOptions>,
@@ -500,7 +500,7 @@ impl Renderer {
     ts_return_type = "Promise<MeasuredNode>"
   )]
   pub fn measure(
-    &'_ self,
+    &self,
     env: Env,
     source: Object,
     options: Option<RenderOptions>,
@@ -525,7 +525,7 @@ impl Renderer {
     ts_return_type = "Promise<Buffer>"
   )]
   pub fn render_animation(
-    &'_ self,
+    &self,
     source: Vec<AnimationFrameSource>,
     options: RenderAnimationOptions,
     signal: Option<AbortSignal>,

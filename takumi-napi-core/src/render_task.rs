@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::sync::Mutex;
+use std::sync::RwLock;
 use std::{collections::HashMap, sync::Arc};
 
 use napi::bindgen_prelude::*;
@@ -17,7 +17,7 @@ use crate::{
 pub struct RenderTask {
   pub draw_debug_border: bool,
   pub node: Option<NodeKind>,
-  pub(crate) state: Arc<Mutex<RendererState>>,
+  pub(crate) state: Arc<RwLock<RendererState>>,
   pub viewport: Viewport,
   pub format: OutputFormat,
   pub quality: Option<u8>,
@@ -30,7 +30,7 @@ impl RenderTask {
     env: Env,
     node: NodeKind,
     options: RenderOptions,
-    state: Arc<Mutex<RendererState>>,
+    state: Arc<RwLock<RendererState>>,
   ) -> Result<Self> {
     Ok(RenderTask {
       node: Some(node),
@@ -80,7 +80,7 @@ impl Task for RenderTask {
 
     let state = self
       .state
-      .lock()
+      .read()
       .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
 
     let image = render(

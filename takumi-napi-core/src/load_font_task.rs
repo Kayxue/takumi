@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use napi::bindgen_prelude::*;
 use takumi::parley::{FontWeight, fontique::FontInfoOverride};
@@ -7,7 +7,7 @@ use takumi::parley::{FontWeight, fontique::FontInfoOverride};
 use crate::{FontInput, renderer::RendererState};
 
 pub struct LoadFontTask {
-  pub(crate) state: Arc<Mutex<RendererState>>,
+  pub(crate) state: Arc<RwLock<RendererState>>,
   pub(crate) buffers: Vec<(FontInput, Buffer)>,
 }
 
@@ -23,7 +23,7 @@ impl Task for LoadFontTask {
     let mut loaded_count = 0;
     let mut state = self
       .state
-      .lock()
+      .write()
       .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
 
     for (font, buffer) in &self.buffers {

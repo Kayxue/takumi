@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::RwLock;
 use std::{collections::HashMap, sync::Arc};
 
 use napi::bindgen_prelude::*;
@@ -15,7 +15,7 @@ use crate::{
 
 pub struct MeasureTask {
   pub node: Option<NodeKind>,
-  pub(crate) state: Arc<Mutex<RendererState>>,
+  pub(crate) state: Arc<RwLock<RendererState>>,
   pub viewport: Viewport,
   pub stylesheets: Option<Vec<String>>,
   pub fetched_resources: HashMap<Arc<str>, Buffer>,
@@ -26,7 +26,7 @@ impl MeasureTask {
     env: Env,
     node: NodeKind,
     options: RenderOptions,
-    state: Arc<Mutex<RendererState>>,
+    state: Arc<RwLock<RendererState>>,
   ) -> Result<Self> {
     Ok(MeasureTask {
       node: Some(node),
@@ -73,7 +73,7 @@ impl Task for MeasureTask {
 
     let state = self
       .state
-      .lock()
+      .read()
       .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
 
     let options = RenderOptionsBuilder::default()

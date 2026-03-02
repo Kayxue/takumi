@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use napi::bindgen_prelude::*;
 use takumi::resources::image::load_image_source_from_bytes;
@@ -11,7 +11,7 @@ use crate::{
 
 pub struct PutPersistentImageTask {
   pub src: Option<String>,
-  pub(crate) state: Arc<Mutex<RendererState>>,
+  pub(crate) state: Arc<RwLock<RendererState>>,
   pub buffer: Buffer,
 }
 
@@ -31,7 +31,7 @@ impl Task for PutPersistentImageTask {
 
     let mut state = self
       .state
-      .lock()
+      .write()
       .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
     if state.persistent_image_cache.contains(&cache_key) {
       return Ok(());
