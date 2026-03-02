@@ -2,4 +2,4 @@
 "takumi": patch
 ---
 
-Use `webp` crate for non-wasm targets
+Use `libwebp-sys` crate for non-wasm targets webp encoding

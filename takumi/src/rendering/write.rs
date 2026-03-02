@@ -1,7 +1,7 @@
 use std::{borrow::Cow, io::Write};
 
 #[cfg(not(target_arch = "wasm32"))]
-use std::io::Error as IoStdError;
+use std::{io::Error as IoStdError, mem::MaybeUninit, slice};
 
 use image::{ExtendedColorType, ImageEncoder, ImageFormat, RgbaImage, codecs::jpeg::JpegEncoder};
 use png::{ColorType, Compression, Filter};
@@ -111,14 +111,17 @@ fn write_webp(
   destination: &mut impl Write,
   quality: Option<u8>,
 ) -> Result<()> {
-  use libwebp_sys::WebPPreset;
-  use webp::{Encoder as WebpEncoder, WebPConfig};
+  use libwebp_sys::{
+    WebPConfig, WebPEncode, WebPMemoryWrite, WebPMemoryWriter, WebPMemoryWriterClear,
+    WebPMemoryWriterInit, WebPPicture, WebPPictureFree, WebPPictureImportRGB,
+    WebPPictureImportRGBA, WebPPreset, WebPValidateConfig,
+  };
 
   let requested_quality = quality.unwrap_or(100).clamp(0, 100);
   let is_lossless = requested_quality == 100;
   let has_alpha = has_any_alpha_pixel(&image);
-  let width = image.width();
-  let height = image.height();
+  let width = image.width() as i32;
+  let height = image.height() as i32;
 
   let mut config = WebPConfig::new_with_preset(
     WebPPreset::WEBP_PRESET_TEXT,
@@ -133,19 +136,57 @@ fn write_webp(
   config.lossless = if is_lossless { 1 } else { 0 };
   config.alpha_compression = if is_lossless { 0 } else { 1 };
   config.method = 1;
+  if unsafe { WebPValidateConfig(&config) } == 0 {
+    return Err(IoError(IoStdError::other("Invalid WebP config")));
+  }
 
-  let encoded = if has_alpha {
-    WebpEncoder::from_rgba(image.as_raw(), width, height)
-      .encode_advanced(&config)
-      .map_err(|error| IoError(IoStdError::other(format!("WebP encode error: {error:?}"))))?
+  let mut picture = WebPPicture::new()
+    .map_err(|_| IoError(IoStdError::other("Failed to initialize WebP picture")))?;
+  picture.width = width;
+  picture.height = height;
+
+  let rgb;
+  let import_ok = if has_alpha {
+    unsafe { WebPPictureImportRGBA(&mut picture, image.as_raw().as_ptr(), width * 4) }
   } else {
-    let rgb = strip_alpha_channel(image);
-    WebpEncoder::from_rgb(&rgb, width, height)
-      .encode_advanced(&config)
-      .map_err(|error| IoError(IoStdError::other(format!("WebP encode error: {error:?}"))))?
+    rgb = strip_alpha_channel(image);
+    unsafe { WebPPictureImportRGB(&mut picture, rgb.as_ptr(), width * 3) }
   };
 
-  destination.write_all(&encoded)?;
+  if import_ok == 0 {
+    unsafe { WebPPictureFree(&mut picture) };
+    return Err(IoError(IoStdError::other(format!(
+      "WebP import error: {:?}",
+      picture.error_code
+    ))));
+  }
+
+  let mut writer = MaybeUninit::<WebPMemoryWriter>::uninit();
+  unsafe { WebPMemoryWriterInit(writer.as_mut_ptr()) };
+  picture.writer = Some(WebPMemoryWrite);
+  picture.custom_ptr = writer.as_mut_ptr().cast();
+
+  let encode_ok = unsafe { WebPEncode(&config, &mut picture) };
+  let mut writer = unsafe { writer.assume_init() };
+
+  if encode_ok == 0 {
+    unsafe {
+      WebPMemoryWriterClear(&mut writer);
+      WebPPictureFree(&mut picture);
+    }
+    return Err(IoError(IoStdError::other(format!(
+      "WebP encode error: {:?}",
+      picture.error_code
+    ))));
+  }
+
+  let encoded = unsafe { slice::from_raw_parts(writer.mem, writer.size) }.to_vec();
+  unsafe {
+    WebPMemoryWriterClear(&mut writer);
+    WebPPictureFree(&mut picture);
+  }
+
+  destination.write_all(encoded.as_slice())?;
   Ok(())
 }
 
