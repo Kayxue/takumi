@@ -1,7 +1,7 @@
 use parley::FontVariation;
 use swash::tag_from_bytes;
 use takumi::layout::{
-  node::{ContainerNode, TextNode},
+  node::{ContainerNode, NodeKind, TextNode},
   style::{Length::*, *},
 };
 
@@ -229,6 +229,7 @@ fn text_align_start() {
       StyleBuilder::default()
         .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
         .width(Percentage(100.0))
+        .display(Display::Block)
         .font_size(Some(Px(24.0)))
         .text_align(TextAlign::Start)
         .build()
@@ -252,6 +253,7 @@ fn text_align_center() {
       StyleBuilder::default()
         .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
         .width(Percentage(100.0))
+        .display(Display::Block)
         .font_size(Some(Px(24.0)))
         .text_align(TextAlign::Center)
         .build()
@@ -275,6 +277,7 @@ fn text_align_right() {
       StyleBuilder::default()
         .background_color(ColorInput::Value(Color([240, 240, 240, 255])))
         .width(Percentage(100.0))
+        .display(Display::Block)
         .font_size(Some(Px(24.0)))
         .text_align(TextAlign::Right)
         .build()
@@ -895,6 +898,7 @@ fn text_super_bold_stroke_background_clip() {
       StyleBuilder::default()
         .background_image(Some(gradient_images))
         .background_clip(BackgroundClip::Text)
+        .display(Display::Block)
         .color(ColorInput::Value(Color::white()))
         .font_size(Some(Px(120.0)))
         .font_weight(FontWeight::from(900.0))
@@ -996,6 +1000,111 @@ fn text_font_stretch() {
   };
 
   run_fixture_test(container.into(), "text_font_stretch");
+}
+
+#[test]
+fn text_flex_centered_text_node_vs_nested_container() {
+  let first_box_text: NodeKind = TextNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
+    preset: None,
+    tw: None,
+    style: Some(
+      StyleBuilder::default()
+        .width(Px(300.0))
+        .height(Px(200.0))
+        .margin(Sides([Px(0.0), Px(0.0), Px(30.0), Px(0.0)]))
+        .background_color(ColorInput::Value(Color::from_str("#3b82f6").unwrap()))
+        .display(Display::Flex)
+        .align_items(AlignItems::Center)
+        .justify_content(JustifyContent::Center)
+        .font_size(Some(Px(30.0)))
+        .build()
+        .unwrap(),
+    ),
+    text: "centered...?".to_string(),
+  }
+  .into();
+
+  let second_box_nested_text: NodeKind = ContainerNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
+    preset: None,
+    tw: None,
+    style: Some(
+      StyleBuilder::default()
+        .width(Px(300.0))
+        .height(Px(200.0))
+        .background_color(ColorInput::Value(Color::from_str("#ab82f6").unwrap()))
+        .display(Display::Flex)
+        .align_items(AlignItems::Center)
+        .justify_content(JustifyContent::Center)
+        .font_size(Some(Px(30.0)))
+        .build()
+        .unwrap(),
+    ),
+    children: Some(
+      [TextNode {
+        class_name: None,
+        id: None,
+        tag_name: None,
+        preset: None,
+        tw: None,
+        style: None,
+        text: "centered".to_string(),
+      }
+      .into()]
+      .into(),
+    ),
+  }
+  .into();
+
+  let root = ContainerNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
+    preset: None,
+    tw: None,
+    style: Some(
+      StyleBuilder::default()
+        .width(Percentage(100.0))
+        .height(Percentage(100.0))
+        .background_color(ColorInput::Value(Color::black()))
+        .align_items(AlignItems::Center)
+        .justify_content(JustifyContent::Center)
+        .build()
+        .unwrap(),
+    ),
+    children: Some(
+      [ContainerNode {
+        class_name: None,
+        id: None,
+        tag_name: None,
+        preset: None,
+        tw: None,
+        style: Some(
+          StyleBuilder::default()
+            .display(Display::Flex)
+            .flex_direction(FlexDirection::Column)
+            .align_items(AlignItems::Center)
+            .justify_content(JustifyContent::Center)
+            .color(ColorInput::Value(Color::white()))
+            .build()
+            .unwrap(),
+        ),
+        children: Some([first_box_text, second_box_nested_text].into()),
+      }
+      .into()]
+      .into(),
+    ),
+  };
+
+  run_fixture_test(
+    root.into(),
+    "text_flex_centered_text_node_vs_nested_container",
+  );
 }
 
 #[test]
