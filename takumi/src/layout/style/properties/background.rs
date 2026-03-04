@@ -45,6 +45,12 @@ impl<'i> FromCss<'i> for Background {
         break;
       }
 
+      let state = input.state();
+      if input.try_parse(Parser::expect_comma).is_ok() {
+        input.reset(&state);
+        break;
+      }
+
       // Try to parse background-color
       if color.is_none()
         && let Ok(value) = input.try_parse(ColorInput::from_css)
@@ -213,5 +219,65 @@ mod tests {
   #[test]
   fn test_parse_background_invalid() {
     assert!(Background::from_str("invalid-value").is_err());
+  }
+
+  #[test]
+  fn test_parse_backgrounds_multiple_gradients() {
+    assert_eq!(
+      Backgrounds::from_str(
+        "radial-gradient(circle at 80% 20%, #FF3D00 0%, transparent 40%), radial-gradient(circle at 20% 80%, #00E5FF 0%, transparent 40%)",
+      ),
+      Ok(
+        vec![
+          Background {
+            image: BackgroundImage::Radial(RadialGradient {
+              shape: RadialShape::Circle,
+              size: RadialSize::FarthestCorner,
+              center: BackgroundPosition(SpacePair::from_pair(
+                Length::Percentage(80.0).into(),
+                Length::Percentage(20.0).into(),
+              )),
+              interpolation: ColorInterpolationMethod::default(),
+              stops: [
+                GradientStop::ColorHint {
+                  color: Color([255, 61, 0, 255]).into(),
+                  hint: Some(StopPosition(Length::Percentage(0.0))),
+                },
+                GradientStop::ColorHint {
+                  color: Color::transparent().into(),
+                  hint: Some(StopPosition(Length::Percentage(40.0))),
+                },
+              ]
+              .into(),
+            }),
+            ..Default::default()
+          },
+          Background {
+            image: BackgroundImage::Radial(RadialGradient {
+              shape: RadialShape::Circle,
+              size: RadialSize::FarthestCorner,
+              center: BackgroundPosition(SpacePair::from_pair(
+                Length::Percentage(20.0).into(),
+                Length::Percentage(80.0).into(),
+              )),
+              interpolation: ColorInterpolationMethod::default(),
+              stops: [
+                GradientStop::ColorHint {
+                  color: Color([0, 229, 255, 255]).into(),
+                  hint: Some(StopPosition(Length::Percentage(0.0))),
+                },
+                GradientStop::ColorHint {
+                  color: Color::transparent().into(),
+                  hint: Some(StopPosition(Length::Percentage(40.0))),
+                },
+              ]
+              .into(),
+            }),
+            ..Default::default()
+          },
+        ]
+        .into_boxed_slice()
+      )
+    );
   }
 }

@@ -111,3 +111,67 @@ fn test_stylesheets() {
 
   run_fixture_test_with_options(options, "stylesheets");
 }
+
+#[test]
+fn test_stylesheets_background_multiple_gradients() {
+  let root = ContainerNode {
+    class_name: None,
+    id: None,
+    tag_name: Some("div".into()),
+    preset: None,
+    tw: None,
+    style: Some(
+      StyleBuilder::default()
+        .width(Percentage(100.0))
+        .height(Percentage(100.0))
+        .display(Display::Flex)
+        .justify_content(JustifyContent::Center)
+        .align_items(AlignItems::Center)
+        .background_color(ColorInput::Value(Color([22, 22, 22, 255])))
+        .build()
+        .unwrap(),
+    ),
+    children: Some(
+      [ContainerNode {
+        class_name: Some("multi-gradient-card".into()),
+        id: None,
+        tag_name: Some("section".into()),
+        preset: None,
+        tw: None,
+        style: Some(
+          StyleBuilder::default()
+            .width(Px(700.0))
+            .height(Px(360.0))
+            .border_radius(Box::new(BorderRadius(Sides(
+              [SpacePair::from_single(Px(24.0)); 4],
+            ))))
+            .build()
+            .unwrap(),
+        ),
+        children: None,
+      }
+      .into()]
+      .into(),
+    ),
+  };
+
+  let build_options = || {
+    RenderOptionsBuilder::default()
+      .viewport(create_test_viewport())
+      .node(root.clone().into())
+      .global(&CONTEXT)
+      .stylesheets(vec![
+        r#"
+          .multi-gradient-card {
+            background: radial-gradient(circle at 80% 20%, #FF3D00 0%, transparent 40%), radial-gradient(circle at 20% 80%, #00E5FF 0%, transparent 40%);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+          }
+        "#
+        .to_string(),
+      ])
+      .build()
+      .unwrap()
+  };
+
+  run_fixture_test_with_options(build_options(), "stylesheets_background_multiple_gradients");
+}
