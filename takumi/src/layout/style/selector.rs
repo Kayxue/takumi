@@ -494,7 +494,7 @@ mod tests {
   fn resolved_style_from_declarations(declarations: &StyleDeclarationBlock) -> ResolvedStyle {
     let mut style = Style::default();
     for declaration in &declarations.declarations {
-      declaration.merge_into(&mut style);
+      declaration.merge_into_ref(&mut style);
     }
     style.inherit(&ResolvedStyle::default())
   }

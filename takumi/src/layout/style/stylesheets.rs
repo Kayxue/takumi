@@ -16,7 +16,7 @@ use crate::{
 
 macro_rules! define_inherited_default {
   ($parent:expr, $inherit:tt) => {
-    $parent.clone()
+    $parent.to_owned()
   };
   ($parent:expr) => {
     Default::default()
@@ -342,7 +342,7 @@ macro_rules! define_style {
         }
 
         pub(crate) fn push(&mut self, declaration: StyleDeclaration, important: bool) {
-          declaration.append_to_block(&mut self.declarations, important);
+          self.declarations.push(declaration, important);
         }
 
         pub(crate) fn append_block(&mut self, declarations: StyleDeclarationBlock) {
@@ -355,7 +355,7 @@ macro_rules! define_style {
 
         pub(crate) fn inherit(self, parent: &ResolvedStyle) -> ResolvedStyle {
           let mut style = ResolvedStyle::from_parent(parent);
-          for declaration in self.declarations.iter() {
+          for declaration in self.declarations.declarations {
             declaration.apply_to_computed_with_parent(&mut style, parent);
           }
           style
@@ -472,10 +472,6 @@ macro_rules! define_style {
           }
         )*
 
-        fn append_to_block(&self, block: &mut StyleDeclarationBlock, important: bool) {
-          block.push(self.clone(), important);
-        }
-
         pub(crate) fn longhand_id(&self) -> LonghandId {
           match self {
             $(Self::[<$longhand:camel>](..) => LonghandId::[<$longhand:camel>],)*
@@ -484,36 +480,32 @@ macro_rules! define_style {
         }
 
         #[inline(never)]
-        pub(crate) fn apply_to_computed(&self, style: &mut ComputedStyle) {
-          match self {
-            Self::CssWideKeyword(property, keyword) => match keyword {
-              CssWideKeyword::Initial => apply_initial_longhand(style, *property),
-              CssWideKeyword::Inherit | CssWideKeyword::Unset => {}
-            },
-            $(Self::[<$longhand:camel>](value) => style.$longhand = value.clone(),)*
-          }
-        }
-
-        #[inline(never)]
         pub(crate) fn apply_to_computed_with_parent(
-          &self,
+          self,
           style: &mut ComputedStyle,
           parent: &ComputedStyle,
         ) {
           match self {
             Self::CssWideKeyword(property, keyword) => {
-              apply_css_wide_keyword(style, parent, *property, *keyword)
+              apply_css_wide_keyword(style, parent, property, keyword)
             }
-            $(Self::[<$longhand:camel>](value) => style.$longhand = value.clone(),)*
+            $(Self::[<$longhand:camel>](value) => style.$longhand = value,)*
           }
         }
 
-        pub(crate) fn apply_to_resolved(&self, style: &mut ComputedStyle) {
-          self.apply_to_computed(style);
+        #[inline(never)]
+        pub(crate) fn apply_to_resolved_ref(&self, style: &mut ComputedStyle) {
+          match self {
+            Self::CssWideKeyword(property, keyword) => match keyword {
+              CssWideKeyword::Initial => apply_initial_longhand(style, *property),
+              CssWideKeyword::Inherit | CssWideKeyword::Unset => {}
+            },
+            $(Self::[<$longhand:camel>](value) => style.$longhand.clone_from(value),)*
+          }
         }
 
-        pub(crate) fn merge_into(&self, style: &mut Style) {
-          style.push(self.clone(), false);
+        pub(crate) fn merge_into_ref(&self, style: &mut Style) {
+          style.push(self.to_owned(), false);
         }
       }
 
@@ -540,7 +532,7 @@ macro_rules! define_style {
             LonghandId::[<$longhand:camel>] => {
               style.$longhand = match keyword {
                 CssWideKeyword::Initial => Default::default(),
-                CssWideKeyword::Inherit => parent.$longhand.clone(),
+                CssWideKeyword::Inherit => parent.$longhand.to_owned(),
                 CssWideKeyword::Unset => define_inherited_default!(parent.$longhand $(, $longhand_inherit)?),
               };
             }
@@ -736,18 +728,18 @@ define_style! {
       push_expanded_declarations!(
         target,
         important;
-        StyleDeclaration::animation_name(if has_animation_name {
-          AnimationNames(value.iter().map(|animation| animation.name.clone().unwrap_or_default()).collect())
-        } else {
-          AnimationNames::default()
-        }),
         StyleDeclaration::animation_duration(AnimationDurations(value.iter().map(|animation| animation.duration).collect())),
         StyleDeclaration::animation_delay(AnimationDurations(value.iter().map(|animation| animation.delay).collect())),
-        StyleDeclaration::animation_timing_function(AnimationTimingFunctions(value.iter().map(|animation| animation.timing_function.clone()).collect())),
+        StyleDeclaration::animation_timing_function(AnimationTimingFunctions(value.iter().map(|animation| animation.timing_function).collect())),
         StyleDeclaration::animation_iteration_count(AnimationIterationCounts(value.iter().map(|animation| animation.iteration_count).collect())),
         StyleDeclaration::animation_direction(AnimationDirections(value.iter().map(|animation| animation.direction).collect())),
         StyleDeclaration::animation_fill_mode(AnimationFillModes(value.iter().map(|animation| animation.fill_mode).collect())),
         StyleDeclaration::animation_play_state(AnimationPlayStates(value.iter().map(|animation| animation.play_state).collect())),
+        StyleDeclaration::animation_name(if has_animation_name {
+          AnimationNames(value.into_iter().map(|animation| animation.name.unwrap_or_default()).collect())
+        } else {
+          AnimationNames::default()
+        }),
       );
     },
     padding: Sides<Length<false>> => [PaddingTop, PaddingRight, PaddingBottom, PaddingLeft] |value, target, important| {
@@ -1254,10 +1246,10 @@ impl ResolvedStyle {
 
             // Build inner line names: one per line inside the repeat, including a trailing set
             let mut inner_line_names: Vec<Vec<String>> =
-              tracks.iter().map(|t| t.names.clone()).collect();
+              tracks.iter().map(|t| t.names.to_owned()).collect();
             if let Some(last) = tracks.last() {
               if let Some(end) = &last.end_names {
-                inner_line_names.push(end.clone());
+                inner_line_names.push(end.to_owned());
               } else {
                 inner_line_names.push(Vec::new());
               }
@@ -1297,7 +1289,7 @@ impl ResolvedStyle {
       .to_px(&context.sizing, context.sizing.font_size);
 
     SizedFontStyle {
-      sizing: context.sizing.clone(),
+      sizing: context.sizing.to_owned(),
       parent: self,
       line_height,
       stroke_width: resolved_stroke_width,
@@ -1421,11 +1413,11 @@ impl ResolvedStyle {
       grid_column: self
         .grid_column
         .as_ref()
-        .map_or_else(Default::default, |line| line.clone().into()),
+        .map_or_else(Default::default, Into::into),
       grid_row: self
         .grid_row
         .as_ref()
-        .map_or_else(Default::default, |line| line.clone().into()),
+        .map_or_else(Default::default, Into::into),
       grid_template_columns,
       grid_template_rows,
       grid_template_column_names,

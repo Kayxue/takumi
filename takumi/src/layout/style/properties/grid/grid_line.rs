@@ -1,7 +1,8 @@
 use cssparser::Parser;
 
 use crate::layout::style::{
-  CssToken, FromCss, GridPlacementSpan, MakeComputed, ParseResult, tw::TailwindPropertyParser,
+  CssToken, FromCss, GridPlacementKeyword, GridPlacementSpan, MakeComputed, ParseResult,
+  tw::TailwindPropertyParser,
 };
 use crate::rendering::Sizing;
 
@@ -62,6 +63,25 @@ impl From<GridLine> for taffy::Line<taffy::GridPlacement> {
     Self {
       start: line.start.into(),
       end: line.end.into(),
+    }
+  }
+}
+
+impl From<&GridLine> for taffy::Line<taffy::GridPlacement> {
+  fn from(line: &GridLine) -> Self {
+    Self {
+      start: match &line.start {
+        GridPlacement::Keyword(GridPlacementKeyword::Auto) => taffy::GridPlacement::Auto,
+        GridPlacement::Line(index) => taffy::GridPlacement::Line((*index).into()),
+        GridPlacement::Span(GridPlacementSpan::Span(span)) => taffy::GridPlacement::Span(*span),
+        GridPlacement::Named(_) => taffy::GridPlacement::Auto,
+      },
+      end: match &line.end {
+        GridPlacement::Keyword(GridPlacementKeyword::Auto) => taffy::GridPlacement::Auto,
+        GridPlacement::Line(index) => taffy::GridPlacement::Line((*index).into()),
+        GridPlacement::Span(GridPlacementSpan::Span(span)) => taffy::GridPlacement::Span(*span),
+        GridPlacement::Named(_) => taffy::GridPlacement::Auto,
+      },
     }
   }
 }

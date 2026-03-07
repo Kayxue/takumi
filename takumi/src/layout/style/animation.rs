@@ -400,7 +400,7 @@ fn apply_keyframe_declarations(
   keyframe: &KeyframeRule,
 ) {
   for declaration in keyframe.declarations.iter() {
-    declaration.apply_to_resolved(style);
+    declaration.apply_to_resolved_ref(style);
     mask.insert(declaration.longhand_id());
   }
 }

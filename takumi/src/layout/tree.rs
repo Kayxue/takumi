@@ -101,7 +101,7 @@ fn build_style_layers(
 
   #[cfg(feature = "css_stylesheet_parsing")]
   for declaration in matched_declarations.normal.iter() {
-    declaration.merge_into(&mut style);
+    declaration.merge_into_ref(&mut style);
   }
 
   if let Some(author_tw) = node_layers.author_tw {
@@ -114,7 +114,7 @@ fn build_style_layers(
 
   #[cfg(feature = "css_stylesheet_parsing")]
   for declaration in matched_declarations.important.iter() {
-    declaration.merge_into(&mut style);
+    declaration.merge_into_ref(&mut style);
   }
 
   style
@@ -124,16 +124,39 @@ fn build_style_layers(
 fn build_inherited_style(
   parent_style: &ResolvedStyle,
   node_layers: NodeStyleLayers,
-  #[cfg(feature = "css_stylesheet_parsing")] matched_declarations: &MatchedDeclarations,
+  #[cfg(feature = "css_stylesheet_parsing")] matched_declarations: MatchedDeclarations,
   viewport: Viewport,
 ) -> ResolvedStyle {
-  build_style_layers(
-    node_layers,
-    #[cfg(feature = "css_stylesheet_parsing")]
-    matched_declarations,
-    viewport,
-  )
-  .inherit(parent_style)
+  #[cfg(feature = "css_stylesheet_parsing")]
+  let style = {
+    let mut style = NodeStyle::default();
+
+    if let Some(preset) = node_layers.preset {
+      style.merge_from(preset);
+    }
+
+    for declaration in matched_declarations.normal.declarations {
+      style.push(declaration, false);
+    }
+
+    if let Some(author_tw) = node_layers.author_tw {
+      style.append_block(author_tw.into_declaration_block(viewport));
+    }
+
+    if let Some(inline) = node_layers.inline {
+      style.merge_from(inline);
+    }
+
+    for declaration in matched_declarations.important.declarations {
+      style.push(declaration, false);
+    }
+
+    style
+  };
+  #[cfg(not(feature = "css_stylesheet_parsing"))]
+  let style = build_style_layers(node_layers, viewport);
+
+  style.inherit(parent_style)
 }
 
 fn push_layout_node<'r, 'g, N: Node<N>>(
@@ -872,7 +895,7 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
 
       #[cfg(feature = "css_stylesheet_parsing")]
       for declaration in matched.important.iter() {
-        declaration.apply_to_resolved(&mut style);
+        declaration.apply_to_resolved_ref(&mut style);
       }
 
       let font_size = style.font_size.to_px(&child_sizing, child_sizing.font_size);
@@ -1211,7 +1234,7 @@ mod tests {
       &parent,
       layers,
       #[cfg(feature = "css_stylesheet_parsing")]
-      &matched,
+      matched,
       Viewport::new(Some(1200), Some(630)),
     );
 

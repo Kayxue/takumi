@@ -95,7 +95,7 @@ impl<'i> FromCss<'i> for AnimationDurations {
 }
 
 /// Supported CSS timing functions for animations.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum AnimationTimingFunction {
   /// Uses linear interpolation.
   Linear,
