@@ -1,27 +1,23 @@
 //! The main renderer for Takumi image rendering engine.
 
-use crate::{
-  helper::map_error,
-  model::{
-    AnimationFrameSource, AnimationFrameSourceType, AnimationOutputFormat, AnyNode,
-    ConstructRendererOptions, ConstructRendererOptionsType, Font, FontType, ImageCacheKey,
-    ImageSource, ImageSourceType, MeasuredNodeType, OutputFormat, RenderAnimationOptions,
-    RenderAnimationOptionsType, RenderOptions, RenderOptionsType,
-  },
-};
+use crate::{helper::map_error, model::*};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use serde_wasm_bindgen::{from_value, to_value};
-use std::{borrow::Cow, collections::HashSet};
+use std::{
+  borrow::Cow,
+  collections::{HashMap, HashSet},
+  sync::Arc,
+};
 use takumi::{
   GlobalContext,
   layout::{DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport, node::NodeKind},
   parley::{FontWeight, fontique::FontInfoOverride},
   rendering::{
     AnimatedGifOptions, AnimatedPngOptions, AnimatedWebpOptions, AnimationFrame, ImageOutputFormat,
-    RenderOptionsBuilder, encode_animated_gif, encode_animated_png, encode_animated_webp,
-    measure_layout, render, write_image,
+    RenderOptionsBuilder, SequentialSceneBuilder, encode_animated_gif, encode_animated_png,
+    encode_animated_webp, measure_layout, render, render_sequence_animation, write_image,
   },
-  resources::image::load_image_source_from_bytes,
+  resources::image::{ImageSource as LoadedImageSource, load_image_source_from_bytes},
 };
 use wasm_bindgen::prelude::*;
 use xxhash_rust::xxh3::{Xxh3DefaultBuilder, xxh3_64};
@@ -36,6 +32,66 @@ pub struct Renderer {
 
 #[wasm_bindgen]
 impl Renderer {
+  fn fetch_resources_map(
+    &self,
+    resources: Option<&[ImageSource]>,
+  ) -> Result<HashMap<Arc<str>, Arc<LoadedImageSource>>, js_sys::Error> {
+    resources
+      .map(|resources| {
+        resources
+          .iter()
+          .map(|source| {
+            let image = load_image_source_from_bytes(&source.data).map_err(map_error)?;
+            Ok((source.src.clone(), image))
+          })
+          .collect::<Result<_, js_sys::Error>>()
+      })
+      .transpose()
+      .map(|resources| resources.unwrap_or_default())
+  }
+
+  fn encode_animation(
+    &self,
+    frames: Vec<AnimationFrame>,
+    format: Option<AnimationOutputFormat>,
+    quality: Option<u8>,
+  ) -> Result<Vec<u8>, JsValue> {
+    if let Some(quality) = quality
+      && quality > 100
+    {
+      return Err(JsValue::from_str(&format!(
+        "Invalid WebP quality {quality}; expected a value in 0..=100"
+      )));
+    }
+
+    let mut buffer = Vec::new();
+
+    match format.unwrap_or(AnimationOutputFormat::WebP) {
+      AnimationOutputFormat::WebP => {
+        let mut webp_options = AnimatedWebpOptions::default();
+        if let Some(quality) = quality {
+          webp_options.quality = quality;
+        }
+
+        encode_animated_webp(Cow::Owned(frames), &mut buffer, webp_options).map_err(map_error)?;
+      }
+      AnimationOutputFormat::APng => {
+        encode_animated_png(&frames, &mut buffer, AnimatedPngOptions::default())
+          .map_err(map_error)?;
+      }
+      AnimationOutputFormat::Gif => {
+        encode_animated_gif(
+          Cow::Owned(frames),
+          &mut buffer,
+          AnimatedGifOptions::default(),
+        )
+        .map_err(map_error)?;
+      }
+    }
+
+    Ok(buffer)
+  }
+
   /// Creates a new Renderer instance.
   #[wasm_bindgen(constructor)]
   pub fn new(options: Option<ConstructRendererOptionsType>) -> Result<Renderer, js_sys::Error> {
@@ -156,19 +212,7 @@ impl Renderer {
   }
 
   fn render_internal(&self, node: NodeKind, options: RenderOptions) -> Result<Vec<u8>, JsValue> {
-    let fetched_resources = options
-      .fetched_resources
-      .map(|resources| -> Result<_, JsValue> {
-        resources
-          .into_iter()
-          .map(|source| {
-            let image = load_image_source_from_bytes(&source.data).map_err(map_error)?;
-            Ok((source.src, image))
-          })
-          .collect::<Result<_, JsValue>>()
-      })
-      .transpose()?
-      .unwrap_or_default();
+    let fetched_resources = self.fetch_resources_map(options.fetched_resources.as_deref())?;
 
     let render_options = RenderOptionsBuilder::default()
       .viewport(Viewport {
@@ -182,6 +226,7 @@ impl Renderer {
       .draw_debug_border(options.draw_debug_border.unwrap_or_default())
       .fetched_resources(fetched_resources)
       .stylesheets(options.stylesheets.unwrap_or_default())
+      .time_ms(options.time_ms.unwrap_or_default().max(0) as u64)
       .node(node)
       .global(&self.context)
       .build()
@@ -221,19 +266,7 @@ impl Renderer {
       .transpose()?
       .unwrap_or_default();
 
-    let fetched_resources = options
-      .fetched_resources
-      .map(|resources| -> Result<_, JsValue> {
-        resources
-          .into_iter()
-          .map(|source| {
-            let image = load_image_source_from_bytes(&source.data).map_err(map_error)?;
-            Ok((source.src, image))
-          })
-          .collect::<Result<_, JsValue>>()
-      })
-      .transpose()?
-      .unwrap_or_default();
+    let fetched_resources = self.fetch_resources_map(options.fetched_resources.as_deref())?;
 
     let render_options = RenderOptionsBuilder::default()
       .viewport(Viewport {
@@ -247,6 +280,7 @@ impl Renderer {
       .draw_debug_border(options.draw_debug_border.unwrap_or_default())
       .fetched_resources(fetched_resources)
       .stylesheets(options.stylesheets.unwrap_or_default())
+      .time_ms(options.time_ms.unwrap_or_default().max(0) as u64)
       .node(node)
       .global(&self.context)
       .build()
@@ -289,24 +323,89 @@ impl Renderer {
     Ok(data_uri)
   }
 
-  /// Renders an animation sequence into a buffer.
+  /// Renders a sequential animation timeline into a buffer.
   #[wasm_bindgen(js_name = renderAnimation)]
   pub fn render_animation(
     &self,
-    frames: Vec<AnimationFrameSourceType>,
+    scenes: Vec<AnimationSceneSourceType>,
     options: RenderAnimationOptionsType,
   ) -> Result<Vec<u8>, JsValue> {
-    let frames: Vec<AnimationFrameSource> = from_value(frames.into()).map_err(map_error)?;
+    let scenes: Vec<AnimationSceneSource> = from_value(scenes.into()).map_err(map_error)?;
     let options: RenderAnimationOptions = from_value(options.into()).map_err(map_error)?;
+    let fetched_resources = self.fetch_resources_map(options.fetched_resources.as_deref())?;
 
-    let rendered_frames: Vec<AnimationFrame> = frames
+    if scenes.is_empty() {
+      return Err(JsValue::from_str("Expected at least one animation scene"));
+    }
+
+    if options.fps == 0 {
+      return Err(JsValue::from_str("Expected fps to be greater than 0"));
+    }
+
+    let viewport = Viewport {
+      width: Some(options.width),
+      height: Some(options.height),
+      font_size: DEFAULT_FONT_SIZE,
+      device_pixel_ratio: options
+        .device_pixel_ratio
+        .unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO),
+    };
+    let stylesheets = options.stylesheets.unwrap_or_default();
+    let scene_options = scenes
+      .into_iter()
+      .map(|scene| {
+        SequentialSceneBuilder::default()
+          .duration_ms(scene.duration_ms)
+          .options(
+            RenderOptionsBuilder::default()
+              .viewport(viewport)
+              .fetched_resources(fetched_resources.clone())
+              .stylesheets(stylesheets.clone())
+              .node(scene.node)
+              .global(&self.context)
+              .draw_debug_border(options.draw_debug_border.unwrap_or_default())
+              .build()
+              .map_err(|e| JsValue::from_str(&format!("Failed to build render options: {e}")))?,
+          )
+          .build()
+          .map_err(|e| JsValue::from_str(&format!("Failed to build animation scene: {e}")))
+      })
+      .collect::<Result<Vec<_>, _>>()?;
+    let rendered_frames =
+      render_sequence_animation(&scene_options, options.fps).map_err(map_error)?;
+
+    self.encode_animation(rendered_frames, options.format, options.quality)
+  }
+
+  /// Encodes a precomputed frame sequence into an animated image buffer.
+  #[wasm_bindgen(js_name = encodeFrames)]
+  pub fn encode_frames(
+    &self,
+    frames: Vec<AnimationFrameSourceType>,
+    options: EncodeFramesOptionsType,
+  ) -> Result<Vec<u8>, JsValue> {
+    let frames: Vec<AnimationFrameSource> = from_value(frames.into()).map_err(map_error)?;
+    let options: EncodeFramesOptions = from_value(options.into()).map_err(map_error)?;
+    let fetched_resources = self.fetch_resources_map(options.fetched_resources.as_deref())?;
+    let viewport = Viewport {
+      width: Some(options.width),
+      height: Some(options.height),
+      font_size: DEFAULT_FONT_SIZE,
+      device_pixel_ratio: options
+        .device_pixel_ratio
+        .unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO),
+    };
+    let stylesheets = options.stylesheets.unwrap_or_default();
+    let rendered_frames = frames
       .into_iter()
       .map(|frame| -> Result<AnimationFrame, JsValue> {
         let render_options = RenderOptionsBuilder::default()
-          .viewport((options.width, options.height).into())
+          .viewport(viewport)
+          .fetched_resources(fetched_resources.clone())
           .node(frame.node)
           .global(&self.context)
           .draw_debug_border(options.draw_debug_border.unwrap_or_default())
+          .stylesheets(stylesheets.clone())
           .build()
           .map_err(|e| JsValue::from_str(&format!("Failed to build render options: {e}")))?;
 
@@ -315,40 +414,6 @@ impl Renderer {
       })
       .collect::<Result<Vec<_>, JsValue>>()?;
 
-    if let Some(quality) = options.quality
-      && quality > 100
-    {
-      return Err(JsValue::from_str(&format!(
-        "Invalid WebP quality {quality}; expected a value in 0..=100"
-      )));
-    }
-
-    let mut buffer = Vec::new();
-
-    match options.format.unwrap_or(AnimationOutputFormat::WebP) {
-      AnimationOutputFormat::WebP => {
-        let mut webp_options = AnimatedWebpOptions::default();
-        if let Some(quality) = options.quality {
-          webp_options.quality = quality;
-        }
-
-        encode_animated_webp(Cow::Owned(rendered_frames), &mut buffer, webp_options)
-          .map_err(map_error)?;
-      }
-      AnimationOutputFormat::APng => {
-        encode_animated_png(&rendered_frames, &mut buffer, AnimatedPngOptions::default())
-          .map_err(map_error)?;
-      }
-      AnimationOutputFormat::Gif => {
-        encode_animated_gif(
-          Cow::Owned(rendered_frames),
-          &mut buffer,
-          AnimatedGifOptions::default(),
-        )
-        .map_err(map_error)?;
-      }
-    }
-
-    Ok(buffer)
+    self.encode_animation(rendered_frames, options.format, options.quality)
   }
 }

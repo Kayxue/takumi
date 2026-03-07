@@ -3,7 +3,7 @@ use std::ops::{Deref, Neg};
 use cssparser::{Parser, Token};
 
 use crate::layout::style::{
-  Animatable, Color, MakeComputed,
+  Animatable, Color, MakeComputed, lerp,
   properties::{FromCss, ParseResult},
   tw::TailwindPropertyParser,
 };
@@ -29,7 +29,7 @@ impl Animatable for PercentageNumber {
     _sizing: &Sizing,
     _current_color: Color,
   ) {
-    *self = Self(from.0 + (to.0 - from.0) * progress);
+    *self = Self(lerp(from.0, to.0, progress));
   }
 }
 

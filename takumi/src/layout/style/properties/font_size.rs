@@ -1,7 +1,7 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
 
 use crate::{
-  layout::style::{Animatable, CssToken, FromCss, Length, MakeComputed, ParseResult},
+  layout::style::{Animatable, Color, CssToken, FromCss, Length, MakeComputed, ParseResult},
   rendering::Sizing,
 };
 
@@ -145,7 +145,29 @@ impl MakeComputed for FontSize {
   }
 }
 
-impl Animatable for FontSize {}
+impl Animatable for FontSize {
+  fn interpolate(
+    &mut self,
+    from: &Self,
+    to: &Self,
+    progress: f32,
+    sizing: &Sizing,
+    current_color: Color,
+  ) {
+    let from_length = match *from {
+      Self::Keyword(keyword) => keyword.to_length(),
+      Self::Length(length) => length,
+    };
+    let to_length = match *to {
+      Self::Keyword(keyword) => keyword.to_length(),
+      Self::Length(length) => length,
+    };
+
+    let mut value = from_length;
+    value.interpolate(&from_length, &to_length, progress, sizing, current_color);
+    *self = Self::Length(value);
+  }
+}
 
 #[cfg(test)]
 mod tests {

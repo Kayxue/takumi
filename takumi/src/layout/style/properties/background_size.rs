@@ -3,7 +3,8 @@ use taffy::Size;
 
 use crate::{
   layout::style::{
-    CssToken, FromCss, Length, MakeComputed, ParseResult, tw::TailwindPropertyParser,
+    Animatable, Color, CssToken, FromCss, Length, ListInterpolationStrategy, MakeComputed,
+    ParseResult, tw::TailwindPropertyParser,
   },
   rendering::Sizing,
 };
@@ -91,6 +92,47 @@ impl MakeComputed for BackgroundSize {
       width.make_computed(sizing);
       height.make_computed(sizing);
     }
+  }
+}
+
+impl Animatable for BackgroundSize {
+  fn list_interpolation_strategy() -> ListInterpolationStrategy {
+    ListInterpolationStrategy::RepeatToLcm
+  }
+
+  fn interpolate(
+    &mut self,
+    from: &Self,
+    to: &Self,
+    progress: f32,
+    sizing: &Sizing,
+    current_color: Color,
+  ) {
+    *self = match (*from, *to) {
+      (
+        BackgroundSize::Explicit {
+          width: from_width,
+          height: from_height,
+        },
+        BackgroundSize::Explicit {
+          width: to_width,
+          height: to_height,
+        },
+      ) => {
+        let mut width = from_width;
+        width.interpolate(&from_width, &to_width, progress, sizing, current_color);
+        let mut height = from_height;
+        height.interpolate(&from_height, &to_height, progress, sizing, current_color);
+        BackgroundSize::Explicit { width, height }
+      }
+      _ => {
+        if progress >= 0.5 {
+          *to
+        } else {
+          *from
+        }
+      }
+    };
   }
 }
 

@@ -1,8 +1,9 @@
 use cssparser::Parser;
 
 use crate::layout::style::{
-  CssToken, FromCss, MakeComputed, ParseResult, tw::TailwindPropertyParser,
+  Animatable, Color, CssToken, FromCss, MakeComputed, ParseResult, lerp, tw::TailwindPropertyParser,
 };
+use crate::rendering::Sizing;
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 /// Represents a aspect ratio.
@@ -15,6 +16,30 @@ pub enum AspectRatio {
 }
 
 impl MakeComputed for AspectRatio {}
+
+impl Animatable for AspectRatio {
+  fn interpolate(
+    &mut self,
+    from: &Self,
+    to: &Self,
+    progress: f32,
+    _sizing: &Sizing,
+    _current_color: Color,
+  ) {
+    *self = match (*from, *to) {
+      (AspectRatio::Ratio(lhs), AspectRatio::Ratio(rhs)) => {
+        AspectRatio::Ratio(lerp(lhs, rhs, progress))
+      }
+      _ => {
+        if progress >= 0.5 {
+          *to
+        } else {
+          *from
+        }
+      }
+    };
+  }
+}
 
 impl TailwindPropertyParser for AspectRatio {
   fn parse_tw(token: &str) -> Option<Self> {

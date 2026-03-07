@@ -6,19 +6,27 @@ export const optionsSchema = z.object({
   quality: z.optional(
     z.int().check(z.positive(), z.minimum(1), z.maximum(100)),
   ),
-  format: z.enum(["png", "jpeg", "webp"]),
+  format: z.optional(z.enum(["png", "jpeg", "webp"])),
   devicePixelRatio: z.optional(
     z.number().check(z.positive(), z.minimum(0.1), z.maximum(10.0)),
   ),
   stylesheets: z.optional(z.array(z.string())),
+  animation: z.optional(
+    z.object({
+      durationMs: z.int().check(z.positive(), z.minimum(1)),
+      fps: z.optional(z.int().check(z.positive(), z.minimum(1))),
+      format: z.optional(z.enum(["webp", "apng", "gif"])),
+    }),
+  ),
 });
 
 const renderSuccessSchema = z.object({
   status: z.literal("success"),
   id: z.int().check(z.positive(), z.minimum(1)),
-  dataUrl: z.string(),
+  outputUrl: z.string(),
   duration: z.number(),
   node: z.unknown(),
+  outputFormat: z.string(),
   options: optionsSchema,
 });
 

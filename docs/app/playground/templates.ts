@@ -1,3 +1,4 @@
+import animatedShowcase from "./templates/animated-showcase?raw";
 import articleCover from "./templates/article-cover?raw";
 import gradientPoster from "./templates/gradient-poster?raw";
 import twitterProfileCard from "./templates/twitter-profile-card?raw";
@@ -19,6 +20,10 @@ export const templates = [
   {
     name: "Gradient Poster",
     code: gradientPoster,
+  },
+  {
+    name: "Keyframe Animation",
+    code: animatedShowcase,
   },
 ] as const;
 

@@ -6,8 +6,9 @@ use taffy::{Point, Size};
 use crate::{
   Result,
   layout::style::{
-    Affine, Angle, BlendMode, Color, CssToken, FromCss, Length, MakeComputed, ParseResult,
-    PercentageNumber, TextShadow, tw::TailwindPropertyParser,
+    Affine, Angle, Animatable, BlendMode, Color, CssToken, FromCss, Length,
+    ListInterpolationStrategy, MakeComputed, ParseResult, PercentageNumber, TextShadow,
+    tw::TailwindPropertyParser,
   },
   rendering::{
     BlurFormat, BlurType, BorderProperties, BufferPool, Canvas, RenderContext, SizedShadow, Sizing,
@@ -90,6 +91,101 @@ impl MakeComputed for Filter {
       Filter::DropShadow(shadow) => shadow.make_computed(sizing),
       _ => {}
     }
+  }
+}
+
+impl Animatable for Filter {
+  fn list_interpolation_strategy() -> ListInterpolationStrategy {
+    ListInterpolationStrategy::PadToLongestWithNeutral
+  }
+
+  fn neutral_value_like(other: &Self) -> Option<Self> {
+    Some(match *other {
+      Filter::Brightness(_) => Filter::Brightness(PercentageNumber(1.0)),
+      Filter::Contrast(_) => Filter::Contrast(PercentageNumber(1.0)),
+      Filter::Grayscale(_) => Filter::Grayscale(PercentageNumber(0.0)),
+      Filter::Saturate(_) => Filter::Saturate(PercentageNumber(1.0)),
+      Filter::HueRotate(_) => Filter::HueRotate(Angle::zero()),
+      Filter::Invert(_) => Filter::Invert(PercentageNumber(0.0)),
+      Filter::Sepia(_) => Filter::Sepia(PercentageNumber(0.0)),
+      Filter::Opacity(_) => Filter::Opacity(PercentageNumber(1.0)),
+      Filter::Blur(_) => Filter::Blur(Length::zero()),
+      Filter::DropShadow(_) => Filter::DropShadow(TextShadow {
+        offset_x: Length::zero(),
+        offset_y: Length::zero(),
+        blur_radius: Length::zero(),
+        color: Color::transparent().into(),
+      }),
+    })
+  }
+
+  fn interpolate(
+    &mut self,
+    from: &Self,
+    to: &Self,
+    progress: f32,
+    sizing: &Sizing,
+    current_color: Color,
+  ) {
+    *self = match (*from, *to) {
+      (Filter::Brightness(from), Filter::Brightness(to)) => {
+        let mut value = from;
+        value.interpolate(&from, &to, progress, sizing, current_color);
+        Filter::Brightness(value)
+      }
+      (Filter::Contrast(from), Filter::Contrast(to)) => {
+        let mut value = from;
+        value.interpolate(&from, &to, progress, sizing, current_color);
+        Filter::Contrast(value)
+      }
+      (Filter::Grayscale(from), Filter::Grayscale(to)) => {
+        let mut value = from;
+        value.interpolate(&from, &to, progress, sizing, current_color);
+        Filter::Grayscale(value)
+      }
+      (Filter::Saturate(from), Filter::Saturate(to)) => {
+        let mut value = from;
+        value.interpolate(&from, &to, progress, sizing, current_color);
+        Filter::Saturate(value)
+      }
+      (Filter::HueRotate(from), Filter::HueRotate(to)) => {
+        let mut value = from;
+        value.interpolate(&from, &to, progress, sizing, current_color);
+        Filter::HueRotate(value)
+      }
+      (Filter::Invert(from), Filter::Invert(to)) => {
+        let mut value = from;
+        value.interpolate(&from, &to, progress, sizing, current_color);
+        Filter::Invert(value)
+      }
+      (Filter::Sepia(from), Filter::Sepia(to)) => {
+        let mut value = from;
+        value.interpolate(&from, &to, progress, sizing, current_color);
+        Filter::Sepia(value)
+      }
+      (Filter::Opacity(from), Filter::Opacity(to)) => {
+        let mut value = from;
+        value.interpolate(&from, &to, progress, sizing, current_color);
+        Filter::Opacity(value)
+      }
+      (Filter::Blur(from), Filter::Blur(to)) => {
+        let mut value = from;
+        value.interpolate(&from, &to, progress, sizing, current_color);
+        Filter::Blur(value)
+      }
+      (Filter::DropShadow(from), Filter::DropShadow(to)) => {
+        let mut value = from;
+        value.interpolate(&from, &to, progress, sizing, current_color);
+        Filter::DropShadow(value)
+      }
+      _ => {
+        if progress >= 0.5 {
+          *to
+        } else {
+          *from
+        }
+      }
+    };
   }
 }
 

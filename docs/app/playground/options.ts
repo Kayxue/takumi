@@ -22,4 +22,27 @@ declare type PlaygroundOptions = {
    * @default 1.0
    */
   devicePixelRatio?: number;
+  /**
+   * @description CSS stylesheets applied before rendering.
+   */
+  stylesheets?: string[];
+  /**
+   * @description timeline animation output. When present, the playground renders an animated image instead of a single frame.
+   */
+  animation?: {
+    /**
+     * @description total timeline duration in milliseconds.
+     */
+    durationMs: number;
+    /**
+     * @description frames per second used to sample keyframes.
+     * @default 30
+     */
+    fps?: number;
+    /**
+     * @description animation output format.
+     * @default webp
+     */
+    format?: "webp" | "apng" | "gif";
+  };
 };

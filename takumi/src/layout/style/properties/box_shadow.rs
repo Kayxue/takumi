@@ -4,7 +4,8 @@ use cssparser::{BasicParseErrorKind, ParseError, Parser};
 
 use crate::{
   layout::style::{
-    Color, ColorInput, CssToken, FromCss, Length, MakeComputed, ParseResult, next_is_comma,
+    Animatable, Color, ColorInput, CssToken, FromCss, Length, ListInterpolationStrategy,
+    MakeComputed, ParseResult, next_is_comma,
   },
   rendering::Sizing,
 };
@@ -145,6 +146,70 @@ impl MakeComputed for BoxShadow {
     self.offset_y.make_computed(sizing);
     self.blur_radius.make_computed(sizing);
     self.spread_radius.make_computed(sizing);
+  }
+}
+
+impl Animatable for BoxShadow {
+  fn list_interpolation_strategy() -> ListInterpolationStrategy {
+    ListInterpolationStrategy::PadToLongestWithNeutral
+  }
+
+  fn neutral_value_like(other: &Self) -> Option<Self> {
+    Some(Self {
+      inset: other.inset,
+      offset_x: Length::zero(),
+      offset_y: Length::zero(),
+      blur_radius: Length::zero(),
+      spread_radius: Length::zero(),
+      color: Color::transparent().into(),
+    })
+  }
+
+  fn interpolate(
+    &mut self,
+    from: &Self,
+    to: &Self,
+    progress: f32,
+    sizing: &Sizing,
+    current_color: Color,
+  ) {
+    if from.inset != to.inset {
+      *self = if progress >= 0.5 { *to } else { *from };
+      return;
+    }
+
+    self.inset = from.inset;
+    self.offset_x.interpolate(
+      &from.offset_x,
+      &to.offset_x,
+      progress,
+      sizing,
+      current_color,
+    );
+    self.offset_y.interpolate(
+      &from.offset_y,
+      &to.offset_y,
+      progress,
+      sizing,
+      current_color,
+    );
+    self.blur_radius.interpolate(
+      &from.blur_radius,
+      &to.blur_radius,
+      progress,
+      sizing,
+      current_color,
+    );
+    self.spread_radius.interpolate(
+      &from.spread_radius,
+      &to.spread_radius,
+      progress,
+      sizing,
+      current_color,
+    );
+    self
+      .color
+      .interpolate(&from.color, &to.color, progress, sizing, current_color);
   }
 }
 

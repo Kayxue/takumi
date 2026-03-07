@@ -133,6 +133,38 @@ fn normalize_kebab_property_name(name: &str) -> Option<String> {
   )
 }
 
+#[cfg(feature = "css_stylesheet_parsing")]
+#[allow(clippy::too_many_arguments)]
+fn interpolate_option_with_missing<T: Animatable + Clone>(
+  target: &mut Option<T>,
+  from: &Option<T>,
+  to: &Option<T>,
+  missing_from: T,
+  missing_to: T,
+  progress: f32,
+  sizing: &Sizing,
+  current_color: Color,
+) {
+  *target = match (from, to) {
+    (Some(from), Some(to)) => {
+      let mut value = from.clone();
+      value.interpolate(from, to, progress, sizing, current_color);
+      Some(value)
+    }
+    (Some(from), None) => {
+      let mut value = from.clone();
+      value.interpolate(from, &missing_to, progress, sizing, current_color);
+      Some(value)
+    }
+    (None, Some(to)) => {
+      let mut value = missing_from.clone();
+      value.interpolate(&missing_from, to, progress, sizing, current_color);
+      Some(value)
+    }
+    (None, None) => None,
+  };
+}
+
 fn normalize_camel_property_name(name: &str) -> String {
   let mut normalized = String::with_capacity(name.len() + 4);
   for ch in name.chars() {
@@ -495,6 +527,72 @@ macro_rules! define_style {
               );
             }
           )*
+
+          // special cases
+          if animated_properties.contains(&LonghandId::FlexGrow) {
+            interpolate_option_with_missing(
+              &mut self.flex_grow,
+              &from.flex_grow,
+              &to.flex_grow,
+              FlexGrow(0.0),
+              FlexGrow(0.0),
+              progress,
+              sizing,
+              current_color,
+            );
+          }
+
+          if animated_properties.contains(&LonghandId::FlexShrink) {
+            interpolate_option_with_missing(
+              &mut self.flex_shrink,
+              &from.flex_shrink,
+              &to.flex_shrink,
+              FlexGrow(1.0),
+              FlexGrow(1.0),
+              progress,
+              sizing,
+              current_color,
+            );
+          }
+
+          if animated_properties.contains(&LonghandId::WebkitTextStrokeWidth) {
+            interpolate_option_with_missing(
+              &mut self.webkit_text_stroke_width,
+              &from.webkit_text_stroke_width,
+              &to.webkit_text_stroke_width,
+              Length::zero(),
+              Length::zero(),
+              progress,
+              sizing,
+              current_color,
+            );
+          }
+
+          if animated_properties.contains(&LonghandId::WebkitTextStrokeColor) {
+            interpolate_option_with_missing(
+              &mut self.webkit_text_stroke_color,
+              &from.webkit_text_stroke_color,
+              &to.webkit_text_stroke_color,
+              ColorInput::CurrentColor,
+              ColorInput::CurrentColor,
+              progress,
+              sizing,
+              current_color,
+            );
+          }
+
+          if animated_properties.contains(&LonghandId::WebkitTextFillColor) {
+            interpolate_option_with_missing(
+              &mut self.webkit_text_fill_color,
+              &from.webkit_text_fill_color,
+              &to.webkit_text_fill_color,
+              from.color,
+              to.color,
+              progress,
+              sizing,
+              current_color,
+            );
+          }
         }
       }
 

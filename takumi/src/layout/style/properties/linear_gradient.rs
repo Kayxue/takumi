@@ -331,6 +331,10 @@ pub struct Angle(f32);
 impl MakeComputed for Angle {}
 
 impl Animatable for Angle {
+  fn missing_value() -> Option<Self> {
+    Some(Angle::zero())
+  }
+
   fn interpolate(
     &mut self,
     from: &Self,
@@ -339,7 +343,10 @@ impl Animatable for Angle {
     _sizing: &Sizing,
     _current_color: Color,
   ) {
-    *self = Angle::new(**from + (**to - **from) * progress);
+    let from_degrees = **from;
+    let to_degrees = **to;
+    let delta = (to_degrees - from_degrees + 180.0).rem_euclid(360.0) - 180.0;
+    *self = Angle::new(from_degrees + delta * progress);
   }
 }
 
@@ -570,10 +577,24 @@ impl<'i> FromCss<'i> for Angle {
 #[cfg(test)]
 mod tests {
   use color::{ColorSpaceTag, HueDirection};
+  use std::rc::Rc;
+  use taffy::Size;
 
-  use crate::GlobalContext;
+  use crate::{
+    GlobalContext,
+    layout::{Viewport, style::CalcArena},
+  };
 
   use super::*;
+
+  fn sizing() -> Sizing {
+    Sizing {
+      viewport: Viewport::new(Some(200), Some(100)),
+      container_size: Size::NONE,
+      font_size: 16.0,
+      calc_arena: Rc::new(CalcArena::default()),
+    }
+  }
 
   #[test]
   fn test_parse_linear_gradient() {
@@ -665,6 +686,28 @@ mod tests {
   #[test]
   fn test_parse_direction_keywords_bottom_right() {
     assert_eq!(Angle::from_str("to bottom right"), Ok(Angle::new(135.0)));
+  }
+
+  #[test]
+  fn test_angle_interpolate_uses_shortest_path_across_zero() {
+    let from = Angle::new(0.0);
+    let to = Angle::new(-3.0);
+    let mut interpolated = from;
+
+    interpolated.interpolate(&from, &to, 0.5, &sizing(), Color::transparent());
+
+    assert!((*interpolated - 358.5).abs() < 0.001);
+  }
+
+  #[test]
+  fn test_angle_interpolate_uses_shortest_path_forward_across_zero() {
+    let from = Angle::new(-3.0);
+    let to = Angle::new(0.0);
+    let mut interpolated = from;
+
+    interpolated.interpolate(&from, &to, 0.5, &sizing(), Color::transparent());
+
+    assert!((*interpolated - 358.5).abs() < 0.001);
   }
 
   #[test]

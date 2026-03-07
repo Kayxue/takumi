@@ -4,7 +4,10 @@ use cssparser::{Parser, Token, match_ignore_ascii_case};
 use taffy::{Point, Size};
 
 use crate::{
-  layout::style::{Angle, CssToken, FromCss, Length, MakeComputed, ParseResult, PercentageNumber},
+  layout::style::{
+    Angle, Animatable, Color, CssToken, FromCss, Length, ListInterpolationStrategy, MakeComputed,
+    ParseResult, PercentageNumber, lerp,
+  },
   rendering::Sizing,
 };
 
@@ -31,6 +34,71 @@ impl MakeComputed for Transform {
       x.make_computed(sizing);
       y.make_computed(sizing);
     }
+  }
+}
+
+impl Animatable for Transform {
+  fn list_interpolation_strategy() -> ListInterpolationStrategy {
+    ListInterpolationStrategy::PadToLongestWithNeutral
+  }
+
+  fn neutral_value_like(other: &Self) -> Option<Self> {
+    Some(match *other {
+      Transform::Translate(_, _) => Transform::Translate(Length::zero(), Length::zero()),
+      Transform::Scale(_, _) => Transform::Scale(1.0, 1.0),
+      Transform::Rotate(_) => Transform::Rotate(Angle::zero()),
+      Transform::Skew(_, _) => Transform::Skew(Angle::zero(), Angle::zero()),
+      Transform::Matrix(_) => Transform::Matrix(Affine::IDENTITY),
+    })
+  }
+
+  fn interpolate(
+    &mut self,
+    from: &Self,
+    to: &Self,
+    progress: f32,
+    sizing: &Sizing,
+    current_color: Color,
+  ) {
+    *self = match (*from, *to) {
+      (Transform::Translate(from_x, from_y), Transform::Translate(to_x, to_y)) => {
+        let mut x = from_x;
+        x.interpolate(&from_x, &to_x, progress, sizing, current_color);
+        let mut y = from_y;
+        y.interpolate(&from_y, &to_y, progress, sizing, current_color);
+        Transform::Translate(x, y)
+      }
+      (Transform::Scale(from_x, from_y), Transform::Scale(to_x, to_y)) => {
+        Transform::Scale(lerp(from_x, to_x, progress), lerp(from_y, to_y, progress))
+      }
+      (Transform::Rotate(from_angle), Transform::Rotate(to_angle)) => {
+        let mut angle = from_angle;
+        angle.interpolate(&from_angle, &to_angle, progress, sizing, current_color);
+        Transform::Rotate(angle)
+      }
+      (Transform::Skew(from_x, from_y), Transform::Skew(to_x, to_y)) => {
+        let mut x = from_x;
+        x.interpolate(&from_x, &to_x, progress, sizing, current_color);
+        let mut y = from_y;
+        y.interpolate(&from_y, &to_y, progress, sizing, current_color);
+        Transform::Skew(x, y)
+      }
+      (Transform::Matrix(from_affine), Transform::Matrix(to_affine)) => Transform::Matrix(Affine {
+        a: lerp(from_affine.a, to_affine.a, progress),
+        b: lerp(from_affine.b, to_affine.b, progress),
+        c: lerp(from_affine.c, to_affine.c, progress),
+        d: lerp(from_affine.d, to_affine.d, progress),
+        x: lerp(from_affine.x, to_affine.x, progress),
+        y: lerp(from_affine.y, to_affine.y, progress),
+      }),
+      _ => {
+        if progress >= 0.5 {
+          *to
+        } else {
+          *from
+        }
+      }
+    };
   }
 }
 

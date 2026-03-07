@@ -3,8 +3,8 @@ use cssparser::{Parser, Token, match_ignore_ascii_case};
 
 use crate::{
   layout::style::{
-    CssToken, FromCss, Length, MakeComputed, ParseResult, declare_enum_from_css_impl,
-    properties::ColorInput, tw::TailwindPropertyParser,
+    Animatable, Color, CssToken, FromCss, Length, MakeComputed, ParseResult,
+    declare_enum_from_css_impl, properties::ColorInput, tw::TailwindPropertyParser,
   },
   rendering::Sizing,
 };
@@ -88,6 +88,32 @@ impl MakeComputed for TextDecorationThickness {
     if let Self::Length(length) = self {
       length.make_computed(sizing);
     }
+  }
+}
+
+impl Animatable for TextDecorationThickness {
+  fn interpolate(
+    &mut self,
+    from: &Self,
+    to: &Self,
+    progress: f32,
+    sizing: &Sizing,
+    current_color: Color,
+  ) {
+    *self = match (*from, *to) {
+      (TextDecorationThickness::Length(from), TextDecorationThickness::Length(to)) => {
+        let mut value = from;
+        value.interpolate(&from, &to, progress, sizing, current_color);
+        TextDecorationThickness::Length(value)
+      }
+      _ => {
+        if progress >= 0.5 {
+          *to
+        } else {
+          *from
+        }
+      }
+    };
   }
 }
 

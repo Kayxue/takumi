@@ -1,7 +1,8 @@
 use cssparser::{Parser, match_ignore_ascii_case};
 
 use crate::layout::style::{
-  CssToken, FromCss, MakeComputed, ParseResult, declare_enum_from_css_impl,
+  Animatable, CssToken, FromCss, ListInterpolationStrategy, MakeComputed, ParseResult,
+  declare_enum_from_css_impl,
 };
 
 /// Per-axis repeat style.
@@ -31,6 +32,12 @@ declare_enum_from_css_impl!(
 pub struct BackgroundRepeat(pub BackgroundRepeatStyle, pub BackgroundRepeatStyle);
 
 impl MakeComputed for BackgroundRepeat {}
+
+impl Animatable for BackgroundRepeat {
+  fn list_interpolation_strategy() -> ListInterpolationStrategy {
+    ListInterpolationStrategy::RepeatToLcm
+  }
+}
 
 impl BackgroundRepeat {
   /// Returns a repeat value that tiles on both the X and Y axes.

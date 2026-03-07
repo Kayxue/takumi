@@ -215,6 +215,28 @@ pub(crate) trait Animatable: Sized + Clone {
       from.clone()
     };
   }
+
+  fn list_interpolation_strategy() -> ListInterpolationStrategy {
+    ListInterpolationStrategy::Discrete
+  }
+
+  fn neutral_value_like(_other: &Self) -> Option<Self> {
+    None
+  }
+
+  fn missing_value() -> Option<Self> {
+    None
+  }
+}
+
+pub(crate) fn lerp(lhs: f32, rhs: f32, progress: f32) -> f32 {
+  lhs + (rhs - lhs) * progress
+}
+
+pub(crate) enum ListInterpolationStrategy {
+  Discrete,
+  RepeatToLcm,
+  PadToLongestWithNeutral,
 }
 
 impl<T: MakeComputed> MakeComputed for Option<T> {
@@ -257,34 +279,54 @@ impl<T: Animatable + Clone> Animatable for Option<T> {
     sizing: &Sizing,
     current_color: Color,
   ) {
-    match (from, to) {
+    *self = match (from, to) {
       (Some(from), Some(to)) => {
         let mut value = from.clone();
         value.interpolate(from, to, progress, sizing, current_color);
-        *self = Some(value);
+        Some(value)
       }
-      (Some(from), None) => {
-        *self = if progress >= 0.5 {
-          None
-        } else {
-          Some(from.clone())
-        };
-      }
-      (None, Some(to)) => {
-        *self = if progress >= 0.5 {
-          Some(to.clone())
-        } else {
-          None
-        };
-      }
-      (None, None) => {
-        *self = None;
-      }
-    }
+      (Some(from), None) => T::missing_value().map_or_else(
+        || {
+          if progress >= 0.5 {
+            None
+          } else {
+            Some(from.clone())
+          }
+        },
+        |missing| {
+          let mut value = from.clone();
+          value.interpolate(from, &missing, progress, sizing, current_color);
+          Some(value)
+        },
+      ),
+      (None, Some(to)) => T::missing_value().map_or_else(
+        || {
+          if progress >= 0.5 {
+            Some(to.clone())
+          } else {
+            None
+          }
+        },
+        |missing| {
+          let mut value = missing.clone();
+          value.interpolate(&missing, to, progress, sizing, current_color);
+          Some(value)
+        },
+      ),
+      (None, None) => None,
+    };
   }
 }
 
 impl<T: Animatable + Clone> Animatable for Box<[T]> {
+  fn missing_value() -> Option<Self> {
+    match T::list_interpolation_strategy() {
+      ListInterpolationStrategy::Discrete => None,
+      ListInterpolationStrategy::RepeatToLcm
+      | ListInterpolationStrategy::PadToLongestWithNeutral => Some(Box::default()),
+    }
+  }
+
   fn interpolate(
     &mut self,
     from: &Self,
@@ -293,30 +335,33 @@ impl<T: Animatable + Clone> Animatable for Box<[T]> {
     sizing: &Sizing,
     current_color: Color,
   ) {
-    if from.len() != to.len() {
-      *self = if progress >= 1.0 {
+    *self = interpolate_list(
+      from,
+      to,
+      progress,
+      sizing,
+      current_color,
+      Vec::into_boxed_slice,
+    )
+    .unwrap_or_else(|| {
+      if progress >= 1.0 {
         to.clone()
       } else {
         from.clone()
-      };
-      return;
-    }
-
-    let values = from
-      .into_iter()
-      .zip(to.iter())
-      .map(|(from_value, to_value)| {
-        let mut value = from_value.clone();
-        value.interpolate(from_value, to_value, progress, sizing, current_color);
-        value
-      })
-      .collect::<Vec<_>>()
-      .into_boxed_slice();
-    *self = values;
+      }
+    });
   }
 }
 
 impl<T: Animatable + Clone> Animatable for Vec<T> {
+  fn missing_value() -> Option<Self> {
+    match T::list_interpolation_strategy() {
+      ListInterpolationStrategy::Discrete => None,
+      ListInterpolationStrategy::RepeatToLcm
+      | ListInterpolationStrategy::PadToLongestWithNeutral => Some(Vec::new()),
+    }
+  }
+
   fn interpolate(
     &mut self,
     from: &Self,
@@ -325,25 +370,117 @@ impl<T: Animatable + Clone> Animatable for Vec<T> {
     sizing: &Sizing,
     current_color: Color,
   ) {
-    if from.len() != to.len() {
-      *self = if progress >= 1.0 {
-        to.clone()
-      } else {
-        from.clone()
-      };
-      return;
-    }
-
-    *self = from
-      .iter()
-      .zip(to.iter())
-      .map(|(from_value, to_value)| {
-        let mut value = from_value.clone();
-        value.interpolate(from_value, to_value, progress, sizing, current_color);
-        value
-      })
-      .collect();
+    *self = interpolate_list(from, to, progress, sizing, current_color, |values| values)
+      .unwrap_or_else(|| {
+        if progress >= 1.0 {
+          to.clone()
+        } else {
+          from.clone()
+        }
+      });
   }
+}
+
+fn interpolate_list<T: Animatable + Clone, C: AsRef<[T]>, O>(
+  from: &C,
+  to: &C,
+  progress: f32,
+  sizing: &Sizing,
+  current_color: Color,
+  build: impl FnOnce(Vec<T>) -> O,
+) -> Option<O> {
+  let from = from.as_ref();
+  let to = to.as_ref();
+
+  let values = match T::list_interpolation_strategy() {
+    ListInterpolationStrategy::Discrete => {
+      if from.len() != to.len() {
+        return None;
+      }
+      interpolate_pairwise_list(from, to, from.len(), progress, sizing, current_color)
+    }
+    ListInterpolationStrategy::RepeatToLcm => {
+      if from.is_empty() || to.is_empty() {
+        return None;
+      }
+      interpolate_pairwise_list(
+        from,
+        to,
+        lcm(from.len(), to.len()),
+        progress,
+        sizing,
+        current_color,
+      )
+    }
+    ListInterpolationStrategy::PadToLongestWithNeutral => {
+      interpolate_neutral_padded_list(from, to, progress, sizing, current_color)?
+    }
+  };
+
+  Some(build(values))
+}
+
+fn interpolate_pairwise_list<T: Animatable + Clone>(
+  from: &[T],
+  to: &[T],
+  output_len: usize,
+  progress: f32,
+  sizing: &Sizing,
+  current_color: Color,
+) -> Vec<T> {
+  (0..output_len)
+    .map(|index| {
+      let from_value = &from[index % from.len()];
+      let to_value = &to[index % to.len()];
+      let mut value = from_value.clone();
+      value.interpolate(from_value, to_value, progress, sizing, current_color);
+      value
+    })
+    .collect()
+}
+
+fn interpolate_neutral_padded_list<T: Animatable + Clone>(
+  from: &[T],
+  to: &[T],
+  progress: f32,
+  sizing: &Sizing,
+  current_color: Color,
+) -> Option<Vec<T>> {
+  let output_len = from.len().max(to.len());
+
+  (0..output_len)
+    .map(|index| {
+      let from_value = if index < from.len() {
+        from.get(index).cloned()
+      } else {
+        to.get(index).and_then(T::neutral_value_like)
+      }?;
+      let to_value = if index < to.len() {
+        to.get(index).cloned()
+      } else {
+        from.get(index).and_then(T::neutral_value_like)
+      }?;
+
+      let mut value = from_value.clone();
+      value.interpolate(&from_value, &to_value, progress, sizing, current_color);
+      Some(value)
+    })
+    .collect()
+}
+
+fn gcd(lhs: usize, rhs: usize) -> usize {
+  let mut lhs = lhs;
+  let mut rhs = rhs;
+  while rhs != 0 {
+    let remainder = lhs % rhs;
+    lhs = rhs;
+    rhs = remainder;
+  }
+  lhs
+}
+
+fn lcm(lhs: usize, rhs: usize) -> usize {
+  lhs / gcd(lhs, rhs) * rhs
 }
 
 impl<T: Animatable + Copy, const Y_FIRST: bool> Animatable for SpacePair<T, Y_FIRST> {

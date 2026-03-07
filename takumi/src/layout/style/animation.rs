@@ -425,7 +425,6 @@ impl_passthrough_animatable!(
   AnimationFillModes,
   AnimationPlayStates,
   Display,
-  AspectRatio,
   FlexDirection,
   AlignItems,
   JustifyContent,
@@ -442,10 +441,8 @@ impl_passthrough_animatable!(
   TextOverflow,
   TextTransform,
   FontStyle,
-  FontStretch,
   FontFamily,
   LineHeight,
-  FontWeight,
   FontSynthesis,
   FontSynthesic,
   LineClamp,
@@ -455,7 +452,6 @@ impl_passthrough_animatable!(
   TextDecoration,
   TextDecorationLines,
   TextDecorationStyle,
-  TextDecorationThickness,
   TextDecorationSkipInk,
   ImageScalingAlgorithm,
   OverflowWrap,
@@ -468,21 +464,12 @@ impl_passthrough_animatable!(
   TextWrapStyle,
   TextWrap,
   Isolation,
-  BlendMode,
   Visibility,
   VerticalAlign,
   Flex,
-  FlexGrow,
-  Transform,
   Background,
-  BackgroundImage,
-  BackgroundSize,
-  BackgroundRepeat,
-  BoxShadow,
   GridTrackSize,
   GridTemplateComponent,
-  Filter,
-  TextShadow,
   FontFeature,
   FontVariation,
 );
@@ -550,11 +537,6 @@ fn resolve_length_with_sizing<const DEFAULT_AUTO: bool>(
   }
 
   Some(value.to_px(sizing, sizing.viewport.width.unwrap_or_default() as f32))
-}
-
-#[cfg(feature = "css_stylesheet_parsing")]
-fn lerp(lhs: f32, rhs: f32, progress: f32) -> f32 {
-  lhs + (rhs - lhs) * progress
 }
 
 #[cfg(all(test, feature = "css_stylesheet_parsing"))]
@@ -716,6 +698,243 @@ mod tests {
   }
 
   #[test]
+  fn option_angle_interpolates_inner_angle() {
+    let mut target: Option<Angle> = None;
+    target.interpolate(
+      &Some(Angle::new(0.0)),
+      &Some(Angle::new(90.0)),
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(target, Some(Angle::new(45.0)));
+  }
+
+  #[test]
+  fn option_angle_interpolates_from_missing_zero_angle() {
+    let mut target: Option<Angle> = None;
+    target.interpolate(
+      &None,
+      &Some(Angle::new(45.0)),
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(target, Some(Angle::new(22.5)));
+  }
+
+  #[test]
+  fn aspect_ratio_interpolates_ratio_values() {
+    let mut target = AspectRatio::Auto;
+    target.interpolate(
+      &AspectRatio::Ratio(1.0),
+      &AspectRatio::Ratio(2.0),
+      0.25,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(target, AspectRatio::Ratio(1.25));
+  }
+
+  #[test]
+  fn font_stretch_interpolates_percentages() {
+    let mut target = FontStretch::from_percentage(0.0);
+    target.interpolate(
+      &FontStretch::from_percentage(0.75),
+      &FontStretch::from_percentage(1.25),
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert!((target.percentage() - 1.0).abs() < f32::EPSILON);
+  }
+
+  #[test]
+  fn font_weight_interpolates_numeric_values() {
+    let mut target = FontWeight::default();
+    target.interpolate(
+      &FontWeight::from(400.0),
+      &FontWeight::from(700.0),
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert!((target.value() - 550.0).abs() < f32::EPSILON);
+  }
+
+  #[test]
+  fn text_decoration_thickness_interpolates_lengths() {
+    let mut target = TextDecorationThickness::default();
+    target.interpolate(
+      &TextDecorationThickness::Length(Length::Px(2.0)),
+      &TextDecorationThickness::Length(Length::Px(10.0)),
+      0.25,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(target, TextDecorationThickness::Length(Length::Px(4.0)));
+  }
+
+  #[test]
+  fn flex_grow_interpolates_numeric_values() {
+    let mut target = FlexGrow(0.0);
+    target.interpolate(
+      &FlexGrow(1.0),
+      &FlexGrow(3.0),
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert!((target.0 - 2.0).abs() < f32::EPSILON);
+  }
+
+  #[test]
+  fn transform_translate_interpolates_lengths() {
+    let mut target = Transform::Translate(Length::zero(), Length::zero());
+    target.interpolate(
+      &Transform::Translate(Length::Px(0.0), Length::Px(10.0)),
+      &Transform::Translate(Length::Px(20.0), Length::Px(30.0)),
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(
+      target,
+      Transform::Translate(Length::Px(10.0), Length::Px(20.0))
+    );
+  }
+
+  #[test]
+  fn background_size_interpolates_explicit_lengths() {
+    let mut target = BackgroundSize::default();
+    target.interpolate(
+      &BackgroundSize::Explicit {
+        width: Length::Px(10.0),
+        height: Length::Px(20.0),
+      },
+      &BackgroundSize::Explicit {
+        width: Length::Px(30.0),
+        height: Length::Px(60.0),
+      },
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(
+      target,
+      BackgroundSize::Explicit {
+        width: Length::Px(20.0),
+        height: Length::Px(40.0),
+      }
+    );
+  }
+
+  #[test]
+  fn box_shadow_interpolates_lengths_and_color() {
+    let mut target = BoxShadow {
+      inset: false,
+      offset_x: Length::zero(),
+      offset_y: Length::zero(),
+      blur_radius: Length::zero(),
+      spread_radius: Length::zero(),
+      color: ColorInput::CurrentColor,
+    };
+    target.interpolate(
+      &BoxShadow {
+        inset: false,
+        offset_x: Length::Px(0.0),
+        offset_y: Length::Px(10.0),
+        blur_radius: Length::Px(20.0),
+        spread_radius: Length::Px(30.0),
+        color: ColorInput::Value(Color([0, 0, 0, 255])),
+      },
+      &BoxShadow {
+        inset: false,
+        offset_x: Length::Px(20.0),
+        offset_y: Length::Px(30.0),
+        blur_radius: Length::Px(40.0),
+        spread_radius: Length::Px(50.0),
+        color: ColorInput::Value(Color([200, 100, 50, 255])),
+      },
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(
+      target,
+      BoxShadow {
+        inset: false,
+        offset_x: Length::Px(10.0),
+        offset_y: Length::Px(20.0),
+        blur_radius: Length::Px(30.0),
+        spread_radius: Length::Px(40.0),
+        color: ColorInput::Value(Color([100, 50, 25, 255])),
+      }
+    );
+  }
+
+  #[test]
+  fn text_shadow_interpolates_lengths_and_color() {
+    let mut target = TextShadow {
+      offset_x: Length::zero(),
+      offset_y: Length::zero(),
+      blur_radius: Length::zero(),
+      color: ColorInput::CurrentColor,
+    };
+    target.interpolate(
+      &TextShadow {
+        offset_x: Length::Px(0.0),
+        offset_y: Length::Px(10.0),
+        blur_radius: Length::Px(20.0),
+        color: ColorInput::Value(Color([0, 0, 0, 255])),
+      },
+      &TextShadow {
+        offset_x: Length::Px(20.0),
+        offset_y: Length::Px(30.0),
+        blur_radius: Length::Px(40.0),
+        color: ColorInput::Value(Color([200, 100, 50, 255])),
+      },
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(
+      target,
+      TextShadow {
+        offset_x: Length::Px(10.0),
+        offset_y: Length::Px(20.0),
+        blur_radius: Length::Px(30.0),
+        color: ColorInput::Value(Color([100, 50, 25, 255])),
+      }
+    );
+  }
+
+  #[test]
+  fn filter_blur_interpolates_lengths() {
+    let mut target = Filter::Blur(Length::zero());
+    target.interpolate(
+      &Filter::Blur(Length::Px(4.0)),
+      &Filter::Blur(Length::Px(12.0)),
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(target, Filter::Blur(Length::Px(8.0)));
+  }
+
+  #[test]
   fn animation_progress_uses_next_iteration_start_at_boundaries() {
     let progress = sample_animation_progress(
       1000.0,
@@ -786,6 +1005,102 @@ mod tests {
   }
 
   #[test]
+  fn vec_animates_repeatable_lists_to_lcm_length() {
+    let mut values: Vec<BackgroundSize> = Vec::new();
+    values.interpolate(
+      &vec![BackgroundSize::Explicit {
+        width: Length::Px(10.0),
+        height: Length::Px(20.0),
+      }],
+      &vec![
+        BackgroundSize::Explicit {
+          width: Length::Px(30.0),
+          height: Length::Px(40.0),
+        },
+        BackgroundSize::Explicit {
+          width: Length::Px(50.0),
+          height: Length::Px(60.0),
+        },
+      ],
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(
+      values,
+      vec![
+        BackgroundSize::Explicit {
+          width: Length::Px(20.0),
+          height: Length::Px(30.0),
+        },
+        BackgroundSize::Explicit {
+          width: Length::Px(30.0),
+          height: Length::Px(40.0),
+        },
+      ]
+    );
+  }
+
+  #[test]
+  fn boxed_background_lists_animate_repeatable_lists_to_lcm_length() {
+    let mut values: Box<[BackgroundSize]> = Box::default();
+    values.interpolate(
+      &[BackgroundSize::Explicit {
+        width: Length::Px(10.0),
+        height: Length::Px(20.0),
+      }]
+      .into(),
+      &[
+        BackgroundSize::Explicit {
+          width: Length::Px(30.0),
+          height: Length::Px(40.0),
+        },
+        BackgroundSize::Explicit {
+          width: Length::Px(50.0),
+          height: Length::Px(60.0),
+        },
+      ]
+      .into(),
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(
+      values,
+      [
+        BackgroundSize::Explicit {
+          width: Length::Px(20.0),
+          height: Length::Px(30.0),
+        },
+        BackgroundSize::Explicit {
+          width: Length::Px(30.0),
+          height: Length::Px(40.0),
+        },
+      ]
+      .into()
+    );
+  }
+
+  #[test]
+  fn boxed_transform_lists_pad_to_longest_with_neutral_values() {
+    let mut values: Box<[Transform]> = Box::default();
+    values.interpolate(
+      &[Transform::Scale(1.0, 1.0)].into(),
+      &[Transform::Scale(2.0, 2.0), Transform::Scale(4.0, 4.0)].into(),
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(
+      values,
+      [Transform::Scale(1.5, 1.5), Transform::Scale(2.5, 2.5)].into()
+    );
+  }
+
+  #[test]
   fn apply_interpolated_properties_only_updates_masked_fields() {
     let mut base_style = ComputedStyle {
       width: Length::Px(10.0),
@@ -815,5 +1130,147 @@ mod tests {
 
     assert_eq!(base_style.width, Length::Px(20.0));
     assert_eq!(base_style.height, Length::Px(20.0));
+  }
+
+  #[test]
+  fn apply_interpolated_properties_interpolates_rotate_from_implicit_none() {
+    let mut base_style = ComputedStyle::default();
+    let from = ComputedStyle::default();
+    let to = ComputedStyle {
+      rotate: Some(Angle::new(45.0)),
+      ..ComputedStyle::default()
+    };
+    let animated_properties = BTreeSet::from([LonghandId::Rotate]);
+
+    base_style.apply_interpolated_properties(
+      &from,
+      &to,
+      &animated_properties,
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(base_style.rotate, Some(Angle::new(22.5)));
+  }
+
+  #[test]
+  fn apply_interpolated_properties_interpolates_flex_grow_from_implicit_zero() {
+    let mut base_style = ComputedStyle::default();
+    let from = ComputedStyle::default();
+    let to = ComputedStyle {
+      flex_grow: Some(FlexGrow(4.0)),
+      ..ComputedStyle::default()
+    };
+    let animated_properties = BTreeSet::from([LonghandId::FlexGrow]);
+
+    base_style.apply_interpolated_properties(
+      &from,
+      &to,
+      &animated_properties,
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(base_style.flex_grow, Some(FlexGrow(2.0)));
+  }
+
+  #[test]
+  fn apply_interpolated_properties_interpolates_flex_shrink_from_implicit_one() {
+    let mut base_style = ComputedStyle::default();
+    let from = ComputedStyle::default();
+    let to = ComputedStyle {
+      flex_shrink: Some(FlexGrow(3.0)),
+      ..ComputedStyle::default()
+    };
+    let animated_properties = BTreeSet::from([LonghandId::FlexShrink]);
+
+    base_style.apply_interpolated_properties(
+      &from,
+      &to,
+      &animated_properties,
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(base_style.flex_shrink, Some(FlexGrow(2.0)));
+  }
+
+  #[test]
+  fn apply_interpolated_properties_interpolates_text_stroke_width_from_implicit_zero() {
+    let mut base_style = ComputedStyle::default();
+    let from = ComputedStyle::default();
+    let to = ComputedStyle {
+      webkit_text_stroke_width: Some(Length::Px(6.0)),
+      ..ComputedStyle::default()
+    };
+    let animated_properties = BTreeSet::from([LonghandId::WebkitTextStrokeWidth]);
+
+    base_style.apply_interpolated_properties(
+      &from,
+      &to,
+      &animated_properties,
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(base_style.webkit_text_stroke_width, Some(Length::Px(3.0)));
+  }
+
+  #[test]
+  fn apply_interpolated_properties_interpolates_text_stroke_color_from_current_color() {
+    let mut base_style = ComputedStyle::default();
+    let from = ComputedStyle::default();
+    let to = ComputedStyle {
+      webkit_text_stroke_color: Some(ColorInput::Value(Color([110, 120, 130, 255]))),
+      ..ComputedStyle::default()
+    };
+    let animated_properties = BTreeSet::from([LonghandId::WebkitTextStrokeColor]);
+
+    base_style.apply_interpolated_properties(
+      &from,
+      &to,
+      &animated_properties,
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(
+      base_style.webkit_text_stroke_color,
+      Some(ColorInput::Value(Color([60, 70, 80, 255])))
+    );
+  }
+
+  #[test]
+  fn apply_interpolated_properties_interpolates_text_fill_color_from_style_color() {
+    let mut base_style = ComputedStyle::default();
+    let from = ComputedStyle {
+      color: ColorInput::Value(Color([20, 40, 60, 255])),
+      ..ComputedStyle::default()
+    };
+    let to = ComputedStyle {
+      color: ColorInput::Value(Color([20, 40, 60, 255])),
+      webkit_text_fill_color: Some(ColorInput::Value(Color([120, 140, 160, 255]))),
+      ..ComputedStyle::default()
+    };
+    let animated_properties = BTreeSet::from([LonghandId::WebkitTextFillColor]);
+
+    base_style.apply_interpolated_properties(
+      &from,
+      &to,
+      &animated_properties,
+      0.5,
+      &sizing(),
+      current_color(),
+    );
+
+    assert_eq!(
+      base_style.webkit_text_fill_color,
+      Some(ColorInput::Value(Color([70, 90, 110, 255])))
+    );
   }
 }

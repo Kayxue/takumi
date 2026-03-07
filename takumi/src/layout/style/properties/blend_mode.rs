@@ -1,7 +1,9 @@
 use cssparser::Parser;
 
 use crate::layout::style::tw::TailwindPropertyParser;
-use crate::layout::style::{CssToken, FromCss, ParseResult, declare_enum_from_css_impl};
+use crate::layout::style::{
+  Animatable, CssToken, FromCss, ListInterpolationStrategy, ParseResult, declare_enum_from_css_impl,
+};
 
 /// A list of blend modes.
 pub type BlendModes = Box<[BlendMode]>;
@@ -90,5 +92,11 @@ declare_enum_from_css_impl!(
 impl TailwindPropertyParser for BlendMode {
   fn parse_tw(token: &str) -> Option<Self> {
     Self::from_str(token).ok()
+  }
+}
+
+impl Animatable for BlendMode {
+  fn list_interpolation_strategy() -> ListInterpolationStrategy {
+    ListInterpolationStrategy::RepeatToLcm
   }
 }

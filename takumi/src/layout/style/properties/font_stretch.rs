@@ -2,14 +2,28 @@ use cssparser::{Parser, Token, match_ignore_ascii_case};
 use parley::FontWidth;
 
 use crate::layout::style::{
-  CssToken, FromCss, MakeComputed, ParseResult, tw::TailwindPropertyParser,
+  Animatable, Color, CssToken, FromCss, MakeComputed, ParseResult, lerp, tw::TailwindPropertyParser,
 };
+use crate::rendering::Sizing;
 
 /// Controls the width/stretch of text rendering.
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct FontStretch(FontWidth);
 
 impl MakeComputed for FontStretch {}
+
+impl Animatable for FontStretch {
+  fn interpolate(
+    &mut self,
+    from: &Self,
+    to: &Self,
+    progress: f32,
+    _sizing: &Sizing,
+    _current_color: Color,
+  ) {
+    *self = FontStretch::from_percentage(lerp(from.percentage(), to.percentage(), progress));
+  }
+}
 
 impl<'i> FromCss<'i> for FontStretch {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
@@ -53,6 +67,16 @@ impl<'i> FromCss<'i> for FontStretch {
 impl TailwindPropertyParser for FontStretch {
   fn parse_tw(token: &str) -> Option<Self> {
     Self::from_str(token).ok()
+  }
+}
+
+impl FontStretch {
+  pub(crate) fn percentage(self) -> f32 {
+    self.0.percentage() / 100.0
+  }
+
+  pub(crate) fn from_percentage(value: f32) -> Self {
+    Self(FontWidth::from_percentage(value.max(0.0) * 100.0))
   }
 }
 

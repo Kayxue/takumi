@@ -1,6 +1,7 @@
 import {
   ChevronDownIcon,
   Code2Icon,
+  CopyIcon,
   DownloadIcon,
   ImageIcon,
   Loader2Icon,
@@ -34,6 +35,10 @@ import {
 import { ComponentEditor } from "./component-editor";
 
 const DEFAULT_TEMPLATE = templates[0];
+
+function isBlobUrl(url: string) {
+  return url.startsWith("blob:");
+}
 
 export default function Playground() {
   const [code, setCode] = useState<string>();
@@ -119,6 +124,11 @@ export default function Playground() {
         case "render-result": {
           if (message.result.id === currentRequestIdRef.current) {
             setRendered(message.result);
+          } else if (
+            message.result.status === "success" &&
+            isBlobUrl(message.result.outputUrl)
+          ) {
+            URL.revokeObjectURL(message.result.outputUrl);
           }
           break;
         }
@@ -152,6 +162,16 @@ export default function Playground() {
       return () => clearTimeout(timer);
     }
   }, [isReady, code]);
+
+  useEffect(() => {
+    if (rendered?.status !== "success" || !isBlobUrl(rendered.outputUrl)) {
+      return;
+    }
+
+    return () => {
+      URL.revokeObjectURL(rendered.outputUrl);
+    };
+  }, [rendered]);
 
   const loadTemplate = (templateCode: string) => {
     setCode(templateCode);
@@ -455,6 +475,21 @@ function RenderPreview({
     );
   }
 
+  const copyImage = async () => {
+    if (!("clipboard" in navigator) || typeof ClipboardItem === "undefined") {
+      return;
+    }
+
+    const response = await fetch(result.outputUrl);
+    const blob = await response.blob();
+
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        [blob.type]: blob,
+      }),
+    ]);
+  };
+
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center gap-8 p-4 sm:p-8">
       <div
@@ -467,7 +502,7 @@ function RenderPreview({
         }}
       >
         <img
-          src={result.dataUrl}
+          src={result.outputUrl}
           alt="Rendered component"
           className="object-contain"
           style={{
@@ -477,27 +512,39 @@ function RenderPreview({
         />
       </div>
       <div className="flex items-center gap-3 text-xs font-medium">
-        <div className="flex h-9 items-center rounded-full border border-zinc-800/80 bg-zinc-900/80 px-4 text-zinc-400 shadow-lg backdrop-blur-md">
-          Format
+        <div className="flex h-9 items-center rounded-full border border-zinc-800/80 bg-zinc-900/80 pl-4 pr-2 text-zinc-400 shadow-lg backdrop-blur-md">
+          <span>Format</span>
           <span className="ml-2 rounded bg-zinc-950 px-1.5 py-0.5 text-zinc-100 font-mono">
-            {result.options.format.toUpperCase()}
+            {result.outputFormat.toUpperCase()}
           </span>
-        </div>
-        <div className="flex h-9 items-center rounded-full border border-emerald-900/30 bg-emerald-950/10 px-4 text-zinc-400 shadow-lg backdrop-blur-md">
-          <div className="mr-2 h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
-          Time
+          <div className="mx-3 h-4 w-px bg-zinc-800" />
+          <div className="flex items-center">
+            <div className="mr-2 h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
+            <span>Time</span>
+          </div>
           <span className="ml-2 rounded bg-zinc-950 px-1.5 py-0.5 text-emerald-400 font-mono">
             {Math.round(result.duration)}ms
           </span>
         </div>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="h-9 w-9 rounded-full border border-zinc-800/80 bg-zinc-900/80 text-zinc-100 shadow-lg backdrop-blur-md hover:bg-zinc-800/90"
+          onClick={() => {
+            void copyImage();
+          }}
+          title="Copy image"
+        >
+          <CopyIcon className="h-3.5 w-3.5" />
+        </Button>
         <Button
           variant="default"
           size="sm"
           className="h-9 rounded-full bg-zinc-100 px-4! font-semibold text-zinc-900 shadow-lg transition-transform hover:scale-105 hover:bg-white active:scale-95"
           onClick={() => {
             const link = document.createElement("a");
-            link.href = result.dataUrl;
-            link.download = `takumi-image.${result.options.format}`;
+            link.href = result.outputUrl;
+            link.download = `takumi-image.${result.outputFormat}`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);

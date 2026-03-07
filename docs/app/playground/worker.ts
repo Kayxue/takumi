@@ -82,11 +82,40 @@ self.onmessage = async (event: MessageEvent) => {
         });
 
         const start = performance.now();
-        const dataUrl = renderer.renderAsDataUrl(node, {
-          ...options,
-          stylesheets: options.stylesheets ?? stylesheets,
-          fetchedResources,
-        });
+        const effectiveStylesheets = options.stylesheets ?? stylesheets;
+        const animationOptions = options.animation;
+        const outputUrl = animationOptions
+          ? (() => {
+              const format = animationOptions.format ?? "webp";
+              const fps = animationOptions.fps ?? 30;
+              const bytes = renderer.renderAnimation(
+                [
+                  {
+                    node,
+                    durationMs: animationOptions.durationMs,
+                  },
+                ],
+                {
+                  width: options.width ?? 1200,
+                  height: options.height ?? 630,
+                  format,
+                  quality: options.quality,
+                  devicePixelRatio: options.devicePixelRatio,
+                  fetchedResources,
+                  stylesheets: effectiveStylesheets,
+                  fps,
+                },
+              );
+
+              return URL.createObjectURL(
+                new Blob([bytes as BlobPart], { type: `image/${format}` }),
+              );
+            })()
+          : renderer.renderAsDataUrl(node, {
+              ...options,
+              stylesheets: effectiveStylesheets,
+              fetchedResources,
+            });
         const duration = performance.now() - start;
 
         postMessage({
@@ -94,9 +123,10 @@ self.onmessage = async (event: MessageEvent) => {
           result: {
             status: "success",
             id: payload.id,
-            dataUrl,
+            outputUrl,
             duration,
             node,
+            outputFormat: animationOptions?.format ?? options.format ?? "png",
             options,
           },
         });

@@ -3,8 +3,8 @@ use std::sync::Arc;
 use cssparser::{Parser, Token, match_ignore_ascii_case};
 
 use crate::layout::style::{
-  ConicGradient, CssToken, FromCss, LinearGradient, MakeComputed, NoiseV1, ParseResult,
-  RadialGradient, tw::TailwindPropertyParser,
+  Animatable, ConicGradient, CssToken, FromCss, LinearGradient, ListInterpolationStrategy,
+  MakeComputed, NoiseV1, ParseResult, RadialGradient, tw::TailwindPropertyParser,
 };
 use crate::rendering::Sizing;
 
@@ -34,6 +34,12 @@ impl MakeComputed for BackgroundImage {
       BackgroundImage::Conic(gradient) => gradient.make_computed(sizing),
       _ => {}
     }
+  }
+}
+
+impl Animatable for BackgroundImage {
+  fn list_interpolation_strategy() -> ListInterpolationStrategy {
+    ListInterpolationStrategy::RepeatToLcm
   }
 }
 

@@ -160,6 +160,38 @@ describe("render", () => {
 });
 
 describe("renderAsDataUrl", () => {
+  test("with timeMs applied to stylesheet animation", () => {
+    const animated = renderer.measure(
+      {
+        type: "container",
+        tagName: "div",
+      },
+      {
+        width: 200,
+        height: 100,
+        timeMs: 500,
+        stylesheets: [
+          `
+            div {
+              width: 100px;
+              animation-name: grow;
+              animation-duration: 1000ms;
+              animation-timing-function: linear;
+              animation-fill-mode: both;
+            }
+
+            @keyframes grow {
+              from { width: 100px; }
+              to { width: 200px; }
+            }
+          `,
+        ],
+      },
+    );
+
+    expect(animated.width).toBe(150);
+  });
+
   test("default format (png)", () => {
     const result = renderer.renderAsDataUrl(node, { width: 1200, height: 630 });
 
@@ -243,37 +275,84 @@ describe("renderAsDataUrl", () => {
   });
 
   describe("renderAnimation", () => {
-    const frame = {
+    const scene = {
       node,
       durationMs: 1000,
     };
 
     test("webp", () => {
-      const result = renderer.renderAnimation([frame], {
+      const result = renderer.renderAnimation([scene], {
         width: 1200,
         height: 630,
         format: "webp",
+        fps: 1,
       });
 
       expect(result).toBeInstanceOf(Uint8Array);
     });
 
     test("apng", () => {
-      const result = renderer.renderAnimation([frame], {
+      const result = renderer.renderAnimation([scene], {
         width: 1200,
         height: 630,
         format: "apng",
+        fps: 1,
       });
 
       expect(result).toBeInstanceOf(Uint8Array);
     });
 
     test("gif", () => {
-      const result = renderer.renderAnimation([frame], {
+      const result = renderer.renderAnimation([scene], {
         width: 1200,
         height: 630,
         format: "gif",
+        fps: 1,
       });
+
+      expect(result).toBeInstanceOf(Uint8Array);
+      expect(Buffer.from(result.subarray(0, 6)).toString("ascii")).toMatch(
+        /^GIF8[79]a$/,
+      );
+    });
+  });
+
+  describe("encodeFrames", () => {
+    test("with stylesheet keyframes", () => {
+      const result = renderer.encodeFrames(
+        [
+          {
+            node: {
+              type: "container",
+              tagName: "div",
+            },
+            durationMs: 1000,
+          },
+        ],
+        {
+          width: 200,
+          height: 100,
+          format: "gif",
+          stylesheets: [
+            `
+              div {
+                width: 100px;
+                height: 100px;
+                background: red;
+                animation-name: grow;
+                animation-duration: 1000ms;
+                animation-timing-function: linear;
+                animation-fill-mode: both;
+              }
+
+              @keyframes grow {
+                from { width: 100px; }
+                to { width: 200px; }
+              }
+            `,
+          ],
+        },
+      );
 
       expect(result).toBeInstanceOf(Uint8Array);
       expect(Buffer.from(result.subarray(0, 6)).toString("ascii")).toMatch(

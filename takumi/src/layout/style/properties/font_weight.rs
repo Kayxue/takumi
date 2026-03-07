@@ -2,14 +2,28 @@ use cssparser::{Parser, Token, match_ignore_ascii_case};
 use parley::style::FontWeight as ParleyFontWeight;
 
 use crate::layout::style::{
-  CssToken, FromCss, MakeComputed, ParseResult, tw::TailwindPropertyParser,
+  Animatable, Color, CssToken, FromCss, MakeComputed, ParseResult, lerp, tw::TailwindPropertyParser,
 };
+use crate::rendering::Sizing;
 
 /// Represents font weight value.
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct FontWeight(ParleyFontWeight);
 
 impl MakeComputed for FontWeight {}
+
+impl Animatable for FontWeight {
+  fn interpolate(
+    &mut self,
+    from: &Self,
+    to: &Self,
+    progress: f32,
+    _sizing: &Sizing,
+    _current_color: Color,
+  ) {
+    *self = FontWeight::from(lerp(from.value(), to.value(), progress));
+  }
+}
 
 impl<'i> FromCss<'i> for FontWeight {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
@@ -50,6 +64,12 @@ impl TailwindPropertyParser for FontWeight {
       "black" => Some(900.0.into()),
       _ => None,
     }
+  }
+}
+
+impl FontWeight {
+  pub(crate) fn value(self) -> f32 {
+    self.0.value()
   }
 }
 

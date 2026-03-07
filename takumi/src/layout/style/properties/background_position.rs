@@ -3,8 +3,8 @@ use taffy::{Point, Size};
 
 use crate::{
   layout::style::{
-    Animatable, Color, CssToken, FromCss, Length, MakeComputed, ParseResult, SpacePair,
-    tw::TailwindPropertyParser,
+    Animatable, Color, CssToken, FromCss, Length, ListInterpolationStrategy, MakeComputed,
+    ParseResult, SpacePair, tw::TailwindPropertyParser,
   },
   rendering::Sizing,
 };
@@ -113,6 +113,10 @@ impl<const DEFAULT_TOP_LEFT: bool> MakeComputed for BackgroundPosition<DEFAULT_T
 }
 
 impl<const DEFAULT_TOP_LEFT: bool> Animatable for BackgroundPosition<DEFAULT_TOP_LEFT> {
+  fn list_interpolation_strategy() -> ListInterpolationStrategy {
+    ListInterpolationStrategy::RepeatToLcm
+  }
+
   fn interpolate(
     &mut self,
     from: &Self,

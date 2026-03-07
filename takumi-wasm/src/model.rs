@@ -3,6 +3,7 @@
 use serde::Deserialize;
 use serde_bytes::ByteBuf;
 use std::sync::Arc;
+use takumi::layout::node::NodeKind;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -46,6 +47,10 @@ export type RenderOptions = {
    * @default 1.0
    */
   devicePixelRatio?: number,
+  /**
+   * The animation timeline time in milliseconds.
+   */
+  timeMs?: number,
 };
 
 export type RenderAnimationOptions = {
@@ -56,7 +61,48 @@ export type RenderAnimationOptions = {
    * The quality of WebP format (0-100). Ignored for APNG and GIF.
    */
   quality?: number,
+  /**
+   * The resources fetched externally. You should collect the fetch tasks first using `extractResourceUrls` and then pass the resources here.
+   */
+  fetchedResources?: ImageSource[],
   drawDebugBorder?: boolean,
+  /**
+   * CSS stylesheets to apply before rendering.
+   */
+  stylesheets?: string[],
+  /**
+   * Defines the ratio resolution of the image to the physical pixels.
+   * @default 1.0
+   */
+  devicePixelRatio?: number,
+  /**
+   * Frames per second for timeline sampling.
+   */
+  fps: number,
+};
+
+export type EncodeFramesOptions = {
+  width: number,
+  height: number,
+  format?: "webp" | "apng" | "gif",
+  /**
+   * The quality of WebP format (0-100). Ignored for APNG and GIF.
+   */
+  quality?: number,
+  /**
+   * The resources fetched externally. You should collect the fetch tasks first using `extractResourceUrls` and then pass the resources here.
+   */
+  fetchedResources?: ImageSource[],
+  drawDebugBorder?: boolean,
+  /**
+   * CSS stylesheets to apply before rendering.
+   */
+  stylesheets?: string[],
+  /**
+   * Defines the ratio resolution of the image to the physical pixels.
+   * @default 1.0
+   */
+  devicePixelRatio?: number,
 };
 
 export type FontDetails = {
@@ -104,6 +150,11 @@ export type AnimationFrameSource = {
   node: AnyNode,
   durationMs: number,
 };
+
+export type AnimationSceneSource = {
+  node: AnyNode,
+  durationMs: number,
+};
 "#;
 
 #[wasm_bindgen]
@@ -120,6 +171,10 @@ extern "C" {
   /// JavaScript object representing animation render options.
   #[wasm_bindgen(typescript_type = "RenderAnimationOptions")]
   pub type RenderAnimationOptionsType;
+
+  /// JavaScript object representing frame encoding options.
+  #[wasm_bindgen(typescript_type = "EncodeFramesOptions")]
+  pub type EncodeFramesOptionsType;
 
   /// JavaScript object representing font details.
   #[wasm_bindgen(typescript_type = "FontDetails")]
@@ -144,6 +199,10 @@ extern "C" {
   /// JavaScript object representing an animation frame source.
   #[wasm_bindgen(typescript_type = "AnimationFrameSource")]
   pub type AnimationFrameSourceType;
+
+  /// JavaScript object representing an animation scene source.
+  #[wasm_bindgen(typescript_type = "AnimationSceneSource")]
+  pub type AnimationSceneSourceType;
 }
 
 /// Options for rendering an image.
@@ -166,6 +225,8 @@ pub struct RenderOptions {
   pub draw_debug_border: Option<bool>,
   /// The device pixel ratio for scaling.
   pub device_pixel_ratio: Option<f32>,
+  /// The animation timeline time in milliseconds.
+  pub time_ms: Option<i64>,
 }
 
 /// Options for rendering an animated image.
@@ -180,8 +241,38 @@ pub struct RenderAnimationOptions {
   pub format: Option<AnimationOutputFormat>,
   /// The WebP quality (0-100). Ignored for APNG and GIF.
   pub quality: Option<u8>,
+  /// Pre-fetched image resources to use during rendering.
+  pub fetched_resources: Option<Vec<ImageSource>>,
   /// Whether to draw debug borders around layout elements.
   pub draw_debug_border: Option<bool>,
+  /// CSS stylesheets to apply before rendering.
+  pub stylesheets: Option<Vec<String>>,
+  /// The device pixel ratio for scaling.
+  pub device_pixel_ratio: Option<f32>,
+  /// Frames per second for timeline sampling.
+  pub fps: u32,
+}
+
+/// Options for encoding a precomputed frame sequence.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EncodeFramesOptions {
+  /// The width of each frame in pixels.
+  pub width: u32,
+  /// The height of each frame in pixels.
+  pub height: u32,
+  /// The output animation format (WebP, APNG, or GIF).
+  pub format: Option<AnimationOutputFormat>,
+  /// The WebP quality (0-100). Ignored for APNG and GIF.
+  pub quality: Option<u8>,
+  /// Pre-fetched image resources to use during rendering.
+  pub fetched_resources: Option<Vec<ImageSource>>,
+  /// Whether to draw debug borders around layout elements.
+  pub draw_debug_border: Option<bool>,
+  /// CSS stylesheets to apply before rendering.
+  pub stylesheets: Option<Vec<String>>,
+  /// The device pixel ratio for scaling.
+  pub device_pixel_ratio: Option<f32>,
 }
 
 /// Details for loading a custom font.
@@ -292,8 +383,18 @@ impl From<FontStyle> for takumi::parley::FontStyle {
 #[serde(rename_all = "camelCase")]
 pub struct AnimationFrameSource {
   /// The node tree to render for this frame.
-  pub node: takumi::layout::node::NodeKind,
+  pub node: NodeKind,
   /// The duration of this frame in milliseconds.
+  pub duration_ms: u32,
+}
+
+/// A single scene in a sequential animation timeline.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnimationSceneSource {
+  /// The node tree to render for this scene.
+  pub node: NodeKind,
+  /// The duration of this scene in milliseconds.
   pub duration_ms: u32,
 }
 
