@@ -8,7 +8,7 @@ Replace the old field-based / `CssValue`-driven style construction with `StyleDe
 
 Before:
 
-````rust
+```rust
 let style = StyleBuilder::default()
   .font_size(Some(48.0.into()))
   .margin(Sides([Px(4.0); 4]))
@@ -22,4 +22,4 @@ After:
 let style = Style::default()
   .with(StyleDeclaration::font_size(Px(48.0).into()))
   .with_margin(Sides([Px(4.0); 4]));
-````
+```
