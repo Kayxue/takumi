@@ -22,6 +22,18 @@ pub(crate) struct TileLayer {
 
 pub(crate) type TileLayers = Vec<TileLayer>;
 
+fn resolve_intrinsic_size(image: &BackgroundImage, context: &RenderContext) -> Option<(f32, f32)> {
+  let BackgroundImage::Url(url) = image else {
+    return None;
+  };
+
+  let Ok(source) = resolve_image(url, context) else {
+    return None;
+  };
+
+  Some(source.size())
+}
+
 pub(crate) fn rasterize_layers(
   layers: TileLayers,
   size: Size<u32>,
@@ -158,77 +170,58 @@ impl BackgroundTile {
   }
 }
 
-pub(crate) fn resolve_length_against_area(unit: Length, area: u32, sizing: &Sizing) -> u32 {
-  match unit {
-    Length::Auto => area,
-    _ => unit.to_px(sizing, area as f32).max(0.0) as u32,
+fn resolve_axis_tiles(
+  repeat: BackgroundRepeatStyle,
+  pos: BackgroundPosition,
+  tile_size: u32,
+  area_size: u32,
+  sizing: &Sizing,
+  is_x: bool,
+) -> (SmallVec<[i32; 1]>, u32) {
+  match repeat {
+    BackgroundRepeatStyle::Repeat => {
+      let origin = if is_x {
+        resolve_position_component_x(pos, tile_size, area_size, sizing)
+      } else {
+        resolve_position_component_y(pos, tile_size, area_size, sizing)
+      };
+      (
+        collect_repeat_tile_positions(area_size, tile_size, origin),
+        tile_size,
+      )
+    }
+    BackgroundRepeatStyle::NoRepeat => {
+      let origin = if is_x {
+        resolve_position_component_x(pos, tile_size, area_size, sizing)
+      } else {
+        resolve_position_component_y(pos, tile_size, area_size, sizing)
+      };
+      (smallvec![origin], tile_size)
+    }
+    BackgroundRepeatStyle::Space => (
+      collect_spaced_tile_positions(area_size, tile_size),
+      tile_size,
+    ),
+    BackgroundRepeatStyle::Round => collect_stretched_tile_positions(area_size, tile_size),
   }
 }
 
-pub(crate) fn resolve_background_size(
-  size: BackgroundSize,
-  area: Size<u32>,
-  image: &BackgroundImage,
-  context: &RenderContext,
-) -> (u32, u32) {
-  match size {
-    BackgroundSize::Explicit { width, height } => (
-      resolve_length_against_area(width, area.width, &context.sizing),
-      resolve_length_against_area(height, area.height, &context.sizing),
-    ),
-    BackgroundSize::Cover => {
-      // Get intrinsic image dimensions
-      let (intrinsic_width, intrinsic_height) = if let BackgroundImage::Url(url) = image
-        && let Ok(source) = resolve_image(url, context)
-      {
-        source.size()
-      } else {
-        return (0, 0);
-      };
-
-      if intrinsic_width == 0.0 || intrinsic_height == 0.0 {
-        return (0, 0);
-      }
-
-      // Calculate scale factors for both dimensions
-      let scale_x = area.width as f32 / intrinsic_width;
-      let scale_y = area.height as f32 / intrinsic_height;
-
-      // Use the larger scale to ensure the image covers the entire area
-      let scale = scale_x.max(scale_y);
-
-      (
-        (intrinsic_width * scale).round() as u32,
-        (intrinsic_height * scale).round() as u32,
-      )
-    }
-    BackgroundSize::Contain => {
-      // Get intrinsic image dimensions
-      let (intrinsic_width, intrinsic_height) = if let BackgroundImage::Url(url) = image
-        && let Ok(source) = resolve_image(url, context)
-      {
-        source.size()
-      } else {
-        return (0, 0);
-      };
-
-      if intrinsic_width == 0.0 || intrinsic_height == 0.0 {
-        return (0, 0);
-      }
-
-      // Calculate scale factors for both dimensions
-      let scale_x = area.width as f32 / intrinsic_width;
-      let scale_y = area.height as f32 / intrinsic_height;
-
-      // Use the smaller scale to ensure the image is fully contained
-      let scale = scale_x.min(scale_y);
-
-      (
-        (intrinsic_width * scale).round() as u32,
-        (intrinsic_height * scale).round() as u32,
-      )
-    }
+fn resolve_auto_axis_from_intrinsic(
+  auto_axis: AutoBackgroundAxis,
+  intrinsic_size: Option<(f32, f32)>,
+  fixed_size: u32,
+) -> Option<u32> {
+  let (intrinsic_width, intrinsic_height) = intrinsic_size?;
+  if intrinsic_width == 0.0 || intrinsic_height == 0.0 {
+    return Some(0);
   }
+
+  let resolved = match auto_axis {
+    AutoBackgroundAxis::Width => fixed_size as f32 * (intrinsic_width / intrinsic_height),
+    AutoBackgroundAxis::Height => fixed_size as f32 * (intrinsic_height / intrinsic_width),
+  };
+
+  Some(resolved.round() as u32)
 }
 
 pub(crate) fn resolve_length_to_position_component(
@@ -343,48 +336,82 @@ pub(crate) fn resolve_layer_tiles(
   context: &RenderContext,
   buffer_pool: &mut BufferPool,
 ) -> Result<Option<TileLayer>> {
-  let (initial_w, initial_h) = resolve_background_size(size, area, image, context);
+  let resolved_size = size.resolve(
+    area,
+    &context.sizing,
+    resolve_intrinsic_size(image, context),
+  );
 
-  if initial_w == 0 || initial_h == 0 {
+  if resolved_size.width == 0 || resolved_size.height == 0 {
     return Ok(None);
   }
 
-  let (xs, tile_w) = match repeat.0 {
-    BackgroundRepeatStyle::Repeat => {
-      let origin_x = resolve_position_component_x(pos, initial_w, area.width, &context.sizing);
-      (
-        collect_repeat_tile_positions(area.width, initial_w, origin_x),
-        initial_w,
-      )
+  let (xs, ys, tile_w, tile_h) = match resolved_size.auto_axis {
+    Some(AutoBackgroundAxis::Width) => {
+      let (ys, tile_h) = resolve_axis_tiles(
+        repeat.1,
+        pos,
+        resolved_size.height,
+        area.height,
+        &context.sizing,
+        false,
+      );
+      let tile_w = if repeat.1 == BackgroundRepeatStyle::Round {
+        resolve_auto_axis_from_intrinsic(
+          AutoBackgroundAxis::Width,
+          resolved_size.intrinsic_size,
+          tile_h,
+        )
+        .unwrap_or(resolved_size.width)
+      } else {
+        resolved_size.width
+      };
+      let (xs, tile_w) =
+        resolve_axis_tiles(repeat.0, pos, tile_w, area.width, &context.sizing, true);
+      (xs, ys, tile_w, tile_h)
     }
-    BackgroundRepeatStyle::NoRepeat => {
-      let origin_x = resolve_position_component_x(pos, initial_w, area.width, &context.sizing);
-      (smallvec![origin_x], initial_w)
+    Some(AutoBackgroundAxis::Height) => {
+      let (xs, tile_w) = resolve_axis_tiles(
+        repeat.0,
+        pos,
+        resolved_size.width,
+        area.width,
+        &context.sizing,
+        true,
+      );
+      let tile_h = if repeat.0 == BackgroundRepeatStyle::Round {
+        resolve_auto_axis_from_intrinsic(
+          AutoBackgroundAxis::Height,
+          resolved_size.intrinsic_size,
+          tile_w,
+        )
+        .unwrap_or(resolved_size.height)
+      } else {
+        resolved_size.height
+      };
+      let (ys, tile_h) =
+        resolve_axis_tiles(repeat.1, pos, tile_h, area.height, &context.sizing, false);
+      (xs, ys, tile_w, tile_h)
     }
-    BackgroundRepeatStyle::Space => (
-      collect_spaced_tile_positions(area.width, initial_w),
-      initial_w,
-    ),
-    BackgroundRepeatStyle::Round => collect_stretched_tile_positions(area.width, initial_w),
-  };
-
-  let (ys, tile_h) = match repeat.1 {
-    BackgroundRepeatStyle::Repeat => {
-      let origin_y = resolve_position_component_y(pos, initial_h, area.height, &context.sizing);
-      (
-        collect_repeat_tile_positions(area.height, initial_h, origin_y),
-        initial_h,
-      )
+    None => {
+      let (xs, tile_w) = resolve_axis_tiles(
+        repeat.0,
+        pos,
+        resolved_size.width,
+        area.width,
+        &context.sizing,
+        true,
+      );
+      let (ys, tile_h) = resolve_axis_tiles(
+        repeat.1,
+        pos,
+        resolved_size.height,
+        area.height,
+        &context.sizing,
+        false,
+      );
+      (xs, ys, tile_w, tile_h)
     }
-    BackgroundRepeatStyle::NoRepeat => {
-      let origin_y = resolve_position_component_y(pos, initial_h, area.height, &context.sizing);
-      (smallvec![origin_y], initial_h)
-    }
-    BackgroundRepeatStyle::Space => (
-      collect_spaced_tile_positions(area.height, initial_h),
-      initial_h,
-    ),
-    BackgroundRepeatStyle::Round => collect_stretched_tile_positions(area.height, initial_h),
   };
 
   if xs.is_empty() || ys.is_empty() {
