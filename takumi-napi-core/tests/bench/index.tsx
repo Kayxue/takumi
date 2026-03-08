@@ -138,7 +138,8 @@ summary(() => {
       throw new Error("Invalid fps or durationMs");
     }
 
-    return renderer.renderAnimation(scenes, {
+    return renderer.renderAnimation({
+      scenes,
       width: 1200,
       height: 630,
       fps,
@@ -156,7 +157,8 @@ summary(() => {
         throw new Error("Invalid fps or durationMs");
       }
 
-      return renderer.renderAnimation(scenes, {
+      return renderer.renderAnimation({
+        scenes,
         width: 1200,
         height: 630,
         fps,
@@ -173,7 +175,8 @@ summary(() => {
       throw new Error("Invalid fps or durationMs");
     }
 
-    return renderer.renderAnimation(scenes, {
+    return renderer.renderAnimation({
+      scenes,
       width: 1200,
       height: 630,
       fps,
@@ -188,7 +191,8 @@ summary(() => {
       throw new Error("Invalid fps or durationMs");
     }
 
-    return renderer.renderAnimation(scenes, {
+    return renderer.renderAnimation({
+      scenes,
       width: 1200,
       height: 630,
       fps,

@@ -310,7 +310,8 @@ describe("renderAnimation", () => {
   };
 
   test("gif", async () => {
-    const result = await renderer.renderAnimation([scene], {
+    const result = await renderer.renderAnimation({
+      scenes: [scene],
       width: 1200,
       height: 630,
       fps: 1,
@@ -323,7 +324,8 @@ describe("renderAnimation", () => {
 
   test("rejects quality > 100", () => {
     expect(
-      renderer.renderAnimation([scene], {
+      renderer.renderAnimation({
+        scenes: [scene],
         width: 1200,
         height: 630,
         fps: 1,

@@ -142,6 +142,8 @@ pub struct AnimationSceneSource<'ctx> {
 /// Options for rendering a sequential scene animation.
 #[napi(object)]
 pub struct RenderAnimationOptions<'env> {
+  /// The scenes to render sequentially.
+  pub scenes: Vec<AnimationSceneSource<'env>>,
   /// Whether to draw debug borders around layout elements.
   pub draw_debug_border: Option<bool>,
   /// The width of each frame in pixels.
@@ -568,23 +570,17 @@ impl Renderer {
 
   /// Renders a sequential scene animation into a buffer asynchronously.
   #[napi(
-    ts_args_type = "source: AnimationSceneSource[], options: RenderAnimationOptions, signal?: AbortSignal",
+    ts_args_type = "options: RenderAnimationOptions, signal?: AbortSignal",
     ts_return_type = "Promise<Buffer>"
   )]
   pub fn render_animation(
     &self,
     env: Env,
-    source: Vec<AnimationSceneSource>,
     options: RenderAnimationOptions,
     signal: Option<AbortSignal>,
   ) -> Result<AsyncTask<RenderAnimationTask>> {
-    let scenes = source
-      .into_iter()
-      .map(|scene| Ok((deserialize_with_tracing(scene.node)?, scene.duration_ms)))
-      .collect::<Result<Vec<_>>>()?;
-
     Ok(AsyncTask::with_optional_signal(
-      RenderAnimationTask::from_options(env, scenes, options, Arc::clone(&self.state))?,
+      RenderAnimationTask::from_options(env, options, Arc::clone(&self.state))?,
       signal,
     ))
   }

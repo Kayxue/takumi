@@ -88,24 +88,22 @@ self.onmessage = async (event: MessageEvent) => {
           ? (() => {
               const format = animationOptions.format ?? "webp";
               const fps = animationOptions.fps ?? 30;
-              const bytes = renderer.renderAnimation(
-                [
+              const bytes = renderer.renderAnimation({
+                scenes: [
                   {
                     node,
                     durationMs: animationOptions.durationMs,
                   },
                 ],
-                {
-                  width: options.width ?? 1200,
-                  height: options.height ?? 630,
-                  format,
-                  quality: options.quality,
-                  devicePixelRatio: options.devicePixelRatio,
-                  fetchedResources,
-                  stylesheets: effectiveStylesheets,
-                  fps,
-                },
-              );
+                width: options.width ?? 1200,
+                height: options.height ?? 630,
+                format,
+                quality: options.quality,
+                devicePixelRatio: options.devicePixelRatio,
+                fetchedResources,
+                stylesheets: effectiveStylesheets,
+                fps,
+              });
 
               return URL.createObjectURL(
                 new Blob([bytes as BlobPart], { type: `image/${format}` }),

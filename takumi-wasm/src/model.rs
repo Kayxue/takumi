@@ -54,6 +54,7 @@ export type RenderOptions = {
 };
 
 export type RenderAnimationOptions = {
+  scenes: AnimationSceneSource[],
   width: number,
   height: number,
   format?: "webp" | "apng" | "gif",
@@ -233,6 +234,8 @@ pub struct RenderOptions {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RenderAnimationOptions {
+  /// The scenes to render sequentially.
+  pub scenes: Vec<AnimationSceneSource>,
   /// The width of each frame in pixels.
   pub width: u32,
   /// The height of each frame in pixels.

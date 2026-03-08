@@ -16,7 +16,7 @@ use takumi::{
 };
 
 use crate::{
-  ExternalMemoryAccountable, buffer_from_object, map_error,
+  ExternalMemoryAccountable, buffer_from_object, deserialize_with_tracing, map_error,
   renderer::{AnimationOutputFormat, ImageSource, RenderAnimationOptions, RendererState},
 };
 
@@ -35,10 +35,26 @@ pub struct RenderAnimationTask {
 impl RenderAnimationTask {
   pub(crate) fn from_options(
     env: Env,
-    scenes: Vec<(NodeKind, u32)>,
     options: RenderAnimationOptions,
     state: Arc<RwLock<RendererState>>,
   ) -> Result<Self> {
+    let RenderAnimationOptions {
+      scenes,
+      draw_debug_border,
+      width,
+      height,
+      format,
+      quality,
+      fps,
+      fetched_resources,
+      stylesheets,
+      device_pixel_ratio,
+    } = options;
+    let scenes = scenes
+      .into_iter()
+      .map(|scene| Ok((deserialize_with_tracing(scene.node)?, scene.duration_ms)))
+      .collect::<Result<Vec<(NodeKind, u32)>>>()?;
+
     if scenes.is_empty() {
       return Err(Error::new(
         Status::InvalidArg,
@@ -46,7 +62,7 @@ impl RenderAnimationTask {
       ));
     }
 
-    if options.fps == 0 {
+    if fps == 0 {
       return Err(Error::new(
         Status::InvalidArg,
         "Expected fps to be greater than 0".to_owned(),
@@ -57,27 +73,25 @@ impl RenderAnimationTask {
       scenes: Some(scenes),
       state,
       viewport: Viewport {
-        width: Some(options.width),
-        height: Some(options.height),
+        width: Some(width),
+        height: Some(height),
         font_size: DEFAULT_FONT_SIZE,
-        device_pixel_ratio: options
-          .device_pixel_ratio
+        device_pixel_ratio: device_pixel_ratio
           .map(|ratio| ratio as f32)
           .unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO),
       },
-      format: options.format.unwrap_or(AnimationOutputFormat::webp),
-      quality: options.quality,
-      draw_debug_border: options.draw_debug_border.unwrap_or_default(),
-      stylesheets: options.stylesheets,
-      fetched_resources: options
-        .fetched_resources
+      format: format.unwrap_or(AnimationOutputFormat::webp),
+      quality,
+      draw_debug_border: draw_debug_border.unwrap_or_default(),
+      stylesheets,
+      fetched_resources: fetched_resources
         .unwrap_or_default()
         .into_iter()
         .map(|image: ImageSource<'_>| {
           Ok((Arc::from(image.src), buffer_from_object(env, image.data)?))
         })
         .collect::<Result<_>>()?,
-      fps: options.fps,
+      fps,
     })
   }
 }

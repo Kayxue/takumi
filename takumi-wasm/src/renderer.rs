@@ -325,32 +325,37 @@ impl Renderer {
 
   /// Renders a sequential animation timeline into a buffer.
   #[wasm_bindgen(js_name = renderAnimation)]
-  pub fn render_animation(
-    &self,
-    scenes: Vec<AnimationSceneSourceType>,
-    options: RenderAnimationOptionsType,
-  ) -> Result<Vec<u8>, JsValue> {
-    let scenes: Vec<AnimationSceneSource> = from_value(scenes.into()).map_err(map_error)?;
-    let options: RenderAnimationOptions = from_value(options.into()).map_err(map_error)?;
-    let fetched_resources = self.fetch_resources_map(options.fetched_resources.as_deref())?;
+  pub fn render_animation(&self, options: RenderAnimationOptionsType) -> Result<Vec<u8>, JsValue> {
+    let RenderAnimationOptions {
+      scenes,
+      width,
+      height,
+      format,
+      quality,
+      fetched_resources,
+      draw_debug_border,
+      stylesheets,
+      device_pixel_ratio,
+      fps,
+    } = from_value(options.into()).map_err(map_error)?;
+    let fetched_resources = self.fetch_resources_map(fetched_resources.as_deref())?;
 
     if scenes.is_empty() {
       return Err(JsValue::from_str("Expected at least one animation scene"));
     }
 
-    if options.fps == 0 {
+    if fps == 0 {
       return Err(JsValue::from_str("Expected fps to be greater than 0"));
     }
 
     let viewport = Viewport {
-      width: Some(options.width),
-      height: Some(options.height),
+      width: Some(width),
+      height: Some(height),
       font_size: DEFAULT_FONT_SIZE,
-      device_pixel_ratio: options
-        .device_pixel_ratio
-        .unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO),
+      device_pixel_ratio: device_pixel_ratio.unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO),
     };
-    let stylesheets = options.stylesheets.unwrap_or_default();
+    let draw_debug_border = draw_debug_border.unwrap_or_default();
+    let stylesheets = stylesheets.unwrap_or_default();
     let scene_options = scenes
       .into_iter()
       .map(|scene| {
@@ -363,7 +368,7 @@ impl Renderer {
               .stylesheets(stylesheets.clone())
               .node(scene.node)
               .global(&self.context)
-              .draw_debug_border(options.draw_debug_border.unwrap_or_default())
+              .draw_debug_border(draw_debug_border)
               .build()
               .map_err(|e| JsValue::from_str(&format!("Failed to build render options: {e}")))?,
           )
@@ -371,10 +376,9 @@ impl Renderer {
           .map_err(|e| JsValue::from_str(&format!("Failed to build animation scene: {e}")))
       })
       .collect::<Result<Vec<_>, _>>()?;
-    let rendered_frames =
-      render_sequence_animation(&scene_options, options.fps).map_err(map_error)?;
+    let rendered_frames = render_sequence_animation(&scene_options, fps).map_err(map_error)?;
 
-    self.encode_animation(rendered_frames, options.format, options.quality)
+    self.encode_animation(rendered_frames, format, quality)
   }
 
   /// Encodes a precomputed frame sequence into an animated image buffer.

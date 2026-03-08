@@ -281,7 +281,8 @@ describe("renderAsDataUrl", () => {
     };
 
     test("webp", () => {
-      const result = renderer.renderAnimation([scene], {
+      const result = renderer.renderAnimation({
+        scenes: [scene],
         width: 1200,
         height: 630,
         format: "webp",
@@ -292,7 +293,8 @@ describe("renderAsDataUrl", () => {
     });
 
     test("apng", () => {
-      const result = renderer.renderAnimation([scene], {
+      const result = renderer.renderAnimation({
+        scenes: [scene],
         width: 1200,
         height: 630,
         format: "apng",
@@ -303,7 +305,8 @@ describe("renderAsDataUrl", () => {
     });
 
     test("gif", () => {
-      const result = renderer.renderAnimation([scene], {
+      const result = renderer.renderAnimation({
+        scenes: [scene],
         width: 1200,
         height: 630,
         format: "gif",
