@@ -6,22 +6,27 @@ import welcome from "./templates/welcome?raw";
 
 export const templates = [
   {
+    id: "welcome",
     name: "Welcome",
     code: welcome,
   },
   {
+    id: "twitter-profile-card",
     name: "Twitter Profile Card",
     code: twitterProfileCard,
   },
   {
+    id: "article-cover",
     name: "Article Cover",
     code: articleCover,
   },
   {
+    id: "gradient-poster",
     name: "Gradient Poster",
     code: gradientPoster,
   },
   {
+    id: "keyframe-animation",
     name: "Keyframe Animation",
     code: animatedShowcase,
   },

@@ -17,7 +17,7 @@ import {
   type renderResultSchema,
 } from "~/playground/schema";
 import { compressCode, decompressCode } from "~/playground/share";
-import { templates } from "~/playground/templates";
+import { defaultTemplate, templates } from "~/playground/templates";
 import TakumiWorker from "~/playground/worker?worker";
 import { Button } from "../ui/button";
 import {
@@ -52,8 +52,9 @@ export default function Playground() {
   const [activeTab, setActiveTab] = useState<"code" | "preview">("code");
 
   const codeQuery = searchParams.get("code");
-  const selectedTemplateName =
-    templates.find((template) => template.code === code)?.name ?? "Templates";
+  const templateQuery = searchParams.get("template");
+  const matchedTemplate = templates.find((template) => template.code === code);
+  const selectedTemplateName = matchedTemplate?.name ?? "Templates";
 
   useEffect(() => {
     if (code !== undefined) return;
@@ -61,9 +62,12 @@ export default function Playground() {
     let cancelled = false;
 
     void (async () => {
+      const templateCode = templates.find(
+        (template) => template.id === templateQuery,
+      )?.code;
       const initialCode = codeQuery
         ? await decompressCode(codeQuery)
-        : DEFAULT_TEMPLATE.code;
+        : (templateCode ?? DEFAULT_TEMPLATE.code);
 
       if (!cancelled) {
         setCode(initialCode);
@@ -73,16 +77,30 @@ export default function Playground() {
     return () => {
       cancelled = true;
     };
-  }, [codeQuery, code]);
+  }, [codeQuery, code, templateQuery]);
 
   useEffect(() => {
     if (!code) return;
 
-    if (code === DEFAULT_TEMPLATE.code) {
+    if (code === defaultTemplate) {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
           next.delete("code");
+          next.delete("template");
+          return next;
+        },
+        { replace: true },
+      );
+      return;
+    }
+
+    if (matchedTemplate) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("code");
+          next.set("template", matchedTemplate.id);
           return next;
         },
         { replace: true },
@@ -95,6 +113,7 @@ export default function Playground() {
         setSearchParams(
           (prev) => {
             const next = new URLSearchParams(prev);
+            next.delete("template");
             next.set("code", base64);
             return next;
           },
@@ -104,7 +123,7 @@ export default function Playground() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [code, setSearchParams]);
+  }, [code, matchedTemplate, setSearchParams]);
 
   useEffect(() => {
     const worker = new TakumiWorker();

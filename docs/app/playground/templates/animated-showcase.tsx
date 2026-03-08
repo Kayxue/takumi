@@ -1,15 +1,14 @@
 export default function AnimatedShowcase() {
   return (
     <div
-      tw="flex h-full w-full items-center justify-center overflow-hidden bg-[#0f172a]"
+      tw="flex h-full w-full items-center justify-center overflow-hidden bg-[#fff7ed]"
       style={{
-        backgroundImage:
-          "radial-gradient(circle at top, rgba(56, 189, 248, 0.18), transparent 42%), linear-gradient(180deg, #111827 0%, #020617 100%)",
+        backgroundImage: "linear-gradient(180deg, #fff7ed 0%, #fee2e2 100%)",
       }}
     >
       <div
         className="cube"
-        tw="flex h-32 w-32 items-center justify-center rounded-2xl bg-cyan-300 font-semibold text-xl text-slate-900"
+        tw="flex h-32 w-32 items-center justify-center rounded-2xl bg-amber-300 font-semibold text-xl text-orange-950"
       >
         Animated!
       </div>
