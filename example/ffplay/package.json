@@ -7,7 +7,7 @@
     "@types/bun": "catalog:"
   },
   "scripts": {
-    "start": "bun run src/index.ts"
+    "start": "bun src/index.ts"
   },
   "peerDependencies": {
     "typescript": "catalog:"

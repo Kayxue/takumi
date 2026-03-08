@@ -47,7 +47,7 @@ fn interpolate_rgba_impl(c1: Color, c2: Color, t: f32) -> f32x4 {
   c1_f32 * (1.0 - t) + c2_f32 * t
 }
 
-fn interpolate_with_color_space(
+pub(crate) fn interpolate_with_color_space(
   c1: Color,
   c2: Color,
   t: f32,

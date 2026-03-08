@@ -11,7 +11,7 @@ Render video frames in real-time using Takumi and display them with `ffplay`.
 
 ```bash
 bun install
-bun run src/index.ts
+bun src/index.ts
 ```
 
 Press `Ctrl+C` to exit.

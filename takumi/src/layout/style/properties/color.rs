@@ -11,7 +11,8 @@ use image::Rgba;
 use crate::{
   layout::style::{
     Animatable, Color as CurrentColor, CssToken, FromCss, MakeComputed, ParseResult,
-    PercentageNumber, properties::gradient_utils::interpolate_rgba, tw::TailwindPropertyParser,
+    PercentageNumber, properties::gradient_utils::interpolate_with_color_space,
+    tw::TailwindPropertyParser,
   },
   rendering::{Sizing, fast_div_255},
 };
@@ -114,6 +115,23 @@ impl<'i> FromCss<'i> for ColorInterpolationMethod {
 #[derive(Debug, Default, Clone, PartialEq, Copy)]
 pub struct Color(pub [u8; 4]);
 
+impl From<[u8; 4]> for Color {
+  fn from(value: [u8; 4]) -> Self {
+    Self(value)
+  }
+}
+
+impl From<[f32; 4]> for Color {
+  fn from(value: [f32; 4]) -> Self {
+    Self([
+      value[0].round() as u8,
+      value[1].round() as u8,
+      value[2].round() as u8,
+      value[3].round() as u8,
+    ])
+  }
+}
+
 /// Represents a color input value.
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub enum ColorInput<const DEFAULT_CURRENT_COLOR: bool = true> {
@@ -135,14 +153,26 @@ impl<const DEFAULT_CURRENT_COLOR: bool> Animatable for ColorInput<DEFAULT_CURREN
     current_color: CurrentColor,
   ) {
     *self = match (from, to) {
-      (ColorInput::Value(lhs), ColorInput::Value(rhs)) => {
-        ColorInput::Value(interpolate_rgba(*lhs, *rhs, progress))
-      }
+      (ColorInput::Value(lhs), ColorInput::Value(rhs)) => ColorInput::Value(Color::from(
+        interpolate_with_color_space(
+          *lhs,
+          *rhs,
+          progress,
+          ColorSpaceTag::Oklab,
+          HueDirection::Shorter,
+        )
+        .to_array(),
+      )),
       (ColorInput::CurrentColor, ColorInput::CurrentColor) => ColorInput::CurrentColor,
-      _ => ColorInput::Value(interpolate_rgba(
-        from.resolve(current_color),
-        to.resolve(current_color),
-        progress,
+      _ => ColorInput::Value(Color::from(
+        interpolate_with_color_space(
+          from.resolve(current_color),
+          to.resolve(current_color),
+          progress,
+          ColorSpaceTag::Oklab,
+          HueDirection::Shorter,
+        )
+        .to_array(),
       )),
     };
   }
