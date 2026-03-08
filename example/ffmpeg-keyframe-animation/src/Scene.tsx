@@ -114,7 +114,7 @@ export const Scene = ({
             tw="absolute inset-0 flex items-center justify-center bg-black/30"
             style={{ backdropFilter: "blur(2px)" }}
           >
-            <svg width="128" height="128" viewBox="0 0 24 24" fill="white">
+            <svg width="256" height="256" viewBox="0 0 24 24" fill="white">
               <title>Play Animation</title>
               <path d="M8 5v14l11-7z" />
             </svg>
