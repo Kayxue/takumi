@@ -65,7 +65,7 @@ For runtime-specific setup (Next.js, Vite SSR, Nitro, Cloudflare, Turbopack), se
 |                **Prisma-style API card** [(source)](./example/twitter-images/components/prisma-og-image.tsx)                |                      **X-style social post** [(source)](./example/twitter-images/components/x-post-image.tsx)                      |
 |             <img src="./example/twitter-images/output/prisma-og-image.png" alt="Prisma OG Image" width="100%">              |                 <img src="./example/twitter-images/output/x-post-image.png" alt="X-style Post Image" width="100%">                 |
 |                    **Keyframe Animation** [(source)](./example/ffmpeg-keyframe-animation/src/index.tsx)                     |                                       **[shiki-image](https://github.com/pi0/shiki-image)**                                        |
-| <video src="./example/ffmpeg-keyframe-animation/output/animation.mp4" width="100%" autoPlay loop muted playsInline></video> | <img src="https://raw.githubusercontent.com/pi0/shiki-image/refs/heads/main/test/.snapshot/image.webp" alt="Shiki Image Example" width="100%"> |
+| <img src="./example/ffmpeg-keyframe-animation/output/animation.mp4" alt="Keyframe Animation" width="100%" /> | <img src="https://raw.githubusercontent.com/pi0/shiki-image/refs/heads/main/test/.snapshot/image.webp" alt="Shiki Image Example" width="100%"> |
 
 - [(Unofficial) Takumi Playground](https://takumi-playground.kapadiya.net/)
 
