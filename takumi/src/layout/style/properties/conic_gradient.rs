@@ -85,8 +85,8 @@ impl GenericImageView for ConicGradientTile {
       return Rgba(apply_dither(&lut_samples[0], x, y));
     }
 
-    let angle_from_top = libm::atan2f(dx, -dy);
-    let adjusted = (angle_from_top - self.start_rad).rem_euclid(TAU);
+    let angle_from_top = Self::angle_from_top_normalized(dx, dy);
+    let adjusted = self.adjusted_angle(angle_from_top);
     let lut_idx = self.lut_index_for_adjusted_angle_with_len(adjusted, lut_samples.len());
 
     Rgba(apply_dither(&lut_samples[lut_idx], x, y))
@@ -94,6 +94,22 @@ impl GenericImageView for ConicGradientTile {
 }
 
 impl ConicGradientTile {
+  #[inline(always)]
+  fn angle_from_top_normalized(dx: f32, dy: f32) -> f32 {
+    let angle = libm::atan2f(dx, -dy);
+    if angle < 0.0 { angle + TAU } else { angle }
+  }
+
+  #[inline(always)]
+  fn adjusted_angle(&self, angle_from_top: f32) -> f32 {
+    let adjusted = angle_from_top - self.start_rad;
+    if adjusted < 0.0 {
+      adjusted + TAU
+    } else {
+      adjusted
+    }
+  }
+
   #[inline(always)]
   pub(crate) fn lut_index_for_adjusted_angle_with_len(
     &self,
@@ -118,7 +134,7 @@ impl ConicGradientTile {
     let cx = Length::from(gradient.center.0.x).to_px(&context.sizing, width as f32);
     let cy = Length::from(gradient.center.0.y).to_px(&context.sizing, height as f32);
 
-    let start_rad = gradient.from_angle.to_radians();
+    let start_rad = gradient.from_angle.to_radians().rem_euclid(TAU);
 
     // Resolve stop percentages against one full turn (360deg).
     let resolved_stops = resolve_stops_along_axis(&gradient.stops, 360.0, context);
@@ -186,8 +202,8 @@ impl GradientOverlayTile for ConicGradientTile {
     let lut_idx = if row_state.dx.abs() <= f32::EPSILON && row_state.dy.abs() <= f32::EPSILON {
       0
     } else {
-      let angle_from_top = libm::atan2f(row_state.dx, -row_state.dy);
-      let adjusted_angle = (angle_from_top - self.start_rad).rem_euclid(TAU);
+      let angle_from_top = Self::angle_from_top_normalized(row_state.dx, row_state.dy);
+      let adjusted_angle = self.adjusted_angle(angle_from_top);
       self.lut_index_for_adjusted_angle_with_len(adjusted_angle, row_state.lut_len)
     };
     row_state.dx += 1.0;

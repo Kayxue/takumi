@@ -77,8 +77,9 @@ pub(crate) struct LinearGradientTile {
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct LinearGradientRowState {
-  projection: f32,
-  lut_len: usize,
+  scaled_lut_position: f32,
+  lut_step: f32,
+  max_lut_index: usize,
 }
 
 impl LinearGradientTile {
@@ -171,16 +172,21 @@ impl GradientOverlayTile for LinearGradientTile {
 
   #[inline(always)]
   fn begin_row(&self, src_x_start: u32, src_y: u32, lut_len: usize) -> Self::RowState {
+    let projection = self.projection_at(src_x_start as f32, src_y as f32);
     LinearGradientRowState {
-      projection: self.projection_at(src_x_start as f32, src_y as f32),
-      lut_len,
+      scaled_lut_position: projection * self.position_to_lut_scale,
+      lut_step: self.dir_x * self.position_to_lut_scale,
+      max_lut_index: lut_len.saturating_sub(1),
     }
   }
 
   #[inline(always)]
   fn next_lut_index(&self, row_state: &mut Self::RowState) -> usize {
-    let lut_idx = self.lut_index_for_projection_with_len(row_state.projection, row_state.lut_len);
-    row_state.projection += self.dir_x;
+    let lut_idx = row_state
+      .scaled_lut_position
+      .clamp(0.0, row_state.max_lut_index as f32)
+      .round() as usize;
+    row_state.scaled_lut_position += row_state.lut_step;
     lut_idx
   }
 }

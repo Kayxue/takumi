@@ -123,8 +123,12 @@ pub(crate) const BAYER_MATRIX_8X8: [[f32; 8]; 8] = [
 
 /// Applies Bayer matrix dithering to a high-precision color and returns an 8-bit RGBA color.
 #[inline(always)]
-pub(crate) fn apply_dither(color: &[f32], x: u32, y: u32) -> [u8; 4] {
-  let dither = BAYER_MATRIX_8X8[(y % 8) as usize][(x % 8) as usize];
+pub(crate) fn apply_dither(color: &[f32; 4], x: u32, y: u32) -> [u8; 4] {
+  apply_dither_with_value(color, BAYER_MATRIX_8X8[(y & 7) as usize][(x & 7) as usize])
+}
+
+#[inline(always)]
+pub(crate) fn apply_dither_with_value(color: &[f32; 4], dither: f32) -> [u8; 4] {
   [
     (color[0] + dither).clamp(0.0, 255.0).round() as u8,
     (color[1] + dither).clamp(0.0, 255.0).round() as u8,
@@ -199,11 +203,15 @@ pub(crate) fn overlay_gradient_tile_fast_normal_unconstrained<T: GradientOverlay
     let src_x_start = (dest_x_min - offset_x) as u32;
     let mut src_x = src_x_start;
     let mut row_state = tile.begin_row(src_x_start, src_y, lut_len);
+    let dither_row = &BAYER_MATRIX_8X8[(src_y & 7) as usize];
 
     for dest_x in dest_x_min..dest_x_max {
       let lut_idx = tile.next_lut_index(&mut row_state);
       debug_assert!(lut_idx < lut_len);
-      let pixel = Rgba(apply_dither(&lut_samples[lut_idx], src_x, src_y));
+      let pixel = Rgba(apply_dither_with_value(
+        &lut_samples[lut_idx],
+        dither_row[(src_x & 7) as usize],
+      ));
       if pixel.0[3] != 0 {
         let current = bottom.get_pixel_mut(dest_x as u32, dest_y as u32);
         blend_pixel(current, pixel, super::BlendMode::Normal);

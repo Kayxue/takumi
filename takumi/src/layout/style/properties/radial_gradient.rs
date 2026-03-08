@@ -101,9 +101,10 @@ pub(crate) struct RadialGradientTile {
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct RadialGradientRowState {
-  dx: f32,
+  dx2: f32,
+  dx2_step: f32,
+  dx2_step_delta: f32,
   dy2: f32,
-  lut_len: usize,
   max_lut_index: usize,
 }
 
@@ -293,10 +294,13 @@ impl GradientOverlayTile for RadialGradientTile {
   #[inline(always)]
   fn begin_row(&self, src_x_start: u32, src_y: u32, lut_len: usize) -> Self::RowState {
     let dy = (src_y as f32 - self.cy) * self.inv_radius_y;
+    let dx = (src_x_start as f32 - self.cx) * self.inv_radius_x;
+    let dx_step = self.inv_radius_x;
     RadialGradientRowState {
-      dx: (src_x_start as f32 - self.cx) * self.inv_radius_x,
+      dx2: dx * dx,
+      dx2_step: 2.0 * dx * dx_step + dx_step * dx_step,
+      dx2_step_delta: 2.0 * dx_step * dx_step,
       dy2: dy * dy,
-      lut_len,
       max_lut_index: lut_len.saturating_sub(1),
     }
   }
@@ -307,10 +311,11 @@ impl GradientOverlayTile for RadialGradientTile {
       return row_state.max_lut_index;
     }
 
-    let normalized_distance = (row_state.dx * row_state.dx + row_state.dy2).sqrt();
-    let lut_idx =
-      self.lut_index_for_normalized_distance_with_len(normalized_distance, row_state.lut_len);
-    row_state.dx += self.inv_radius_x;
+    let normalized_distance = (row_state.dx2 + row_state.dy2).sqrt();
+    let lut_idx = self
+      .lut_index_for_normalized_distance_with_len(normalized_distance, row_state.max_lut_index + 1);
+    row_state.dx2 += row_state.dx2_step;
+    row_state.dx2_step += row_state.dx2_step_delta;
     lut_idx
   }
 }
