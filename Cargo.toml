@@ -17,6 +17,7 @@ codegen-units = 1
 
 [profile.release.package."takumi-wasm"]
 strip = "debuginfo"
+opt-level = 3
 
 [profile.release.package."takumi-napi-core"]
 opt-level = 3

@@ -1,5 +1,0 @@
----
-"takumi": patch
----
-
-Fix `background-position`, `mask-position` now default to `top left`
