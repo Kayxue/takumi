@@ -22,6 +22,34 @@ pub(crate) struct TileLayer {
 
 pub(crate) type TileLayers = Vec<TileLayer>;
 
+fn should_rasterize_repeated_tile(
+  tile: &BackgroundTile,
+  xs: &SmallVec<[i32; 1]>,
+  ys: &SmallVec<[i32; 1]>,
+) -> bool {
+  xs.len().saturating_mul(ys.len()) > 1
+    && matches!(
+      tile,
+      BackgroundTile::Linear(_)
+        | BackgroundTile::Radial(_)
+        | BackgroundTile::Conic(_)
+        | BackgroundTile::Noise(_)
+    )
+}
+
+fn rasterize_tile(tile: BackgroundTile, buffer_pool: &mut BufferPool) -> Result<BackgroundTile> {
+  let (width, height) = tile.dimensions();
+  let mut image = buffer_pool.acquire_image_dirty(width, height)?;
+
+  for y in 0..height {
+    for x in 0..width {
+      image.put_pixel(x, y, tile.get_pixel(x, y));
+    }
+  }
+
+  Ok(BackgroundTile::Image(image))
+}
+
 fn resolve_intrinsic_size(image: &BackgroundImage, context: &RenderContext) -> Option<(f32, f32)> {
   let BackgroundImage::Url(url) = image else {
     return None;
@@ -420,6 +448,11 @@ pub(crate) fn resolve_layer_tiles(
 
   let Some(tile) = render_tile(image, tile_w, tile_h, context, buffer_pool)? else {
     return Ok(None);
+  };
+  let tile = if should_rasterize_repeated_tile(&tile, &xs, &ys) {
+    rasterize_tile(tile, buffer_pool)?
+  } else {
+    tile
   };
 
   Ok(Some(TileLayer {
