@@ -110,16 +110,12 @@ where
     RawCssInput::Number(number) => {
       let source = number.to_string();
 
-      if let Ok(keyword) = CssWideKeyword::from_str(&source) {
-        Ok(ParsedRawStyleValue::Keyword(keyword))
-      } else {
-        T::from_str(&source)
-          .map(ParsedRawStyleValue::Value)
-          .map_err(|_| RawStyleValueParseError::NumberType {
-            number,
-            expected_message: expected_message::<T>,
-          })
-      }
+      T::from_str(&source)
+        .map(ParsedRawStyleValue::Value)
+        .map_err(|_| RawStyleValueParseError::NumberType {
+          number,
+          expected_message: expected_message::<T>,
+        })
     }
     RawCssInput::Unexpected(unexpected) => Err(RawStyleValueParseError::UnexpectedType {
       unexpected,
