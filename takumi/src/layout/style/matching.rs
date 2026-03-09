@@ -13,6 +13,7 @@ use selectors::{
 
 use crate::layout::style::StyleDeclarationBlock;
 use crate::layout::{
+  Viewport,
   node::Node,
   style::selector::{CssRule, StyleSheet, TakumiIdent, TakumiSelectorImpl},
 };
@@ -477,6 +478,7 @@ pub(crate) struct MatchedDeclarations {
 pub(crate) fn match_stylesheets<N: Node<N>>(
   root: &N,
   stylesheets: &[StyleSheet],
+  viewport: Viewport,
 ) -> Vec<MatchedDeclarations> {
   let arena = StyleArena::new(root);
   let mut per_node = vec![MatchedDeclarations::default(); arena.nodes.len()];
@@ -491,6 +493,12 @@ pub(crate) fn match_stylesheets<N: Node<N>>(
   let flattened_rules: Vec<&CssRule> = stylesheets
     .iter()
     .flat_map(|sheet| sheet.rules.iter())
+    .filter(|rule| {
+      rule
+        .media_queries
+        .as_ref()
+        .is_none_or(|media_queries| media_queries.matches(viewport))
+    })
     .collect();
   let rule_subject_hints: Vec<RuleSubjectHint> = flattened_rules
     .iter()

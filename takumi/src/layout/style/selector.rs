@@ -7,10 +7,18 @@ use selectors::parser::{
 use std::{
   borrow::Cow,
   fmt::{self, Write},
+  rc::Rc,
 };
+use taffy::Size;
 
 use crate::keyframes::{KeyframePreludeParseError, parse_keyframe_prelude};
-use crate::layout::style::{KeyframeRule, KeyframesRule, StyleDeclarationBlock};
+use crate::{
+  layout::{
+    Viewport,
+    style::{CalcArena, FromCss, KeyframeRule, KeyframesRule, Length, StyleDeclarationBlock},
+  },
+  rendering::Sizing,
+};
 
 #[derive(Debug, Clone)]
 pub enum CssSelectorParseError<'i> {
@@ -313,18 +321,282 @@ impl<'i> AtRuleParser<'i> for KeyframeRuleParser {
   type Error = CssSelectorParseError<'i>;
 }
 
-pub struct TakumiRuleParser;
+struct TakumiRuleParser;
+
+#[derive(Debug, Clone, PartialEq)]
+enum MediaType {
+  All,
+  Screen,
+  Unsupported(String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MediaFeatureComparison {
+  Equal,
+  Min,
+  Max,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MediaOrientation {
+  Portrait,
+  Landscape,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum MediaFeature {
+  Width(MediaFeatureComparison, Length<false>),
+  Height(MediaFeatureComparison, Length<false>),
+  Orientation(MediaOrientation),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct MediaQuery {
+  media_type: MediaType,
+  features: Vec<MediaFeature>,
+  negated: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub(crate) struct MediaQueryList {
+  queries: Vec<MediaQuery>,
+}
+
+impl MediaFeature {
+  fn matches(&self, viewport: Viewport, sizing: &Sizing) -> bool {
+    match self {
+      Self::Width(comparison, value) => viewport.width.is_some_and(|width| {
+        compare_media_feature(*comparison, width as f32, value.to_px(sizing, width as f32))
+      }),
+      Self::Height(comparison, value) => viewport.height.is_some_and(|height| {
+        compare_media_feature(
+          *comparison,
+          height as f32,
+          value.to_px(sizing, height as f32),
+        )
+      }),
+      Self::Orientation(MediaOrientation::Portrait) => viewport
+        .width
+        .zip(viewport.height)
+        .is_some_and(|(width, height)| height >= width),
+      Self::Orientation(MediaOrientation::Landscape) => viewport
+        .width
+        .zip(viewport.height)
+        .is_some_and(|(width, height)| width > height),
+    }
+  }
+}
+
+impl MediaQuery {
+  fn matches(&self, viewport: Viewport, sizing: &Sizing) -> bool {
+    let media_type_matches = match &self.media_type {
+      MediaType::All | MediaType::Screen => true,
+      MediaType::Unsupported(_) => false,
+    };
+
+    let mut is_match = media_type_matches
+      && self
+        .features
+        .iter()
+        .all(|feature| feature.matches(viewport, sizing));
+
+    if self.negated {
+      is_match = !is_match;
+    }
+
+    is_match
+  }
+}
+
+impl MediaQueryList {
+  pub(crate) fn matches(&self, viewport: Viewport) -> bool {
+    if self.queries.is_empty() {
+      return true;
+    }
+
+    let sizing = Sizing {
+      viewport,
+      container_size: Size::NONE,
+      font_size: viewport.font_size,
+      calc_arena: Rc::new(CalcArena::default()),
+    };
+
+    self
+      .queries
+      .iter()
+      .any(|query| query.matches(viewport, &sizing))
+  }
+}
+
+fn compare_media_feature(comparison: MediaFeatureComparison, actual: f32, expected: f32) -> bool {
+  match comparison {
+    MediaFeatureComparison::Equal => (actual - expected).abs() <= f32::EPSILON,
+    MediaFeatureComparison::Min => actual >= expected,
+    MediaFeatureComparison::Max => actual <= expected,
+  }
+}
+
+fn parse_media_query_list<'i, 't>(
+  input: &mut Parser<'i, 't>,
+) -> Result<MediaQueryList, ParseError<'i, CssSelectorParseError<'i>>> {
+  let mut queries = Vec::new();
+
+  loop {
+    queries.push(parse_media_query(input)?);
+
+    if input.try_parse(Parser::expect_comma).is_err() {
+      break;
+    }
+  }
+
+  Ok(MediaQueryList { queries })
+}
+
+fn parse_media_query<'i, 't>(
+  input: &mut Parser<'i, 't>,
+) -> Result<MediaQuery, ParseError<'i, CssSelectorParseError<'i>>> {
+  let mut negated = false;
+  let mut media_type = MediaType::All;
+  let mut features = Vec::new();
+  let mut has_explicit_media_type = false;
+
+  if let Ok(keyword) = input.try_parse(Parser::expect_ident_cloned) {
+    if keyword.eq_ignore_ascii_case("not") {
+      negated = true;
+      media_type = parse_media_type(input.expect_ident_cloned()?);
+      has_explicit_media_type = true;
+    } else if keyword.eq_ignore_ascii_case("only") {
+      media_type = parse_media_type(input.expect_ident_cloned()?);
+      has_explicit_media_type = true;
+    } else {
+      media_type = parse_media_type(keyword);
+      has_explicit_media_type = true;
+    }
+  }
+
+  if input
+    .try_parse(|input| parse_media_feature_block(input, &mut features))
+    .is_ok()
+  {
+    while input
+      .try_parse(|input| input.expect_ident_matching("and"))
+      .is_ok()
+    {
+      parse_media_feature_block(input, &mut features)?;
+    }
+  } else if has_explicit_media_type {
+    while input
+      .try_parse(|input| input.expect_ident_matching("and"))
+      .is_ok()
+    {
+      parse_media_feature_block(input, &mut features)?;
+    }
+  }
+
+  Ok(MediaQuery {
+    media_type,
+    features,
+    negated,
+  })
+}
+
+fn parse_media_type(name: CowRcStr<'_>) -> MediaType {
+  if name.eq_ignore_ascii_case("all") {
+    MediaType::All
+  } else if name.eq_ignore_ascii_case("screen") {
+    MediaType::Screen
+  } else {
+    MediaType::Unsupported(name.to_string())
+  }
+}
+
+fn parse_media_feature_block<'i, 't>(
+  input: &mut Parser<'i, 't>,
+  features: &mut Vec<MediaFeature>,
+) -> Result<(), ParseError<'i, CssSelectorParseError<'i>>> {
+  let location = input.current_source_location();
+  let token = input.next()?;
+  match token {
+    Token::ParenthesisBlock => input.parse_nested_block(|input| {
+      features.push(parse_media_feature(input)?);
+      Ok(())
+    }),
+    _ => Err(location.new_unexpected_token_error(token.clone())),
+  }
+}
+
+fn parse_media_feature<'i, 't>(
+  input: &mut Parser<'i, 't>,
+) -> Result<MediaFeature, ParseError<'i, CssSelectorParseError<'i>>> {
+  let feature_name = input.expect_ident_cloned()?;
+  input.expect_colon()?;
+
+  if feature_name.eq_ignore_ascii_case("orientation") {
+    let orientation = input.expect_ident_cloned()?;
+    return if orientation.eq_ignore_ascii_case("portrait") {
+      Ok(MediaFeature::Orientation(MediaOrientation::Portrait))
+    } else if orientation.eq_ignore_ascii_case("landscape") {
+      Ok(MediaFeature::Orientation(MediaOrientation::Landscape))
+    } else {
+      Err(
+        input.new_error(BasicParseErrorKind::UnexpectedToken(Token::Ident(
+          orientation,
+        ))),
+      )
+    };
+  }
+
+  let comparison = if feature_name.eq_ignore_ascii_case("min-width")
+    || feature_name.eq_ignore_ascii_case("min-height")
+  {
+    MediaFeatureComparison::Min
+  } else if feature_name.eq_ignore_ascii_case("max-width")
+    || feature_name.eq_ignore_ascii_case("max-height")
+  {
+    MediaFeatureComparison::Max
+  } else {
+    MediaFeatureComparison::Equal
+  };
+
+  let length = Length::<false>::from_css(input).map_err(ParseError::into)?;
+
+  if feature_name.eq_ignore_ascii_case("width")
+    || feature_name.eq_ignore_ascii_case("min-width")
+    || feature_name.eq_ignore_ascii_case("max-width")
+  {
+    Ok(MediaFeature::Width(comparison, length))
+  } else if feature_name.eq_ignore_ascii_case("height")
+    || feature_name.eq_ignore_ascii_case("min-height")
+    || feature_name.eq_ignore_ascii_case("max-height")
+  {
+    Ok(MediaFeature::Height(comparison, length))
+  } else {
+    Err(
+      input.new_custom_error(CssSelectorParseError::UnsupportedSelectorFeature(
+        "unsupported media feature",
+      )),
+    )
+  }
+}
+
+#[derive(Debug, Clone)]
+enum AtRulePrelude {
+  Keyframes(String),
+  Media(MediaQueryList),
+}
 
 #[derive(Debug, Clone)]
 pub struct CssRule {
   pub selectors: SelectorList<TakumiSelectorImpl>,
   pub normal_declarations: StyleDeclarationBlock,
   pub important_declarations: StyleDeclarationBlock,
+  pub media_queries: Option<MediaQueryList>,
 }
 
 #[derive(Debug, Clone)]
 pub enum StyleSheetRule {
   Style(Box<CssRule>),
+  Media(Vec<CssRule>),
   Keyframes(KeyframesRule),
 }
 
@@ -368,12 +640,13 @@ impl<'i> QualifiedRuleParser<'i> for TakumiRuleParser {
       selectors,
       normal_declarations,
       important_declarations,
+      media_queries: None,
     })))
   }
 }
 
 impl<'i> AtRuleParser<'i> for TakumiRuleParser {
-  type Prelude = String;
+  type Prelude = AtRulePrelude;
   type AtRule = StyleSheetRule;
   type Error = CssSelectorParseError<'i>;
 
@@ -382,24 +655,48 @@ impl<'i> AtRuleParser<'i> for TakumiRuleParser {
     name: CowRcStr<'i>,
     input: &mut Parser<'i, 't>,
   ) -> Result<Self::Prelude, ParseError<'i, Self::Error>> {
-    if !name.eq_ignore_ascii_case("keyframes") {
-      return Err(input.new_error(BasicParseErrorKind::AtRuleInvalid(name)));
+    if name.eq_ignore_ascii_case("keyframes") {
+      return Ok(AtRulePrelude::Keyframes(
+        input.expect_ident_or_string()?.to_string(),
+      ));
     }
 
-    Ok(input.expect_ident_or_string()?.to_string())
+    if name.eq_ignore_ascii_case("media") {
+      return parse_media_query_list(input).map(AtRulePrelude::Media);
+    }
+
+    Err(input.new_error(BasicParseErrorKind::AtRuleInvalid(name)))
   }
 
   fn parse_block<'t>(
     &mut self,
-    name: Self::Prelude,
+    prelude: Self::Prelude,
     _location: &ParserState,
     input: &mut Parser<'i, 't>,
   ) -> Result<Self::AtRule, ParseError<'i, Self::Error>> {
-    let mut parser = KeyframeRuleParser;
-    let rule_list_parser = StyleSheetParser::new(input, &mut parser);
-    let keyframes = rule_list_parser.filter_map(Result::ok).collect::<Vec<_>>();
+    match prelude {
+      AtRulePrelude::Keyframes(name) => {
+        let mut parser = KeyframeRuleParser;
+        let rule_list_parser = StyleSheetParser::new(input, &mut parser);
+        let keyframes = rule_list_parser.filter_map(Result::ok).collect::<Vec<_>>();
 
-    Ok(StyleSheetRule::Keyframes(KeyframesRule { name, keyframes }))
+        Ok(StyleSheetRule::Keyframes(KeyframesRule { name, keyframes }))
+      }
+      AtRulePrelude::Media(media_queries) => {
+        let mut parser = TakumiRuleParser;
+        let rule_list_parser = StyleSheetParser::new(input, &mut parser);
+        let mut rules = Vec::new();
+
+        for rule in rule_list_parser.filter_map(Result::ok) {
+          if let StyleSheetRule::Style(mut rule) = rule {
+            rule.media_queries = Some(media_queries.clone());
+            rules.push(*rule);
+          }
+        }
+
+        Ok(StyleSheetRule::Media(rules))
+      }
+    }
   }
 }
 
@@ -429,6 +726,7 @@ impl StyleSheet {
     for rule in rule_list_parser {
       match rule {
         Ok(StyleSheetRule::Style(rule)) => rules.push(*rule),
+        Ok(StyleSheetRule::Media(media_rules)) => rules.extend(media_rules),
         Ok(StyleSheetRule::Keyframes(rule)) => keyframes.push(rule),
         Err((_error, _slice)) => continue,
       }
@@ -646,5 +944,47 @@ mod tests {
     assert_eq!(sheet.keyframes[0].keyframes[0].offsets, vec![0.0]);
     assert_eq!(sheet.keyframes[0].keyframes[1].offsets, vec![0.5]);
     assert_eq!(sheet.keyframes[0].keyframes[2].offsets, vec![1.0]);
+  }
+
+  #[test]
+  fn test_parse_media_rule_with_viewport_features() {
+    let sheet = StyleSheet::parse(
+      r#"
+        @media screen and (min-width: 600px) and (orientation: landscape) {
+          .card { width: 100px; }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 1);
+    assert!(sheet.keyframes.is_empty());
+    assert!(
+      sheet.rules[0]
+        .media_queries
+        .as_ref()
+        .is_some_and(|media| media.matches(Viewport::new(Some(800), Some(600))))
+    );
+    assert!(
+      !sheet.rules[0]
+        .media_queries
+        .as_ref()
+        .is_some_and(|media| media.matches(Viewport::new(Some(500), Some(800))))
+    );
+  }
+
+  #[test]
+  fn test_parse_media_rule_with_comma_list() {
+    let sheet = StyleSheet::parse(
+      r#"
+        @media (max-width: 480px), (min-width: 1024px) {
+          .card { width: 100px; }
+        }
+      "#,
+    );
+
+    let media = sheet.rules[0].media_queries.as_ref().unwrap();
+    assert!(media.matches(Viewport::new(Some(400), Some(800))));
+    assert!(media.matches(Viewport::new(Some(1280), Some(800))));
+    assert!(!media.matches(Viewport::new(Some(800), Some(800))));
   }
 }
