@@ -68,6 +68,8 @@ pub enum FontFormat {
   Ttf,
   /// OpenType Font format - extended font format with advanced typography
   Otf,
+  /// TrueType Collection - multiple fonts in one file
+  Ttc,
 }
 
 /// Loads and processes font data, optionally using format hint for detection
@@ -82,7 +84,7 @@ pub fn load_font(
   };
 
   match format {
-    FontFormat::Ttf | FontFormat::Otf => Ok(source.into_owned()),
+    FontFormat::Ttf | FontFormat::Otf | FontFormat::Ttc => Ok(source.into_owned()),
     #[cfg(feature = "woff2")]
     FontFormat::Woff2 => {
       let ttf = wuff::decompress_woff2(&source).map_err(FontError::Woff)?;
@@ -108,6 +110,7 @@ fn guess_font_format(source: &[u8]) -> Result<FontFormat, FontError> {
     b"wOFF" => Ok(FontFormat::Woff),
     [0x00, 0x01, 0x00, 0x00] => Ok(FontFormat::Ttf),
     b"OTTO" => Ok(FontFormat::Otf),
+    b"ttcf" => Ok(FontFormat::Ttc),
     _ => Err(FontError::UnsupportedFormat),
   }
 }
