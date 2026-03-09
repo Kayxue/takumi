@@ -8,7 +8,7 @@ use serde_json::from_str;
 use std::borrow::Cow;
 use takumi::{
   layout::{Viewport, node::NodeKind},
-  rendering::{ImageOutputFormat, RenderOptionsBuilder, render, write_image},
+  rendering::{DitheringAlgorithm, ImageOutputFormat, RenderOptionsBuilder, render, write_image},
 };
 use tokio::task::spawn_blocking;
 
@@ -18,6 +18,7 @@ use crate::{AxumResult, AxumState};
 pub struct GenerateImageQuery {
   pub format: Option<ImageOutputFormat>,
   pub quality: Option<u8>,
+  pub dithering: Option<DitheringAlgorithm>,
   pub payload: String,
   pub draw_debug_border: Option<bool>,
   pub width: Option<u32>,
@@ -39,11 +40,13 @@ pub async fn generate_image_handler(
 
   let buffer = spawn_blocking(move || -> AxumResult<Vec<u8>> {
     let viewport = Viewport::new(query.width, query.height);
+    let dithering = query.dithering.unwrap_or_default();
     let options = RenderOptionsBuilder::default()
       .viewport(viewport)
       .node(root_node)
       .global(&state.context)
       .draw_debug_border(query.draw_debug_border.unwrap_or(false))
+      .dithering(dithering)
       .build()
       .unwrap();
 

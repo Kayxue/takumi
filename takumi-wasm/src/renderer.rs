@@ -213,6 +213,7 @@ impl Renderer {
 
   fn render_internal(&self, node: NodeKind, options: RenderOptions) -> Result<Vec<u8>, JsValue> {
     let fetched_resources = self.fetch_resources_map(options.fetched_resources.as_deref())?;
+    let dithering = options.dithering.unwrap_or_default();
 
     let render_options = RenderOptionsBuilder::default()
       .viewport(Viewport {
@@ -227,6 +228,7 @@ impl Renderer {
       .fetched_resources(fetched_resources)
       .stylesheets(options.stylesheets.unwrap_or_default())
       .time_ms(options.time_ms.unwrap_or_default().max(0) as u64)
+      .dithering(dithering)
       .node(node)
       .global(&self.context)
       .build()
