@@ -108,52 +108,43 @@ impl PrecomputedHash for TakumiIdent {
 #[derive(Debug, Clone)]
 pub struct TakumiSelectorImpl;
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub enum DummyPseudoClass {
-  #[default]
-  Hover,
-}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UnsupportedPseudoClass {}
 
-impl ToCss for DummyPseudoClass {
+impl ToCss for UnsupportedPseudoClass {
   fn to_css<W>(&self, dest: &mut W) -> fmt::Result
   where
     W: Write,
   {
-    match self {
-      DummyPseudoClass::Hover => dest.write_str(":hover"),
-    }
+    let _ = dest;
+    match *self {}
   }
 }
 
-impl NonTSPseudoClass for DummyPseudoClass {
+impl NonTSPseudoClass for UnsupportedPseudoClass {
   type Impl = TakumiSelectorImpl;
   fn is_active_or_hover(&self) -> bool {
-    *self == DummyPseudoClass::Hover
+    match *self {}
   }
   fn is_user_action_state(&self) -> bool {
-    true
+    match *self {}
   }
 }
 
-// TODO: support pseudo elements
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub enum DummyPseudoElement {
-  #[default]
-  Noop,
-}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UnsupportedPseudoElement {}
 
-impl ToCss for DummyPseudoElement {
+impl ToCss for UnsupportedPseudoElement {
   fn to_css<W>(&self, dest: &mut W) -> fmt::Result
   where
     W: Write,
   {
-    match self {
-      DummyPseudoElement::Noop => dest.write_str("::noop"),
-    }
+    let _ = dest;
+    match *self {}
   }
 }
 
-impl PseudoElement for DummyPseudoElement {
+impl PseudoElement for UnsupportedPseudoElement {
   type Impl = TakumiSelectorImpl;
 }
 
@@ -166,8 +157,8 @@ impl SelectorImpl for TakumiSelectorImpl {
   type NamespacePrefix = TakumiIdent;
   type BorrowedNamespaceUrl = TakumiIdent;
   type BorrowedLocalName = TakumiIdent;
-  type NonTSPseudoClass = DummyPseudoClass;
-  type PseudoElement = DummyPseudoElement;
+  type NonTSPseudoClass = UnsupportedPseudoClass;
+  type PseudoElement = UnsupportedPseudoElement;
 }
 
 struct TakumiSelectorParser;
@@ -178,6 +169,30 @@ impl<'i> selectors::Parser<'i> for TakumiSelectorParser {
 
   fn parse_parent_selector(&self) -> bool {
     true
+  }
+
+  fn parse_non_ts_pseudo_class(
+    &self,
+    location: SourceLocation,
+    name: CowRcStr<'i>,
+  ) -> Result<<Self::Impl as SelectorImpl>::NonTSPseudoClass, ParseError<'i, Self::Error>> {
+    Err(
+      location.new_custom_error(SelectorParseErrorKind::UnsupportedPseudoClassOrElement(
+        name,
+      )),
+    )
+  }
+
+  fn parse_pseudo_element(
+    &self,
+    location: SourceLocation,
+    name: CowRcStr<'i>,
+  ) -> Result<<Self::Impl as SelectorImpl>::PseudoElement, ParseError<'i, Self::Error>> {
+    Err(
+      location.new_custom_error(SelectorParseErrorKind::UnsupportedPseudoClassOrElement(
+        name,
+      )),
+    )
   }
 }
 
@@ -206,7 +221,7 @@ impl StyleSheetFragment {
 #[derive(Debug)]
 enum StyleRuleBodyItem {
   Declarations(Box<StyleDeclarationBlock>),
-  Rules(Vec<CssRule>),
+  Rules(StyleSheetFragment),
 }
 
 fn parse_selector_list<'i, 't>(
@@ -385,8 +400,9 @@ impl<'i> QualifiedRuleParser<'i> for NestedStyleRuleParser<'_> {
     input: &mut Parser<'i, 't>,
   ) -> Result<Self::QualifiedRule, ParseError<'i, Self::Error>> {
     let selectors = nested_selectors.replace_parent_selector(&self.parent_selectors);
-    let rules = parse_style_rule_block(selectors, self.media_queries, self.layer.as_ref(), input)?;
-    Ok(StyleRuleBodyItem::Rules(rules))
+    let fragment =
+      parse_style_rule_block(selectors, self.media_queries, self.layer.as_ref(), input)?;
+    Ok(StyleRuleBodyItem::Rules(fragment))
   }
 }
 
@@ -409,14 +425,14 @@ impl<'i> AtRuleParser<'i> for NestedStyleRuleParser<'_> {
     _location: &ParserState,
     input: &mut Parser<'i, 't>,
   ) -> Result<Self::AtRule, ParseError<'i, Self::Error>> {
-    let rules = parse_nested_at_rule_block(
+    let fragment = parse_nested_at_rule_block(
       &self.parent_selectors,
       self.media_queries,
       self.layer.as_ref(),
       prelude,
       input,
     )?;
-    Ok(StyleRuleBodyItem::Rules(rules))
+    Ok(StyleRuleBodyItem::Rules(fragment))
   }
 }
 
@@ -495,10 +511,12 @@ impl<'i> QualifiedRuleParser<'i> for KeyframeRuleParser {
     input: &mut Parser<'i, 't>,
   ) -> Result<Self::QualifiedRule, ParseError<'i, Self::Error>> {
     let mut declaration_parser = KeyframeDeclarationParser;
-    let parser = RuleBodyParser::new(input, &mut declaration_parser);
     let mut declarations = StyleDeclarationBlock::default();
-    for block in parser.filter_map(Result::ok) {
-      declarations.append(block);
+    for result in RuleBodyParser::new(input, &mut declaration_parser) {
+      match result {
+        Ok(block) => declarations.append(block),
+        Err((error, _)) => return Err(error),
+      }
     }
 
     Ok(KeyframeRule {
@@ -624,8 +642,10 @@ impl MediaQueryList {
 }
 
 fn compare_media_feature(comparison: MediaFeatureComparison, actual: f32, expected: f32) -> bool {
+  const MEDIA_FEATURE_EQUALITY_TOLERANCE: f32 = 0.5;
+
   match comparison {
-    MediaFeatureComparison::Equal => (actual - expected).abs() <= f32::EPSILON,
+    MediaFeatureComparison::Equal => (actual - expected).abs() <= MEDIA_FEATURE_EQUALITY_TOLERANCE,
     MediaFeatureComparison::Min => actual >= expected,
     MediaFeatureComparison::Max => actual <= expected,
   }
@@ -790,12 +810,12 @@ fn parse_fragment(
   let mut parser = TakumiRuleParser {
     current_layer: current_layer.cloned(),
   };
-  StyleSheetParser::new(input, &mut parser)
-    .filter_map(Result::ok)
-    .fold(StyleSheetFragment::default(), |mut fragment, nested| {
-      fragment.extend(nested);
-      fragment
-    })
+  let mut fragment = StyleSheetFragment::default();
+  for nested in StyleSheetParser::new(input, &mut parser).flatten() {
+    fragment.extend(nested);
+  }
+
+  fragment
 }
 
 #[derive(Debug, Clone)]
@@ -816,9 +836,14 @@ fn parse_property_rule<'i, 't>(
   let mut syntax = None;
   let mut inherits = None;
   let mut initial_value = None;
+  let mut invalid_inherits = false;
 
-  for entry in RuleBodyParser::new(input, &mut parser).filter_map(Result::ok) {
-    let (name, value) = entry;
+  for result in RuleBodyParser::new(input, &mut parser) {
+    let (name, value) = match result {
+      Ok(value) => value,
+      Err((error, _)) => return Err(error),
+    };
+
     if name.eq_ignore_ascii_case("syntax") {
       syntax = Some(value);
       continue;
@@ -835,14 +860,19 @@ fn parse_property_rule<'i, 't>(
         continue;
       }
 
-      return Err(input.new_custom_error(CssSelectorParseError::InvalidAtRule(
-        "@property inherits must be true or false",
-      )));
+      invalid_inherits = true;
+      continue;
     }
 
     if name.eq_ignore_ascii_case("initial-value") {
       initial_value = Some(value);
     }
+  }
+
+  if invalid_inherits {
+    return Err(input.new_custom_error(CssSelectorParseError::InvalidAtRule(
+      "@property inherits must be true or false",
+    )));
   }
 
   let Some(syntax) = syntax else {
@@ -1047,20 +1077,20 @@ fn parse_style_rule_block<'i, 't>(
   media_queries: &[MediaQueryList],
   layer: Option<&LayerPath>,
   input: &mut Parser<'i, 't>,
-) -> Result<Vec<CssRule>, ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<StyleSheetFragment, ParseError<'i, CssSelectorParseError<'i>>> {
   let mut normal_declarations = StyleDeclarationBlock::default();
   let mut important_declarations = StyleDeclarationBlock::default();
   let layer = layer.cloned();
-  let mut rules = Vec::new();
+  let mut fragment = StyleSheetFragment::default();
   let mut parser = NestedStyleRuleParser {
     parent_selectors: selectors.clone(),
     media_queries,
     layer: layer.clone(),
   };
 
-  for result in RuleBodyParser::new(input, &mut parser) {
+  for result in RuleBodyParser::new(input, &mut parser).flatten() {
     match result {
-      Ok(StyleRuleBodyItem::Declarations(declarations)) => {
+      StyleRuleBodyItem::Declarations(declarations) => {
         let declarations = *declarations;
         if declarations.importance.is_empty() {
           normal_declarations.append(declarations);
@@ -1068,11 +1098,11 @@ fn parse_style_rule_block<'i, 't>(
           important_declarations.append(declarations);
         }
       }
-      Ok(StyleRuleBodyItem::Rules(mut nested_rules)) => {
+      StyleRuleBodyItem::Rules(nested_rules) => {
         if !normal_declarations.declarations.is_empty()
           || !important_declarations.declarations.is_empty()
         {
-          rules.push(CssRule {
+          fragment.rules.push(CssRule {
             selectors: selectors.clone(),
             normal_declarations: take(&mut normal_declarations),
             important_declarations: take(&mut important_declarations),
@@ -1081,17 +1111,16 @@ fn parse_style_rule_block<'i, 't>(
             layer_order: None,
           });
         }
-        rules.append(&mut nested_rules);
+        fragment.extend(nested_rules);
       }
-      Err((_error, _body)) => continue,
     }
   }
 
   if normal_declarations.declarations.is_empty() && important_declarations.declarations.is_empty() {
-    return Ok(rules);
+    return Ok(fragment);
   }
 
-  rules.push(CssRule {
+  fragment.rules.push(CssRule {
     selectors,
     normal_declarations,
     important_declarations,
@@ -1099,7 +1128,7 @@ fn parse_style_rule_block<'i, 't>(
     layer,
     layer_order: None,
   });
-  Ok(rules)
+  Ok(fragment)
 }
 
 fn parse_nested_at_rule_block<'i, 't>(
@@ -1108,12 +1137,12 @@ fn parse_nested_at_rule_block<'i, 't>(
   current_layer: Option<&LayerPath>,
   prelude: AtRulePrelude,
   input: &mut Parser<'i, 't>,
-) -> Result<Vec<CssRule>, ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<StyleSheetFragment, ParseError<'i, CssSelectorParseError<'i>>> {
   match prelude {
     AtRulePrelude::Layer(layer_names) => {
       ensure_single_layer_name(&layer_names, input)?;
       let Some(layer_name) = layer_names.into_iter().next() else {
-        return Ok(Vec::new());
+        return Ok(StyleSheetFragment::default());
       };
       let nested_layer = extend_layer_name(current_layer, &layer_name);
       parse_style_rule_block(
@@ -1145,8 +1174,8 @@ fn parse_nested_at_rule_block<'i, 't>(
         media_queries,
         layer: current_layer.cloned(),
       };
-      for _ in RuleBodyParser::new(input, &mut parser) {}
-      Ok(Vec::new())
+      for _ in RuleBodyParser::new(input, &mut parser).flatten() {}
+      Ok(StyleSheetFragment::default())
     }
     AtRulePrelude::Keyframes(_) | AtRulePrelude::Property(_) => Err(input.new_custom_error(
       CssSelectorParseError::InvalidAtRule("unsupported nested at-rule"),
@@ -1174,10 +1203,7 @@ impl<'i> QualifiedRuleParser<'i> for TakumiRuleParser {
     _location: &ParserState,
     input: &mut Parser<'i, 't>,
   ) -> Result<Self::QualifiedRule, ParseError<'i, Self::Error>> {
-    Ok(StyleSheetFragment {
-      rules: parse_style_rule_block(selectors.selectors, &[], self.current_layer.as_ref(), input)?,
-      ..StyleSheetFragment::default()
-    })
+    parse_style_rule_block(selectors.selectors, &[], self.current_layer.as_ref(), input)
   }
 }
 
@@ -1220,8 +1246,10 @@ impl<'i> AtRuleParser<'i> for TakumiRuleParser {
       }
       AtRulePrelude::Keyframes(name) => {
         let mut parser = KeyframeRuleParser;
-        let rule_list_parser = StyleSheetParser::new(input, &mut parser);
-        let keyframes = rule_list_parser.filter_map(Result::ok).collect::<Vec<_>>();
+        let mut keyframes = Vec::new();
+        for keyframe in StyleSheetParser::new(input, &mut parser).flatten() {
+          keyframes.push(keyframe);
+        }
 
         Ok(StyleSheetFragment {
           keyframes: vec![KeyframesRule {
@@ -1308,10 +1336,7 @@ impl StyleSheet {
     let mut keyframes = Vec::new();
     let mut property_rules = Vec::new();
     let mut declared_layers = Vec::new();
-
-    let rule_list_parser = StyleSheetParser::new(&mut parser, &mut rule_parser);
-
-    for fragment in rule_list_parser.filter_map(Result::ok) {
+    for fragment in StyleSheetParser::new(&mut parser, &mut rule_parser).flatten() {
       rules.extend(fragment.rules);
       keyframes.extend(fragment.keyframes);
       property_rules.extend(fragment.property_rules);

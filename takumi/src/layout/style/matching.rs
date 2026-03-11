@@ -1,203 +1,38 @@
 use std::{collections::HashMap, fmt};
 
-use selectors::matching::{
-  MatchingContext, MatchingForInvalidation, MatchingMode, NeedsSelectorFlags, QuirksMode,
-  SelectorCaches, early_reject_by_local_name, matches_selector,
-};
 use selectors::{
-  Element, OpaqueElement,
+  Element, OpaqueElement, SelectorImpl,
   attr::CaseSensitivity,
   bloom::BloomFilter,
-  parser::{AncestorHashes, Component, Selector},
+  matching::{
+    MatchingContext, MatchingForInvalidation, MatchingMode, NeedsSelectorFlags, QuirksMode,
+    SelectorCaches, early_reject_by_local_name, matches_selector,
+  },
+  parser::AncestorHashes,
 };
 
-use crate::layout::style::StyleDeclarationBlock;
 use crate::layout::{
   Viewport,
   node::Node,
-  style::selector::{CssRule, StyleSheet, TakumiIdent, TakumiSelectorImpl},
+  style::{
+    StyleDeclarationBlock,
+    selector::{CssRule, StyleSheet, TakumiIdent, TakumiSelectorImpl},
+  },
 };
 
-#[derive(Default)]
-struct SelectorSubjectHint {
-  tag_name: Option<String>,
-  id: Option<String>,
-  classes: Vec<String>,
-  has_positive_key: bool,
-}
-
-#[derive(Default)]
-struct RuleSubjectHint {
-  tags: Vec<String>,
-  ids: Vec<String>,
-  classes: Vec<String>,
-  matches_any: bool,
-}
-
-#[derive(Default)]
-struct RuleCandidateIndex {
-  any_rules: Vec<usize>,
-  by_tag: HashMap<String, Vec<usize>>,
-  by_id: HashMap<String, Vec<usize>>,
-  by_class: HashMap<String, Vec<usize>>,
-}
-
-fn selector_subject_hint(selector: &Selector<TakumiSelectorImpl>) -> SelectorSubjectHint {
-  let mut hint = SelectorSubjectHint::default();
-
-  for component in selector.iter_raw_match_order() {
-    match component {
-      Component::Combinator(_) => break,
-      Component::LocalName(local_name) => {
-        hint.tag_name = Some(local_name.lower_name.0.clone());
-        hint.has_positive_key = true;
-      }
-      Component::ID(id) => {
-        hint.id = Some(id.0.clone());
-        hint.has_positive_key = true;
-      }
-      Component::Class(class_name) => {
-        hint.classes.push(class_name.0.clone());
-        hint.has_positive_key = true;
-      }
-      _ => {}
-    }
-  }
-
-  hint
-}
-
-fn push_unique(vec: &mut Vec<String>, value: &str) {
-  if !vec.iter().any(|existing| existing == value) {
-    vec.push(value.to_owned());
-  }
-}
-
-fn build_rule_subject_hint(rule: &CssRule) -> RuleSubjectHint {
-  let mut hint = RuleSubjectHint::default();
-
-  for selector in rule.selectors.slice() {
-    let selector_hint = selector_subject_hint(selector);
-    if !selector_hint.has_positive_key {
-      hint.matches_any = true;
-      continue;
-    }
-
-    if let Some(tag_name) = selector_hint.tag_name.as_deref() {
-      push_unique(&mut hint.tags, tag_name);
-    }
-    if let Some(id) = selector_hint.id.as_deref() {
-      push_unique(&mut hint.ids, id);
-    }
-    for class_name in &selector_hint.classes {
-      push_unique(&mut hint.classes, class_name);
-    }
-  }
-
-  hint
-}
-
-fn push_rule_index_entry(map: &mut HashMap<String, Vec<usize>>, key: &str, rule_index: usize) {
-  map.entry(key.to_owned()).or_default().push(rule_index);
-}
-
-fn build_rule_candidate_index(rule_subject_hints: &[RuleSubjectHint]) -> RuleCandidateIndex {
-  let mut index = RuleCandidateIndex::default();
-
-  for (rule_index, hint) in rule_subject_hints.iter().enumerate() {
-    if hint.matches_any || (hint.tags.is_empty() && hint.ids.is_empty() && hint.classes.is_empty())
-    {
-      index.any_rules.push(rule_index);
-      continue;
-    }
-
-    for tag in &hint.tags {
-      push_rule_index_entry(&mut index.by_tag, tag, rule_index);
-    }
-    for id in &hint.ids {
-      push_rule_index_entry(&mut index.by_id, id, rule_index);
-    }
-    for class_name in &hint.classes {
-      push_rule_index_entry(&mut index.by_class, class_name, rule_index);
-    }
-  }
-
-  index
-}
-
-fn collect_candidate_rule_indices_for_node<N: Node<N>>(
-  node: &N,
-  index: &RuleCandidateIndex,
-  candidate_rule_indices: &mut Vec<usize>,
-  seen_rule_marks: &mut [u32],
-  seen_generation: u32,
-) {
-  let mut push_if_new = |rule_index: usize| {
-    let mark = &mut seen_rule_marks[rule_index];
-    if *mark == seen_generation {
-      return;
-    }
-    *mark = seen_generation;
-    candidate_rule_indices.push(rule_index);
-  };
-
-  for &rule_index in &index.any_rules {
-    push_if_new(rule_index);
-  }
-
-  if let Some(tag) = node.tag_name() {
-    let tag = tag.to_ascii_lowercase();
-    if let Some(rule_indices) = index.by_tag.get(&tag) {
-      for &rule_index in rule_indices {
-        push_if_new(rule_index);
-      }
-    }
-  }
-
-  if let Some(id) = node.id()
-    && let Some(rule_indices) = index.by_id.get(id)
-  {
-    for &rule_index in rule_indices {
-      push_if_new(rule_index);
-    }
-  }
-
-  if let Some(classes) = node.class_name() {
-    for class_name in classes.split_whitespace() {
-      if let Some(rule_indices) = index.by_class.get(class_name) {
-        for &rule_index in rule_indices {
-          push_if_new(rule_index);
-        }
-      }
-    }
-  }
-}
-
-/// A transient arena for CSS matching.
-/// It flattens the node tree into a vector of nodes and stores indices to parents, siblings, and children.
 pub(crate) struct StyleArena<'a, N: Node<N>> {
-  /// The flattened nodes in the arena.
   pub nodes: Vec<StyleNode<'a, N>>,
 }
-/// Represents a single node inside the `StyleArena`.
 pub(crate) struct StyleNode<'a, N: Node<N>> {
-  /// The actual node reference.
   pub node: &'a N,
-  /// The index of the parent node, if any.
   pub parent: Option<usize>,
-  /// The index of the previous sibling node, if any.
   pub prev_sibling: Option<usize>,
-  /// The index of the next sibling node, if any.
   pub next_sibling: Option<usize>,
-  /// The index of the first child node, if any.
   pub first_child: Option<usize>,
 }
-/// An element inside the `StyleArena` that can be matched against CSS selectors.
 #[derive(Clone, Copy)]
 pub(crate) struct ArenaElement<'a, N: Node<N>> {
-  /// A reference to the parent arena.
   pub tree: &'a StyleArena<'a, N>,
-  /// The index of this element in the arena.
   pub index: usize,
 }
 
@@ -210,7 +45,6 @@ impl<N: Node<N>> fmt::Debug for ArenaElement<'_, N> {
 }
 
 impl<'a, N: Node<N>> StyleArena<'a, N> {
-  /// Creates a new `StyleArena` from a given root node.
   pub fn new(root: &'a N) -> Self {
     let mut arena = StyleArena { nodes: Vec::new() };
     arena.add_node(root, None, None);
@@ -444,17 +278,17 @@ impl<'a, N: Node<N>> Element for ArenaElement<'a, N> {
   }
   fn match_non_ts_pseudo_class(
     &self,
-    _pc: &<Self::Impl as selectors::SelectorImpl>::NonTSPseudoClass,
+    pc: &<Self::Impl as SelectorImpl>::NonTSPseudoClass,
     _context: &mut MatchingContext<'_, Self::Impl>,
   ) -> bool {
-    false
+    match *pc {}
   }
   fn match_pseudo_element(
     &self,
-    _pe: &<Self::Impl as selectors::SelectorImpl>::PseudoElement,
+    pe: &<Self::Impl as SelectorImpl>::PseudoElement,
     _context: &mut MatchingContext<'_, Self::Impl>,
   ) -> bool {
-    false
+    match *pe {}
   }
 
   fn apply_selector_flags(&self, _flags: selectors::matching::ElementSelectorFlags) {}
@@ -514,14 +348,6 @@ pub(crate) fn match_stylesheets<N: Node<N>>(
     .filter_map(|rule| rule.layer_order)
     .max()
     .map_or(0, |max_order| max_order + 1);
-  let rule_subject_hints: Vec<RuleSubjectHint> = flattened_rules
-    .iter()
-    .map(|rule| build_rule_subject_hint(rule))
-    .collect();
-  let rule_candidate_index = build_rule_candidate_index(&rule_subject_hints);
-  let mut candidate_rule_indices = Vec::new();
-  let mut seen_rule_marks = vec![0u32; flattened_rules.len()];
-  let mut seen_generation = 1u32;
 
   for i in 0..arena.nodes.len() {
     let Some(parent) = arena.nodes[i].parent else {
@@ -546,17 +372,8 @@ pub(crate) fn match_stylesheets<N: Node<N>>(
       NeedsSelectorFlags::No,
       MatchingForInvalidation::No,
     );
-    collect_candidate_rule_indices_for_node(
-      arena.nodes[i].node,
-      &rule_candidate_index,
-      &mut candidate_rule_indices,
-      &mut seen_rule_marks,
-      seen_generation,
-    );
-    candidate_rule_indices.sort_unstable();
 
-    for &source_order in &candidate_rule_indices {
-      let rule = flattened_rules[source_order];
+    for (source_order, rule) in flattened_rules.iter().copied().enumerate() {
       let mut best_specificity: Option<u32> = None;
       for selector in rule.selectors.slice() {
         let selector_key = selector as *const _ as usize;
@@ -595,13 +412,6 @@ pub(crate) fn match_stylesheets<N: Node<N>>(
         });
       }
     }
-
-    candidate_rule_indices.clear();
-    seen_generation = seen_generation.wrapping_add(1);
-    if seen_generation == 0 {
-      seen_rule_marks.fill(0);
-      seen_generation = 1;
-    }
   }
 
   for (matched, mut rules) in per_node.iter_mut().zip(matched_rules.into_iter()) {
@@ -638,6 +448,7 @@ mod tests {
 
   #[derive(Clone, Default)]
   struct TestNode {
+    tag_name: Option<&'static str>,
     class_name: Option<&'static str>,
     id: Option<&'static str>,
     children: Vec<TestNode>,
@@ -645,6 +456,10 @@ mod tests {
   }
 
   impl Node<TestNode> for TestNode {
+    fn tag_name(&self) -> Option<&str> {
+      self.tag_name
+    }
+
     fn class_name(&self) -> Option<&str> {
       self.class_name
     }
@@ -675,6 +490,17 @@ mod tests {
       declaration.merge_into_ref(&mut style);
     }
     style.inherit(&ComputedStyle::default()).width
+  }
+
+  fn computed_height_from_matches(matches: &super::MatchedDeclarations) -> Length {
+    let mut style = Style::default();
+    for declaration in matches.normal.iter() {
+      declaration.merge_into_ref(&mut style);
+    }
+    for declaration in matches.important.iter() {
+      declaration.merge_into_ref(&mut style);
+    }
+    style.inherit(&ComputedStyle::default()).height
   }
 
   #[test]
@@ -723,5 +549,83 @@ mod tests {
     let matched = match_stylesheets(&root, &[stylesheet], Viewport::new(None, None));
     assert_eq!(matched.len(), 2);
     assert_eq!(computed_width_from_matches(&matched[1]), Length::Px(10.0));
+  }
+
+  #[test]
+  fn important_layered_rules_outrank_unlayered_important() {
+    let root = TestNode {
+      class_name: Some("card"),
+      ..TestNode::default()
+    };
+    let stylesheet = StyleSheet::parse(
+      r#"
+        @layer theme, base;
+        .card { width: 5px !important; }
+        @layer base {
+          .card { width: 10px !important; }
+        }
+        @layer theme {
+          .card { width: 20px !important; }
+        }
+      "#,
+    );
+
+    let matched = match_stylesheets(&root, &[stylesheet], Viewport::new(None, None));
+    assert_eq!(matched.len(), 1);
+    assert_eq!(computed_width_from_matches(&matched[0]), Length::Px(20.0));
+  }
+
+  #[test]
+  fn later_stylesheet_rules_outrank_earlier_stylesheets_on_ties() {
+    let root = TestNode {
+      class_name: Some("card"),
+      ..TestNode::default()
+    };
+    let first = StyleSheet::parse(".card { width: 10px; }");
+    let second = StyleSheet::parse(".card { width: 20px; }");
+
+    let matched = match_stylesheets(&root, &[first, second], Viewport::new(None, None));
+    assert_eq!(matched.len(), 1);
+    assert_eq!(computed_width_from_matches(&matched[0]), Length::Px(20.0));
+  }
+
+  #[test]
+  fn sibling_combinators_only_match_the_correct_siblings() {
+    let root = TestNode {
+      class_name: Some("container"),
+      children: vec![
+        TestNode {
+          class_name: Some("lead"),
+          ..TestNode::default()
+        },
+        TestNode {
+          class_name: Some("title"),
+          ..TestNode::default()
+        },
+        TestNode {
+          class_name: Some("spacer"),
+          ..TestNode::default()
+        },
+        TestNode {
+          class_name: Some("title"),
+          ..TestNode::default()
+        },
+      ],
+      ..TestNode::default()
+    };
+    let stylesheet = StyleSheet::parse(
+      r#"
+        .container .title { width: 20px; }
+        .lead + .title { width: 10px; }
+        .lead ~ .title { height: 30px; }
+      "#,
+    );
+
+    let matched = match_stylesheets(&root, &[stylesheet], Viewport::new(None, None));
+    assert_eq!(matched.len(), 5);
+    assert_eq!(computed_width_from_matches(&matched[2]), Length::Px(10.0));
+    assert_eq!(computed_height_from_matches(&matched[2]), Length::Px(30.0));
+    assert_eq!(computed_width_from_matches(&matched[4]), Length::Px(20.0));
+    assert_eq!(computed_height_from_matches(&matched[4]), Length::Px(30.0));
   }
 }

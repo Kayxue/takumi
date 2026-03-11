@@ -176,8 +176,15 @@ fn expand_shorthand<T>(
   declarations
 }
 
-fn normalize_kebab_property_name(name: &str) -> Option<String> {
-  Some(
+fn normalize_kebab_property_name(name: &str) -> Cow<'_, str> {
+  if !name
+    .bytes()
+    .any(|byte| byte == b'-' || byte.is_ascii_uppercase())
+  {
+    return Cow::Borrowed(name);
+  }
+
+  Cow::Owned(
     name
       .chars()
       .map(|ch| match ch {
@@ -220,7 +227,11 @@ fn interpolate_option_with_missing<T: Animatable + Clone>(
   };
 }
 
-fn normalize_camel_property_name(name: &str) -> String {
+fn normalize_camel_property_name(name: &str) -> Cow<'_, str> {
+  if !name.starts_with('_') && !name.bytes().any(|byte| byte.is_ascii_uppercase()) {
+    return Cow::Borrowed(name);
+  }
+
   let mut normalized = String::with_capacity(name.len() + 4);
   for ch in name.chars() {
     if ch.is_ascii_uppercase() {
@@ -231,7 +242,7 @@ fn normalize_camel_property_name(name: &str) -> String {
     }
   }
 
-  normalized.trim_start_matches('_').to_owned()
+  Cow::Owned(normalized.trim_start_matches('_').to_owned())
 }
 
 fn parse_custom_property_declaration<'i>(
@@ -259,7 +270,7 @@ fn contains_var_function(raw_value: &str) -> bool {
             .parse_nested_block(|input| {
               Ok::<_, cssparser::ParseError<'_, Cow<'_, str>>>(contains_in_parser(input))
             })
-            .unwrap_or(false)
+            .unwrap_or(true)
           {
             return true;
           }
@@ -474,8 +485,7 @@ macro_rules! define_style {
             return property;
           }
 
-          normalize_kebab_property_name(name)
-            .map_or(Self::Ignored, |normalized| Self::from_normalized_name(&normalized))
+          Self::from_normalized_name(normalize_kebab_property_name(name).as_ref())
         }
 
         #[allow(dead_code)]
@@ -488,7 +498,7 @@ macro_rules! define_style {
             return property;
           }
 
-          Self::from_normalized_name(&normalize_camel_property_name(name))
+          Self::from_normalized_name(normalize_camel_property_name(name).as_ref())
         }
 
       fn parse_declarations<'i>(
