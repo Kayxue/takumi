@@ -79,6 +79,10 @@ fn text_typography_variable_width() {
     })
     .collect::<Vec<_>>();
 
+  let Ok(family) = FontFamily::from_str("Archivo") else {
+    unreachable!()
+  };
+
   let container = ContainerNode {
     class_name: None,
     id: None,
@@ -90,9 +94,7 @@ fn text_typography_variable_width() {
         .with(StyleDeclaration::background_color(ColorInput::Value(
           Color([240, 240, 240, 255]),
         )))
-        .with(StyleDeclaration::font_family(
-          FontFamily::from_str("Archivo").ok(),
-        ))
+        .with(StyleDeclaration::font_family(family))
         .with(StyleDeclaration::font_size(Px(48.0).into()))
         .with(StyleDeclaration::flex_wrap(FlexWrap::Wrap))
         .with(StyleDeclaration::row_gap(Px(48.0)))
@@ -958,6 +960,10 @@ fn text_font_stretch() {
     })
     .collect::<Vec<_>>();
 
+  let Ok(family) = FontFamily::from_str("Archivo") else {
+    unreachable!()
+  };
+
   let container = ContainerNode {
     class_name: None,
     id: None,
@@ -969,9 +975,7 @@ fn text_font_stretch() {
         .with(StyleDeclaration::background_color(ColorInput::Value(
           Color([240, 240, 240, 255]),
         )))
-        .with(StyleDeclaration::font_family(
-          FontFamily::from_str("Archivo").ok(),
-        ))
+        .with(StyleDeclaration::font_family(family))
         .with(StyleDeclaration::width(Percentage(100.0)))
         .with(StyleDeclaration::flex_direction(FlexDirection::Column))
         .with_padding(Sides([Px(20.0); 4]))
@@ -1088,6 +1092,10 @@ fn text_flex_centered_text_node_vs_nested_container() {
 
 #[test]
 fn text_font_synthesis_weight_auto_none() {
+  let Ok(family) = FontFamily::from_str("Scheherazade New Test") else {
+    unreachable!()
+  };
+
   let nodes = [("auto", FontSynthesic::Auto), ("none", FontSynthesic::None)]
     .iter()
     .map(|(label, synthesis_weight)| {
@@ -1100,9 +1108,7 @@ fn text_font_synthesis_weight_auto_none() {
         style: Some(
           Style::default()
             .with(StyleDeclaration::font_size(Px(72.0).into()))
-            .with(StyleDeclaration::font_family(
-              FontFamily::from_str("Scheherazade New Test").ok(),
-            ))
+            .with(StyleDeclaration::font_family(family.clone()))
             .with(StyleDeclaration::font_weight(FontWeight::from(900.0)))
             .with(StyleDeclaration::font_synthesis_weight(*synthesis_weight)),
         ),
@@ -1136,6 +1142,10 @@ fn text_font_synthesis_weight_auto_none() {
 
 #[test]
 fn text_font_synthesis_style_auto_none() {
+  let Ok(family) = FontFamily::from_str("Scheherazade New Test") else {
+    unreachable!()
+  };
+
   let nodes = [("auto", FontSynthesic::Auto), ("none", FontSynthesic::None)]
     .iter()
     .map(|(label, synthesis_style)| {
@@ -1148,9 +1158,7 @@ fn text_font_synthesis_style_auto_none() {
         style: Some(
           Style::default()
             .with(StyleDeclaration::font_size(Px(72.0).into()))
-            .with(StyleDeclaration::font_family(
-              FontFamily::from_str("Scheherazade New Test").ok(),
-            ))
+            .with(StyleDeclaration::font_family(family.clone()))
             .with(StyleDeclaration::font_style(FontStyle::italic()))
             .with(StyleDeclaration::font_synthesis_style(*synthesis_style)),
         ),
@@ -1184,6 +1192,10 @@ fn text_font_synthesis_style_auto_none() {
 
 #[test]
 fn text_font_synthesis_weight_emoji() {
+  let Ok(family) = FontFamily::from_str("Scheherazade New Test") else {
+    unreachable!()
+  };
+
   let nodes = [
     (
       "auto",
@@ -1211,9 +1223,7 @@ fn text_font_synthesis_weight_emoji() {
       style: Some(
         Style::default()
           .with(StyleDeclaration::font_size(Px(72.0).into()))
-          .with(StyleDeclaration::font_family(
-            FontFamily::from_str("Scheherazade New Test").ok(),
-          ))
+          .with(StyleDeclaration::font_family(family.clone()))
           .with(StyleDeclaration::font_weight(FontWeight::from(900.0)))
           .with(StyleDeclaration::font_style(FontStyle::italic()))
           .with_font_synthesis(*synthesis),
@@ -1250,6 +1260,10 @@ fn text_font_synthesis_weight_emoji() {
 fn text_chinese_ellipsis() {
   let text = "日本利用壓電磁磚將腳步轉化為電能。這些瓷磚捕捉來自你腳步的動能。當你行走時，你的重量和動作會對瓷磚產生壓力。磁磚會輕微彎曲，從而產生機械應力。磁磚內部的壓電材料將這種應力轉化為電能。每一步都會產生少量電荷，而數百萬步結合在一起就能產生足夠的電力來驅動 LED燈、數位顯示器和感測器。在像澀谷車站這樣繁忙的地方，每天大約有240萬個腳步為此系統作出貢獻。這些電能可以被儲存或立即使用，從而減少對傳統電賴，並支持永續的城市基礎設施。這種方法將日常運動轉化為實用的再生能源。";
 
+  let Ok(family) = FontFamily::from_str("Noto Sans TC") else {
+    unreachable!()
+  };
+
   let node = TextNode {
     class_name: None,
     id: None,
@@ -1265,9 +1279,7 @@ fn text_chinese_ellipsis() {
         )))
         .with(StyleDeclaration::font_size(Px(64.0).into()))
         .with_padding(Sides::from(Px(24.0)))
-        .with(StyleDeclaration::font_family(
-          FontFamily::from_str("Noto Sans TC").ok(),
-        ))
+        .with(StyleDeclaration::font_family(family))
         .with(StyleDeclaration::text_overflow(TextOverflow::Ellipsis)),
     ),
     text: text.to_string(),
@@ -1280,6 +1292,10 @@ fn text_chinese_ellipsis() {
 fn text_devanagari_noto_sans() {
   fn create_node(weight: f32, font_family: &str) -> TextNode {
     let text = "नमस्ते दुनिया, यह देवनागरी लिपि का एक परीक्षण है।";
+
+    let Ok(family) = FontFamily::from_str(font_family) else {
+      unreachable!()
+    };
 
     TextNode {
       class_name: None,
@@ -1296,9 +1312,7 @@ fn text_devanagari_noto_sans() {
           )))
           .with(StyleDeclaration::font_size(Px(48.0).into()))
           .with_padding(Sides::from(Px(24.0)))
-          .with(StyleDeclaration::font_family(
-            FontFamily::from_str(font_family).ok(),
-          ))
+          .with(StyleDeclaration::font_family(family))
           .with(StyleDeclaration::font_weight(FontWeight::from(weight))),
       ),
       text: text.to_string(),

@@ -11,23 +11,20 @@ use crate::{
 
 /// A pair of values for horizontal and vertical axes.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct SpacePair<T: Copy, const Y_FIRST: bool = false> {
+pub struct SpacePair<T: Copy> {
   /// The horizontal value.
   pub x: T,
   /// The vertical value.
   pub y: T,
 }
 
-/// A pair of gap values which has the vertical value first.
-pub type Gap = SpacePair<Length<false>, true>;
-
-impl<T: Copy + Default, const Y_FIRST: bool> Default for SpacePair<T, Y_FIRST> {
+impl<T: Copy + Default> Default for SpacePair<T> {
   fn default() -> Self {
     Self::from_single(T::default())
   }
 }
 
-impl<'i, T: Copy + FromCss<'i>, const Y_FIRST: bool> FromCss<'i> for SpacePair<T, Y_FIRST> {
+impl<'i, T: Copy + FromCss<'i>> FromCss<'i> for SpacePair<T> {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
     let first = T::from_css(input)?;
     if let Ok(second) = T::from_css(input) {
@@ -49,7 +46,7 @@ impl<'i, T: Copy + FromCss<'i>, const Y_FIRST: bool> FromCss<'i> for SpacePair<T
   }
 }
 
-impl<T: Copy, const Y_FIRST: bool> SpacePair<T, Y_FIRST> {
+impl<T: Copy> SpacePair<T> {
   /// Create a new [`SpacePair`] from a single value.
   #[inline]
   pub const fn from_single(value: T) -> Self {
@@ -57,33 +54,23 @@ impl<T: Copy, const Y_FIRST: bool> SpacePair<T, Y_FIRST> {
   }
 
   /// Create a new [`SpacePair`] from a pair of values.
-  ///
-  /// When `Y_FIRST` is true, the first value is the vertical value and the second value is the horizontal value.
-  /// Otherwise, the first value is the horizontal value and the second value is the vertical value.
   #[inline]
   pub const fn from_pair(first: T, second: T) -> Self {
-    if Y_FIRST {
-      Self {
-        x: second,
-        y: first,
-      }
-    } else {
-      Self {
-        x: first,
-        y: second,
-      }
+    Self {
+      x: first,
+      y: second,
     }
   }
 }
 
-impl<T: Copy + MakeComputed, const Y_FIRST: bool> MakeComputed for SpacePair<T, Y_FIRST> {
+impl<T: Copy + MakeComputed> MakeComputed for SpacePair<T> {
   fn make_computed(&mut self, sizing: &Sizing) {
     self.x.make_computed(sizing);
     self.y.make_computed(sizing);
   }
 }
 
-impl<const DEFAULT_AUTO: bool, const Y_FIRST: bool> SpacePair<Length<DEFAULT_AUTO>, Y_FIRST> {
+impl<const DEFAULT_AUTO: bool> SpacePair<Length<DEFAULT_AUTO>> {
   pub(crate) fn resolve_to_size(self, sizing: &Sizing) -> Size<LengthPercentage> {
     Size {
       width: self.x.resolve_to_length_percentage(sizing),

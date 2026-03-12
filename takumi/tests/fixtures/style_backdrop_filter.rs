@@ -153,7 +153,7 @@ fn test_style_backdrop_filter_frosted_glass() {
             )))
             .with_border_radius(Box::new(BorderRadius::from_str("24px").unwrap()))
             .with_padding(Sides([Px(48.0); 4]))
-            .with_gap(SpacePair::from_pair(Px(16.0), Px(16.0))),
+            .with_gap(SpacePair::from_single(Px(16.0))),
         ),
         children: Some(
           [

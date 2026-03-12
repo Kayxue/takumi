@@ -988,7 +988,7 @@ impl TailwindProperty {
         push_decl!(builder, important, font_stretch(font_stretch))
       }
       TailwindProperty::FontFamily(font_family) => {
-        push_decl!(builder, important, font_family(Some(font_family)))
+        push_decl!(builder, important, font_family(font_family))
       }
       TailwindProperty::LineClamp(line_clamp) => {
         push_decl!(builder, important, line_clamp(Some(line_clamp)))

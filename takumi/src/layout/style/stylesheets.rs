@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, marker::PhantomData};
 
 use cssparser::{Parser, ParserInput, Token, match_ignore_ascii_case};
-use parley::{FontSettings, FontStack, TextStyle};
+use parley::{FontSettings, TextStyle};
 use paste::paste;
 use serde::de::IgnoredAny;
 use smallvec::SmallVec;
@@ -1087,7 +1087,7 @@ define_style! {
     filter: Filters,
     backdrop_filter: Filters,
     font_size: FontSize where inherit = true,
-    font_family: Option<FontFamily> where inherit = true,
+    font_family: FontFamily where inherit = true,
     line_height: LineHeight where inherit = true,
     font_weight: FontWeight where inherit = true,
     font_variation_settings: FontVariationSettings where inherit = true,
@@ -1169,8 +1169,9 @@ define_style! {
     mask: Backgrounds => [MaskImage, MaskPosition, MaskSize, MaskRepeat] |value, target| {
       expand_mask_shorthand(value, target);
     },
-    gap: Gap => [RowGap, ColumnGap] |value, target| {
-      push_axis_declarations!(target, value, row_gap, column_gap);
+    gap: SpacePair<Length<false>> => [RowGap, ColumnGap] |value, target| {
+      // Special case: gap is reversed in the declaration order (y-first)
+      push_axis_declarations!(target, value, column_gap, row_gap);
     },
     flex: Option<Flex> => [FlexGrow, FlexShrink, FlexBasis] |value, target| {
       expand_flex_shorthand(value, target);
@@ -1797,12 +1798,7 @@ impl<'s> From<&'s SizedFontStyle<'s>> for TextStyle<'s, InlineBrush> {
         style.parent.font_variation_settings.as_ref(),
       )),
       font_features: FontSettings::List(Cow::Borrowed(style.parent.font_feature_settings.as_ref())),
-      font_stack: style
-        .parent
-        .font_family
-        .as_ref()
-        .map(Into::into)
-        .unwrap_or(FontStack::Source(Cow::Borrowed("sans-serif"))),
+      font_stack: (&style.parent.font_family).into(),
       letter_spacing: style.letter_spacing,
       word_spacing: style.word_spacing,
       word_break: style.parent.word_break.into(),

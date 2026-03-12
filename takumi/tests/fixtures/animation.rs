@@ -1,5 +1,6 @@
 use std::f32::consts::PI;
 
+use parley::GenericFamily;
 use takumi::layout::{
   node::{ContainerNode, NodeKind, TextNode},
   style::{Length::*, *},
@@ -77,9 +78,9 @@ fn bouncing_text_label() -> NodeKind {
     style: Some(
       Style::default()
         .with(StyleDeclaration::font_size(Px(56.0).into()))
-        .with(StyleDeclaration::font_family(Some(FontFamily::from(
-          "monospace",
-        ))))
+        .with(StyleDeclaration::font_family(
+          GenericFamily::Monospace.into(),
+        ))
         .with(StyleDeclaration::font_weight(FontWeight::from(700.0)))
         .with(StyleDeclaration::color(ColorInput::Value(Color([
           10, 10, 10, 255,

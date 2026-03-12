@@ -19,6 +19,7 @@ mod conic_gradient;
 mod filter;
 mod flex;
 mod flex_grow;
+mod font_family;
 mod font_feature_settings;
 mod font_size;
 mod font_stretch;
@@ -65,6 +66,7 @@ pub use conic_gradient::*;
 pub use filter::*;
 pub use flex::*;
 pub use flex_grow::*;
+pub use font_family::*;
 pub use font_feature_settings::*;
 pub use font_size::*;
 pub use font_stretch::*;
@@ -103,7 +105,7 @@ use cssparser::{
 };
 use fast_image_resize::ResizeAlg;
 use image::imageops::FilterType;
-use parley::{Alignment, FontStack, GenericFamily};
+use parley::Alignment;
 use std::borrow::Cow;
 use zeno::Join;
 
@@ -483,7 +485,7 @@ fn lcm(lhs: usize, rhs: usize) -> usize {
   lhs / gcd(lhs, rhs) * rhs
 }
 
-impl<T: Animatable + Copy, const Y_FIRST: bool> Animatable for SpacePair<T, Y_FIRST> {
+impl<T: Animatable + Copy> Animatable for SpacePair<T> {
   fn interpolate(
     &mut self,
     from: &Self,
@@ -1241,102 +1243,6 @@ declare_enum_from_css_impl!(
   "auto" => TextDecorationSkipInk::Auto,
   "none" => TextDecorationSkipInk::None
 );
-
-/// Represents a font family for text rendering.
-/// Multi value fallback is supported.
-#[derive(Debug, Clone, PartialEq)]
-pub struct FontFamily(Box<[FontFamilyToken]>);
-
-#[derive(Debug, Clone, PartialEq)]
-enum FontFamilyToken {
-  Owned(String),
-  Generic(GenericFamily),
-}
-
-impl MakeComputed for FontFamily {}
-
-impl<'i> FromCss<'i> for FontFamily {
-  fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    let list = input.parse_comma_separated(|input| {
-      let token = input.expect_ident_or_string()?;
-
-      if let Some(generic) = GenericFamily::parse(token) {
-        return Ok(FontFamilyToken::Generic(generic));
-      }
-
-      Ok(FontFamilyToken::Owned(token.to_string()))
-    })?;
-
-    Ok(FontFamily(list.into_boxed_slice()))
-  }
-
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Token("family-name"),
-      CssToken::Token("generic-name"),
-    ]
-  }
-}
-
-impl TailwindPropertyParser for FontFamily {
-  fn parse_tw(token: &str) -> Option<Self> {
-    match_ignore_ascii_case! {token,
-      "sans" => Some(GenericFamily::SansSerif.into()),
-      "serif" => Some(GenericFamily::Serif.into()),
-      "mono" => Some(GenericFamily::Monospace.into()),
-      _ => None,
-    }
-  }
-}
-
-impl Default for FontFamily {
-  fn default() -> Self {
-    GenericFamily::SansSerif.into()
-  }
-}
-
-impl<'a> From<FontFamily> for FontStack<'a> {
-  fn from(family: FontFamily) -> Self {
-    FontStack::List(
-      family
-        .0
-        .into_iter()
-        .map(|token| match token {
-          FontFamilyToken::Owned(s) => parley::FontFamily::Named(s.into()),
-          FontFamilyToken::Generic(g) => parley::FontFamily::Generic(g),
-        })
-        .collect(),
-    )
-  }
-}
-
-impl<'a> From<&'a FontFamily> for FontStack<'a> {
-  fn from(family: &'a FontFamily) -> Self {
-    FontStack::List(
-      family
-        .0
-        .as_ref()
-        .iter()
-        .map(|token| match token {
-          FontFamilyToken::Owned(s) => parley::FontFamily::Named(s.into()),
-          FontFamilyToken::Generic(g) => parley::FontFamily::Generic(*g),
-        })
-        .collect(),
-    )
-  }
-}
-
-impl From<&str> for FontFamily {
-  fn from(family: &str) -> Self {
-    FontFamily(Box::new([FontFamilyToken::Owned(family.to_string())]))
-  }
-}
-
-impl From<GenericFamily> for FontFamily {
-  fn from(generic: GenericFamily) -> Self {
-    FontFamily(Box::new([FontFamilyToken::Generic(generic)]))
-  }
-}
 
 /// Controls how whitespace should be collapsed.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
