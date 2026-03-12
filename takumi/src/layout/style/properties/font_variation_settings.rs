@@ -1,7 +1,7 @@
-use cssparser::Parser;
-use parley::FontVariation;
-
 use crate::layout::style::{CssToken, FromCss, MakeComputed, ParseResult};
+use cssparser::{Parser, Token};
+use parley::FontVariation;
+use swash::tag_from_str_lossy;
 
 /// Controls variable font axis values via CSS font-variation-settings property.
 ///
@@ -13,13 +13,31 @@ impl MakeComputed for FontVariationSettings {}
 
 impl<'i> FromCss<'i> for FontVariationSettings {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    Ok(Box::from_iter(FontVariation::parse_list(
-      input.current_line(),
-    )))
-  }
+    if input
+      .try_parse(|input| input.expect_ident_matching("normal"))
+      .is_ok()
+    {
+      return Ok(Box::new([]));
+    }
 
-  fn from_str(source: &'i str) -> ParseResult<'i, Self> {
-    Ok(Box::from_iter(FontVariation::parse_list(source)))
+    let list = input.parse_comma_separated(|input| {
+      let location = input.current_source_location();
+      let tag_name = input.expect_string()?;
+
+      if tag_name.len() != 4 || !tag_name.is_ascii() {
+        return Err(Self::unexpected_token_error(
+          location,
+          &Token::QuotedString(tag_name.clone()),
+        ));
+      }
+
+      let tag = tag_from_str_lossy(tag_name);
+      let value = input.expect_number()?;
+
+      Ok(FontVariation { tag, value })
+    })?;
+
+    Ok(list.into_boxed_slice())
   }
 
   fn valid_tokens() -> &'static [CssToken] {

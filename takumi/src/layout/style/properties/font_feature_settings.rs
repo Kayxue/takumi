@@ -1,5 +1,6 @@
-use cssparser::Parser;
+use cssparser::{Parser, Token};
 use parley::FontFeature;
+use swash::tag_from_str_lossy;
 
 use crate::layout::style::{CssToken, FromCss, MakeComputed, ParseResult};
 
@@ -13,13 +14,44 @@ impl MakeComputed for FontFeatureSettings {}
 
 impl<'i> FromCss<'i> for FontFeatureSettings {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    Ok(Box::from_iter(FontFeature::parse_list(
-      input.current_line(),
-    )))
-  }
+    if input
+      .try_parse(|input| input.expect_ident_matching("normal"))
+      .is_ok()
+    {
+      return Ok(Box::new([]));
+    }
 
-  fn from_str(source: &'i str) -> ParseResult<'i, Self> {
-    Ok(Box::from_iter(FontFeature::parse_list(source)))
+    let list = input.parse_comma_separated(|input| {
+      let location = input.current_source_location();
+      let tag_name = input.expect_string()?;
+      if tag_name.len() != 4 || !tag_name.is_ascii() {
+        return Err(Self::unexpected_token_error(
+          location,
+          &Token::QuotedString(tag_name.clone()),
+        ));
+      }
+
+      let tag = tag_from_str_lossy(tag_name);
+      let value = if input.is_exhausted() {
+        1
+      } else {
+        let location = input.current_source_location();
+        match input.next()? {
+          Token::Ident(st) if st.as_ref() == "on" => 1,
+          Token::Ident(st) if st.as_ref() == "off" => 0,
+          Token::Number {
+            value, int_value, ..
+          } => int_value.map(|v| v as u16).unwrap_or(*value as u16),
+          token => {
+            return Err(Self::unexpected_token_error(location, token));
+          }
+        }
+      };
+
+      Ok(FontFeature { tag, value })
+    })?;
+
+    Ok(list.into_boxed_slice())
   }
 
   fn valid_tokens() -> &'static [CssToken] {
