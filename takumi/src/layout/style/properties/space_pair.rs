@@ -56,11 +56,14 @@ impl<T: Copy> SpacePair<T> {
 
   /// Create a new [`SpacePair`] from a pair of values.
   #[inline]
-  pub const fn from_pair(first: T, second: T) -> Self {
-    Self {
-      x: first,
-      y: second,
-    }
+  pub const fn from_pair(x: T, y: T) -> Self {
+    Self { x, y }
+  }
+
+  /// Create a new [`SpacePair`] for reversed properties like `gap: row column`.
+  #[inline]
+  pub const fn from_reversed_pair(y: T, x: T) -> Self {
+    Self { x, y }
   }
 }
 
