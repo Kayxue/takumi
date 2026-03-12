@@ -62,6 +62,14 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for ImageNode {
     }
   }
 
+  fn get_preset(&self) -> Option<&Style> {
+    self.preset.as_ref()
+  }
+
+  fn get_tw(&self) -> Option<&TailwindValues> {
+    self.tw.as_ref()
+  }
+
   fn take_style_layers(&mut self) -> NodeStyleLayers {
     let mut preset = self.preset.take();
     if self.width.is_some() || self.height.is_some() {

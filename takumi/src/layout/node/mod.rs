@@ -14,11 +14,9 @@ use zeno::Fill;
 use crate::{
   Result,
   layout::{
+    Viewport,
     inline::InlineContentKind,
-    style::{
-      Affine, BackgroundClip, BackgroundImage, BlendMode, Sides, Style, StyleDeclaration,
-      tw::TailwindValues,
-    },
+    style::{Affine, BackgroundClip, BlendMode, Sides, Style, tw::TailwindValues},
   },
   rendering::{
     BackgroundTile, BorderProperties, Canvas, RenderContext, SizedShadow,
@@ -121,6 +119,18 @@ macro_rules! impl_node_enum {
         }
       }
 
+      fn get_preset(&self) -> Option<&Style> {
+        match self {
+          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::get_preset(inner), )*
+        }
+      }
+
+      fn get_tw(&self) -> Option<&TailwindValues> {
+        match self {
+          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::get_tw(inner), )*
+        }
+      }
+
       fn is_replaced_element(&self) -> bool {
         match self {
           $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::is_replaced_element(inner), )*
@@ -195,6 +205,16 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
   /// Returns a reference to this node's raw [`Style`], if any.
   fn get_style(&self) -> Option<&Style>;
 
+  /// Returns a reference to this node's preset style, if any.
+  fn get_preset(&self) -> Option<&Style> {
+    None
+  }
+
+  /// Returns a reference to this node's Tailwind values, if any.
+  fn get_tw(&self) -> Option<&TailwindValues> {
+    None
+  }
+
   /// Whether this node behaves like a [CSS replaced element](https://drafts.csswg.org/css-display/#replaced-element)
   /// for sizing purposes.
   fn is_replaced_element(&self) -> bool {
@@ -203,23 +223,17 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
 
   /// Creates resolving tasks for style's http resources.
   fn collect_style_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
-    if let Some(style) = self.get_style() {
-      for declaration in style.iter() {
-        match declaration {
-          StyleDeclaration::BackgroundImage(Some(images))
-          | StyleDeclaration::MaskImage(Some(images)) => {
-            collection.insert_many(images.iter().filter_map(|image| {
-              if let BackgroundImage::Url(url) = image {
-                Some(url.clone())
-              } else {
-                None
-              }
-            }));
-          }
-          _ => {}
-        }
-      }
-    };
+    if let Some(preset) = self.get_preset() {
+      preset.collect_fetch_tasks(collection);
+    }
+
+    if let Some(author_tw) = self.get_tw() {
+      author_tw.collect_fetch_tasks(Viewport::new(None, None), collection);
+    }
+
+    if let Some(inline) = self.get_style() {
+      inline.collect_fetch_tasks(collection);
+    }
 
     let Some(children) = self.children_ref() else {
       return;
@@ -552,7 +566,9 @@ impl_node_enum!(
 
 #[cfg(test)]
 mod tests {
-  use crate::layout::style::{BackgroundImage, Style, StyleDeclaration};
+  use std::str::FromStr;
+
+  use crate::layout::style::{BackgroundImage, Style, StyleDeclaration, tw::TailwindValues};
 
   use super::*;
 
@@ -594,5 +610,41 @@ mod tests {
       .collect::<Vec<_>>();
 
     assert_eq!(tasks, vec![background_url.to_string()]);
+  }
+
+  #[test]
+  fn collect_style_fetch_tasks_collects_preset_and_tailwind_image_urls() {
+    let preset_url = "https://placehold.co/64x64/f97316/white";
+    let tailwind_url = "/bg.png";
+    let Ok(tw) = TailwindValues::from_str("bg-[url(/bg.png)]") else {
+      unreachable!()
+    };
+    let node = NodeKind::Container(ContainerNode {
+      children: None,
+      style: None,
+      preset: Some(
+        Style::default().with(StyleDeclaration::background_image(Some(
+          [BackgroundImage::Url(preset_url.into())].into(),
+        ))),
+      ),
+      tag_name: None,
+      class_name: None,
+      id: None,
+      tw: Some(tw),
+    });
+
+    let mut collection = FetchTaskCollection::default();
+    node.collect_style_fetch_tasks(&mut collection);
+
+    let tasks = collection
+      .into_inner()
+      .iter()
+      .map(ToString::to_string)
+      .collect::<Vec<_>>();
+
+    assert_eq!(
+      tasks,
+      vec![preset_url.to_string(), tailwind_url.to_string()]
+    );
   }
 }

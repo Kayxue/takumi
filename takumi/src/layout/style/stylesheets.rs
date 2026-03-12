@@ -16,6 +16,7 @@ use crate::{
     style::{RawCssInput, RawCssValueSeed, properties::*},
   },
   rendering::{RenderContext, SizedShadow, Sizing},
+  resources::task::FetchTaskCollection,
 };
 #[cfg(feature = "css_stylesheet_parsing")]
 use cssparser::RuleBodyParser;
@@ -706,8 +707,9 @@ macro_rules! define_style {
           self.declarations.append(declarations);
         }
 
-        pub(crate) fn iter(&self) -> std::slice::Iter<'_, StyleDeclaration> {
-          self.declarations.iter()
+        /// Collects fetch tasks referenced by this style's declarations.
+        pub fn collect_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
+          self.declarations.collect_fetch_tasks(collection);
         }
 
         pub(crate) fn inherit(self, parent: &ComputedStyle) -> ComputedStyle {
@@ -1765,6 +1767,25 @@ impl StyleDeclarationBlock {
     self.declarations.iter()
   }
 
+  /// Collects fetch tasks referenced by declarations in this block.
+  pub fn collect_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
+    for declaration in self.iter() {
+      match declaration {
+        StyleDeclaration::BackgroundImage(Some(images))
+        | StyleDeclaration::MaskImage(Some(images)) => {
+          collection.insert_many(images.iter().filter_map(|image| {
+            if let BackgroundImage::Url(url) = image {
+              Some(url.clone())
+            } else {
+              None
+            }
+          }));
+        }
+        _ => {}
+      }
+    }
+  }
+
   /// Consumes the declaration block and returns an iterator over the declarations.
   pub fn into_declarations(self) -> SmallVec<[StyleDeclaration; 8]> {
     self.declarations
@@ -2207,6 +2228,7 @@ mod tests {
       style::{ComputedStyle, Style, StyleDeclaration, properties::*},
     },
     rendering::Sizing,
+    resources::task::FetchTaskCollection,
   };
 
   fn style_with(declarations: impl IntoIterator<Item = StyleDeclaration>) -> Style {
@@ -2408,6 +2430,36 @@ mod tests {
     let declarations = parse_declarations("padding", "1px 2px");
 
     assert_eq!(declarations.iter().count(), 4);
+  }
+
+  #[test]
+  fn style_declaration_block_collect_style_fetch_tasks_collects_url_images() {
+    let background_url = "https://placehold.co/80x80/22c55e/white";
+    let mask_url = "https://placehold.co/40x40/000000/white";
+    let declarations = StyleDeclarationBlock::from(style_with([
+      StyleDeclaration::background_image(Some(
+        [
+          BackgroundImage::Url(background_url.into()),
+          BackgroundImage::None,
+        ]
+        .into(),
+      )),
+      StyleDeclaration::mask_image(Some([BackgroundImage::Url(mask_url.into())].into())),
+    ]));
+    let mut collection = FetchTaskCollection::default();
+
+    declarations.collect_fetch_tasks(&mut collection);
+
+    let tasks = collection
+      .into_inner()
+      .iter()
+      .map(ToString::to_string)
+      .collect::<Vec<_>>();
+
+    assert_eq!(
+      tasks,
+      vec![background_url.to_string(), mask_url.to_string()]
+    );
   }
 
   #[test]

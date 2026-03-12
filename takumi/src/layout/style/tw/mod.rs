@@ -6,15 +6,18 @@ use std::{borrow::Cow, cmp::Ordering, ops::Neg, str::FromStr};
 use cssparser::match_ignore_ascii_case;
 use serde::{Deserializer, de::Error as DeError};
 
-use crate::layout::{
-  Viewport,
-  style::{
-    tw::{
-      map::{FIXED_PROPERTIES, PREFIX_PARSERS},
-      parser::*,
+use crate::{
+  layout::{
+    Viewport,
+    style::{
+      tw::{
+        map::{FIXED_PROPERTIES, PREFIX_PARSERS},
+        parser::*,
+      },
+      *,
     },
-    *,
   },
+  resources::task::FetchTaskCollection,
 };
 
 /// Tailwind `--spacing` variable value.
@@ -62,6 +65,13 @@ impl TailwindValues {
   /// Iterate over the tailwind values.
   pub fn iter(&self) -> impl Iterator<Item = &TailwindValue> {
     self.inner.iter()
+  }
+
+  /// Collects fetch tasks referenced by active Tailwind utilities for the given viewport.
+  pub fn collect_fetch_tasks(&self, viewport: Viewport, collection: &mut FetchTaskCollection) {
+    for value in &self.inner {
+      value.collect_fetch_tasks(viewport, collection);
+    }
   }
 
   pub(crate) fn into_declaration_block(self, viewport: Viewport) -> StyleDeclarationBlock {
@@ -383,6 +393,16 @@ pub struct TailwindValue {
 }
 
 impl TailwindValue {
+  fn collect_fetch_tasks(&self, viewport: Viewport, collection: &mut FetchTaskCollection) {
+    if let Some(breakpoint) = self.breakpoint
+      && !breakpoint.matches(viewport)
+    {
+      return;
+    }
+
+    self.property.collect_fetch_tasks(collection);
+  }
+
   fn apply(self, builder: &mut TailwindDeclarationBuilder, viewport: Viewport) {
     if let Some(breakpoint) = self.breakpoint
       && !breakpoint.matches(viewport)
@@ -860,6 +880,12 @@ macro_rules! push_decl {
 }
 
 impl TailwindProperty {
+  fn collect_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
+    if let TailwindProperty::BackgroundImage(BackgroundImage::Url(url)) = self {
+      collection.insert(url.clone());
+    }
+  }
+
   /// Parse a single tailwind property from a token.
   pub fn parse(token: &str) -> Option<TailwindProperty> {
     // Check fixed properties first
