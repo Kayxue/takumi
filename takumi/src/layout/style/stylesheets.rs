@@ -1765,41 +1765,13 @@ impl StyleDeclarationBlock {
     self.declarations.iter()
   }
 
+  /// Consumes the declaration block and returns an iterator over the declarations.
+  pub fn into_declarations(self) -> SmallVec<[StyleDeclaration; 8]> {
+    self.declarations
+  }
+
   pub(crate) fn parse<'i>(name: &str, input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
     parse_style_declaration(name, input)
-  }
-}
-
-/// Owning iterator over declarations in source order.
-pub struct StyleDeclarationBlockIntoIter {
-  declarations: smallvec::IntoIter<[StyleDeclaration; 8]>,
-}
-
-impl Iterator for StyleDeclarationBlockIntoIter {
-  type Item = StyleDeclaration;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    self.declarations.next()
-  }
-}
-
-impl IntoIterator for StyleDeclarationBlock {
-  type Item = StyleDeclaration;
-  type IntoIter = StyleDeclarationBlockIntoIter;
-
-  fn into_iter(self) -> Self::IntoIter {
-    Self::IntoIter {
-      declarations: self.declarations.into_iter(),
-    }
-  }
-}
-
-impl<'a> IntoIterator for &'a StyleDeclarationBlock {
-  type Item = &'a StyleDeclaration;
-  type IntoIter = std::slice::Iter<'a, StyleDeclaration>;
-
-  fn into_iter(self) -> Self::IntoIter {
-    self.iter()
   }
 }
 
@@ -2392,8 +2364,10 @@ mod tests {
   #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn style_declaration_block_from_str_parses_multiple_declarations() {
-    let declarations =
-      StyleDeclarationBlock::from_str("color: #ff0000; padding: 1px 2px;").unwrap();
+    let Ok(declarations) = StyleDeclarationBlock::from_str("color: #ff0000; padding: 1px 2px;")
+    else {
+      unreachable!()
+    };
 
     assert_eq!(
       declarations.iter().collect::<Vec<_>>(),
@@ -2410,7 +2384,9 @@ mod tests {
   #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn style_declaration_block_from_str_tracks_important_declarations() {
-    let declarations = StyleDeclarationBlock::from_str("color: inherit !important;").unwrap();
+    let Ok(declarations) = StyleDeclarationBlock::from_str("color: inherit !important;") else {
+      unreachable!()
+    };
 
     assert_eq!(
       declarations.iter().collect::<Vec<_>>(),
@@ -2431,7 +2407,7 @@ mod tests {
   fn style_declaration_block_supports_reference_iteration() {
     let declarations = parse_declarations("padding", "1px 2px");
 
-    assert_eq!((&declarations).into_iter().count(), 4);
+    assert_eq!(declarations.iter().count(), 4);
   }
 
   #[test]
@@ -2439,8 +2415,8 @@ mod tests {
     let declarations = parse_declarations("padding", "1px 2px");
 
     assert_eq!(
-      declarations.into_iter().collect::<Vec<_>>(),
-      vec![
+      declarations.into_declarations().as_slice(),
+      &[
         StyleDeclaration::padding_top(Length::Px(1.0)),
         StyleDeclaration::padding_right(Length::Px(2.0)),
         StyleDeclaration::padding_bottom(Length::Px(1.0)),
