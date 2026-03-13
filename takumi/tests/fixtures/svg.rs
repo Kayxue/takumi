@@ -196,3 +196,84 @@ fn test_svg_current_color_fixture() {
 
   run_fixture_test(node, "svg_current_color_fixture");
 }
+
+#[test]
+fn test_twemoji_svg() {
+  // https://github.com/nuxt-modules/og-image/blob/0209474b99e1ffa8a9010df359f170563024056f/src/runtime/server/og-image/core/transforms/emojis/fetch.ts#L54
+  fn create_svg_node(svg: &str) -> NodeKind {
+    ImageNode {
+      class_name: None,
+      id: None,
+      tag_name: Some("svg".into()),
+      preset: None,
+      tw: None,
+      style: Some(
+        Style::default()
+          .with(StyleDeclaration::display(Display::Inline))
+          .with(StyleDeclaration::width(Px(48.0)))
+          .with(StyleDeclaration::vertical_align(VerticalAlign::Length(Em(
+            -0.1,
+          ))))
+          .with_padding_inline(SpacePair::from_single(Px(4.0))),
+      ),
+      src: svg.into(),
+      width: None,
+      height: None,
+    }
+    .into()
+  }
+
+  let node: NodeKind = ContainerNode {
+    class_name: None,
+    id: None,
+    tag_name: None,
+    preset: None,
+    tw: None,
+    style: Some(
+      Style::default()
+        .with(StyleDeclaration::width(Percentage(100.0)))
+        .with(StyleDeclaration::height(Percentage(100.0)))
+        .with(StyleDeclaration::display(Display::Block))
+        .with_padding(Sides([Px(40.0); 4]))
+        .with(StyleDeclaration::font_size(Px(48.0).into()))
+        .with(StyleDeclaration::background_color(ColorInput::Value(
+          Color::white(),
+        ))),
+    ),
+    children: Some(
+      [
+        TextNode {
+          class_name: None,
+          id: None,
+          tag_name: None,
+          preset: None,
+          tw: None,
+          style: Some(Style::default().with(StyleDeclaration::Display(Display::Inline))),
+          text: "Laboris ex do ipsum. Quis mollit magna anim elit reprehenderit consequat irure ex duis adipisicing.".into(),
+        }
+        .into(),
+        create_svg_node(include_str!(
+          "../../../assets/images/twemoji/grinning-squinting-face.svg"
+        )),
+        create_svg_node(include_str!("../../../assets/images/twemoji/hamburger.svg")),
+        create_svg_node(include_str!(
+          "../../../assets/images/twemoji/waving-hand.svg"
+        )),
+        TextNode {
+          class_name: None,
+          id: None,
+          tag_name: None,
+          preset: None,
+          tw: None,
+          style: Some(Style::default().with(StyleDeclaration::Display(Display::Inline))),
+          text: "Ullamco occaecat anim mollit magna laborum elit ea tempor fugiat sit qui.".into(),
+        }
+        .into(),
+      ]
+      .into(),
+    ),
+  }
+  .into();
+
+  run_fixture_test(node, "svg_twemoji");
+}
