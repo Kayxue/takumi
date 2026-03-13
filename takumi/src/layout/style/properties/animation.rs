@@ -89,7 +89,9 @@ impl MakeComputed for AnimationDurations {}
 
 impl<'i> FromCss<'i> for AnimationDurations {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    parse_comma_separated(input, AnimationTime::from_css).map(Self)
+    input
+      .parse_comma_separated(AnimationTime::from_css)
+      .map(|values| Self(values.into_boxed_slice()))
   }
 
   fn valid_tokens() -> &'static [CssToken] {
@@ -183,7 +185,9 @@ impl MakeComputed for AnimationTimingFunctions {}
 
 impl<'i> FromCss<'i> for AnimationTimingFunctions {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    parse_comma_separated(input, AnimationTimingFunction::from_css).map(Self)
+    input
+      .parse_comma_separated(AnimationTimingFunction::from_css)
+      .map(|values| Self(values.into_boxed_slice()))
   }
 
   fn valid_tokens() -> &'static [CssToken] {
@@ -238,7 +242,9 @@ impl MakeComputed for AnimationIterationCounts {}
 
 impl<'i> FromCss<'i> for AnimationIterationCounts {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    parse_comma_separated(input, AnimationIterationCount::from_css).map(Self)
+    input
+      .parse_comma_separated(AnimationIterationCount::from_css)
+      .map(|values| Self(values.into_boxed_slice()))
   }
 
   fn valid_tokens() -> &'static [CssToken] {
@@ -276,7 +282,9 @@ impl MakeComputed for AnimationDirections {}
 
 impl<'i> FromCss<'i> for AnimationDirections {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    parse_comma_separated(input, AnimationDirection::from_css).map(Self)
+    input
+      .parse_comma_separated(AnimationDirection::from_css)
+      .map(|values| Self(values.into_boxed_slice()))
   }
 
   fn valid_tokens() -> &'static [CssToken] {
@@ -314,7 +322,9 @@ impl MakeComputed for AnimationFillModes {}
 
 impl<'i> FromCss<'i> for AnimationFillModes {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    parse_comma_separated(input, AnimationFillMode::from_css).map(Self)
+    input
+      .parse_comma_separated(AnimationFillMode::from_css)
+      .map(|values| Self(values.into_boxed_slice()))
   }
 
   fn valid_tokens() -> &'static [CssToken] {
@@ -346,7 +356,9 @@ impl MakeComputed for AnimationPlayStates {}
 
 impl<'i> FromCss<'i> for AnimationPlayStates {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    parse_comma_separated(input, AnimationPlayState::from_css).map(Self)
+    input
+      .parse_comma_separated(AnimationPlayState::from_css)
+      .map(|values| Self(values.into_boxed_slice()))
   }
 
   fn valid_tokens() -> &'static [CssToken] {
@@ -439,14 +451,11 @@ pub type Animations = Box<[Animation]>;
 
 impl<'i> FromCss<'i> for Animations {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    let mut animations = Vec::new();
-    animations.push(Animation::from_css(input)?);
-
-    while input.expect_comma().is_ok() {
-      animations.push(Animation::from_css(input)?);
-    }
-
-    Ok(animations.into_boxed_slice())
+    Ok(
+      input
+        .parse_comma_separated(Animation::from_css)?
+        .into_boxed_slice(),
+    )
   }
 
   fn valid_tokens() -> &'static [CssToken] {
@@ -521,22 +530,6 @@ impl TailwindPropertyParser for Animations {
 
     Self::parse_tw(token)
   }
-}
-
-fn parse_comma_separated<'i, T>(
-  input: &mut Parser<'i, '_>,
-  mut parse_item: impl FnMut(&mut Parser<'i, '_>) -> ParseResult<'i, T>,
-) -> ParseResult<'i, Box<[T]>> {
-  let mut items = Vec::new();
-
-  loop {
-    items.push(parse_item(input)?);
-    if input.try_parse(Parser::expect_comma).is_err() {
-      break;
-    }
-  }
-
-  Ok(items.into_boxed_slice())
 }
 
 fn parse_animation_name<'i>(input: &mut Parser<'i, '_>) -> ParseResult<'i, Option<String>> {

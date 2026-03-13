@@ -38,22 +38,11 @@ pub type BoxShadows = Box<[BoxShadow]>;
 
 impl<'i> FromCss<'i> for BoxShadows {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    let mut shadows = Vec::new();
-
-    loop {
-      if input.is_exhausted() {
-        break;
-      }
-
-      let shadow = BoxShadow::from_css(input)?;
-      shadows.push(shadow);
-
-      if input.expect_comma().is_err() {
-        break;
-      }
-    }
-
-    Ok(shadows.into_boxed_slice())
+    Ok(
+      input
+        .parse_comma_separated(BoxShadow::from_css)?
+        .into_boxed_slice(),
+    )
   }
 
   fn valid_tokens() -> &'static [CssToken] {

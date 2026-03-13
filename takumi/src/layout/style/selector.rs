@@ -646,22 +646,6 @@ fn compare_media_feature(comparison: MediaFeatureComparison, actual: f32, expect
   }
 }
 
-fn parse_media_query_list<'i, 't>(
-  input: &mut Parser<'i, 't>,
-) -> Result<MediaQueryList, ParseError<'i, StyleSheetParseError>> {
-  let mut queries = Vec::new();
-
-  loop {
-    queries.push(parse_media_query(input)?);
-
-    if input.try_parse(Parser::expect_comma).is_err() {
-      break;
-    }
-  }
-
-  Ok(MediaQueryList { queries })
-}
-
 fn parse_media_query<'i, 't>(
   input: &mut Parser<'i, 't>,
 ) -> Result<MediaQuery, ParseError<'i, StyleSheetParseError>> {
@@ -974,13 +958,9 @@ fn parse_at_rule_prelude<'i, 't>(
   input: &mut Parser<'i, 't>,
 ) -> Result<AtRulePrelude, ParseError<'i, StyleSheetParseError>> {
   if name.eq_ignore_ascii_case("layer") {
-    let mut layer_names = Vec::new();
-    while let Ok(layer_name) = input.try_parse(parse_layer_name) {
-      layer_names.push(layer_name);
-      if input.try_parse(Parser::expect_comma).is_err() {
-        break;
-      }
-    }
+    let mut layer_names = input
+      .try_parse(|input| input.parse_comma_separated(parse_layer_name))
+      .unwrap_or_default();
     if layer_names.is_empty() {
       layer_names.push(vec![LayerName::Anonymous]);
     }
@@ -994,7 +974,9 @@ fn parse_at_rule_prelude<'i, 't>(
   }
 
   if name.eq_ignore_ascii_case("media") {
-    return parse_media_query_list(input).map(AtRulePrelude::Media);
+    return Ok(AtRulePrelude::Media(MediaQueryList {
+      queries: input.parse_comma_separated(parse_media_query)?,
+    }));
   }
 
   if name.eq_ignore_ascii_case("supports") {

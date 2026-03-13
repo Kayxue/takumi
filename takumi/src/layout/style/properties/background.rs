@@ -132,14 +132,11 @@ pub type Backgrounds = Box<[Background]>;
 
 impl<'i> FromCss<'i> for Backgrounds {
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
-    let mut backgrounds = Vec::new();
-    backgrounds.push(Background::from_css(input)?);
-
-    while input.expect_comma().is_ok() {
-      backgrounds.push(Background::from_css(input)?);
-    }
-
-    Ok(backgrounds.into_boxed_slice())
+    Ok(
+      input
+        .parse_comma_separated(Background::from_css)?
+        .into_boxed_slice(),
+    )
   }
 
   fn valid_tokens() -> &'static [CssToken] {

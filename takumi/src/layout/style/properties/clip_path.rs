@@ -387,19 +387,11 @@ impl<'i> FromCss<'i> for BasicShape {
               input.expect_comma()?;
             }
 
-            let mut coordinates = Vec::new();
-
-            // Parse first coordinate pair
-            coordinates.push(PolygonCoordinate::from_css(input)?);
-
-            // Parse remaining coordinate pairs
-            while input.try_parse(Parser::expect_comma).is_ok() {
-              coordinates.push(PolygonCoordinate::from_css(input)?);
-            }
-
             Ok(BasicShape::Polygon(PolygonShape {
               fill_rule,
-              coordinates: coordinates.into_boxed_slice(),
+              coordinates: input
+                .parse_comma_separated(PolygonCoordinate::from_css)?
+                .into_boxed_slice(),
             }))
           }),
           "path" => parser.parse_nested_block(|input| {

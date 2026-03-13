@@ -69,7 +69,10 @@ where
 }
 
 fn parse_keyframe_offsets(selector: &str) -> Result<Vec<f32>, String> {
-  if selector.split(',').all(|part| part.trim().is_empty()) {
+  if selector
+    .trim_matches(|c: char| c.is_ascii_whitespace() || c == ',')
+    .is_empty()
+  {
     return Err(
       "empty keyframe selector; expected at least one of `from`, `to`, or percentage values"
         .to_owned(),
@@ -97,16 +100,7 @@ pub(crate) fn parse_keyframe_prelude<'i, E>(
 where
   KeyframePreludeParseError<'i>: Into<E>,
 {
-  let mut offsets = Vec::new();
-
-  loop {
-    offsets.push(parse_keyframe_offset(input)?);
-    if input.try_parse(Parser::expect_comma).is_err() {
-      break;
-    }
-  }
-
-  Ok(offsets)
+  input.parse_comma_separated(parse_keyframe_offset)
 }
 
 #[derive(Clone, Copy)]
