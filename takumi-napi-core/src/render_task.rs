@@ -4,14 +4,14 @@ use std::{collections::HashMap, sync::Arc};
 
 use napi::bindgen_prelude::*;
 use takumi::{
-  layout::style::KeyframesRule,
+  layout::style::StyleSheet,
   layout::{DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport, node::NodeKind},
   rendering::{DitheringAlgorithm, RenderOptionsBuilder, render, write_image},
   resources::image::load_image_source_from_bytes,
 };
 
 use crate::{
-  ExternalMemoryAccountable, buffer_from_object, map_error,
+  ExternalMemoryAccountable, buffer_from_object, map_error, parse_stylesheet,
   renderer::{OutputFormat, RenderOptions, RendererState, deserialize_keyframes},
 };
 
@@ -24,8 +24,7 @@ pub struct RenderTask {
   pub quality: Option<u8>,
   pub dithering: DitheringAlgorithm,
   pub time_ms: u64,
-  pub stylesheets: Option<Vec<String>>,
-  pub keyframes: Vec<KeyframesRule>,
+  pub stylesheet: StyleSheet,
   pub fetched_resources: HashMap<Arc<str>, Buffer>,
 }
 
@@ -53,8 +52,10 @@ impl RenderTask {
       dithering: options.dithering.map(Into::into).unwrap_or_default(),
       time_ms: options.time_ms.unwrap_or_default().max(0) as u64,
       draw_debug_border: options.draw_debug_border.unwrap_or_default(),
-      stylesheets: options.stylesheets,
-      keyframes: deserialize_keyframes(options.keyframes)?,
+      stylesheet: parse_stylesheet(
+        options.stylesheets,
+        deserialize_keyframes(options.keyframes)?,
+      )?,
       fetched_resources: options
         .fetched_resources
         .unwrap_or_default()
@@ -94,8 +95,7 @@ impl Task for RenderTask {
       RenderOptionsBuilder::default()
         .viewport(self.viewport)
         .fetched_resources(initialized_images)
-        .stylesheets(self.stylesheets.take().unwrap_or_default())
-        .keyframes(take(&mut self.keyframes))
+        .stylesheet(take(&mut self.stylesheet))
         .time_ms(self.time_ms)
         .dithering(self.dithering)
         .node(node)

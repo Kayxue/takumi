@@ -1,17 +1,12 @@
-#[cfg(feature = "css_stylesheet_parsing")]
 use std::borrow::Cow;
 
-#[cfg(feature = "css_stylesheet_parsing")]
 use parley::{FontFeature, FontVariation};
-#[cfg(feature = "css_stylesheet_parsing")]
 use std::cmp::Ordering;
 
 use super::StyleDeclarationBlock;
-#[cfg(feature = "css_stylesheet_parsing")]
 use super::selector::MediaQueryList;
 use serde::Deserialize;
 
-#[cfg(feature = "css_stylesheet_parsing")]
 use crate::{
   layout::{
     Viewport,
@@ -38,12 +33,10 @@ pub struct KeyframesRule {
   pub name: String,
   /// Individual keyframe rules for this animation.
   pub keyframes: Vec<KeyframeRule>,
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[serde(skip, default)]
   pub(crate) media_queries: Vec<MediaQueryList>,
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 pub(crate) fn apply_stylesheet_animations(
   mut base_style: ComputedStyle,
   context: &RenderContext<'_>,
@@ -55,11 +48,9 @@ pub(crate) fn apply_stylesheet_animations(
   let base_snapshot = base_style.clone();
 
   for (animation_index, animation_name) in base_snapshot.animation_name.0.iter().enumerate() {
-    let Some(keyframes) = find_keyframes(
-      &context.stylesheets,
-      animation_name,
-      context.sizing.viewport,
-    ) else {
+    let Some(keyframes) =
+      find_keyframes(&context.stylesheet, animation_name, context.sizing.viewport)
+    else {
       continue;
     };
 
@@ -110,31 +101,21 @@ pub(crate) fn apply_stylesheet_animations(
   base_style
 }
 
-#[cfg(not(feature = "css_stylesheet_parsing"))]
-pub(crate) fn apply_stylesheet_animations(
-  base_style: ComputedStyle,
-  _context: &crate::rendering::RenderContext<'_>,
-) -> ComputedStyle {
-  base_style
-}
-
-#[cfg(feature = "css_stylesheet_parsing")]
 fn find_keyframes<'a>(
-  stylesheets: &'a [StyleSheet],
+  stylesheet: &'a StyleSheet,
   name: &str,
   viewport: Viewport,
 ) -> Option<Cow<'a, KeyframesRule>> {
-  stylesheets
+  stylesheet
+    .keyframes
     .iter()
     .rev()
-    .find_map(|sheet| {
-      sheet.keyframes.iter().rev().find(|rule| {
-        rule.name.eq_ignore_ascii_case(name)
-          && rule
-            .media_queries
-            .iter()
-            .all(|media_query| media_query.matches(viewport))
-      })
+    .find(|rule| {
+      rule.name.eq_ignore_ascii_case(name)
+        && rule
+          .media_queries
+          .iter()
+          .all(|media_query| media_query.matches(viewport))
     })
     .map(Cow::Borrowed)
     .or_else(|| tailwind_animation_keyframes(name).map(Cow::Owned))
@@ -150,7 +131,6 @@ fn tailwind_animation_keyframes(name: &str) -> Option<KeyframesRule> {
         keyframe(0.75, [StyleDeclaration::rotate(Some(Angle::new(270.0)))]),
         keyframe(1.0, [StyleDeclaration::rotate(Some(Angle::new(359.999)))]),
       ],
-      #[cfg(feature = "css_stylesheet_parsing")]
       media_queries: Vec::new(),
     }),
     "ping" => Some(KeyframesRule {
@@ -171,7 +151,6 @@ fn tailwind_animation_keyframes(name: &str) -> Option<KeyframesRule> {
           ],
         ),
       ],
-      #[cfg(feature = "css_stylesheet_parsing")]
       media_queries: Vec::new(),
     }),
     "pulse" => Some(KeyframesRule {
@@ -180,7 +159,6 @@ fn tailwind_animation_keyframes(name: &str) -> Option<KeyframesRule> {
         0.5,
         [StyleDeclaration::opacity(PercentageNumber(0.5))],
       )],
-      #[cfg(feature = "css_stylesheet_parsing")]
       media_queries: Vec::new(),
     }),
     "bounce" => Some(KeyframesRule {
@@ -208,7 +186,6 @@ fn tailwind_animation_keyframes(name: &str) -> Option<KeyframesRule> {
           ))],
         ),
       ],
-      #[cfg(feature = "css_stylesheet_parsing")]
       media_queries: Vec::new(),
     }),
     _ => None,
@@ -227,7 +204,6 @@ fn keyframe<const N: usize>(offset: f32, declarations: [StyleDeclaration; N]) ->
   }
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 fn sample_animation_progress(
   time_ms: f32,
   duration_ms: f32,
@@ -295,17 +271,14 @@ fn sample_animation_progress(
   Some(apply_direction(progress, direction, iteration_index))
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 fn start_progress(direction: AnimationDirection) -> f32 {
   apply_direction(0.0, direction, 0)
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 fn end_progress(direction: AnimationDirection, iteration_index: usize) -> f32 {
   apply_direction(1.0, direction, iteration_index)
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 fn apply_direction(progress: f32, direction: AnimationDirection, iteration_index: usize) -> f32 {
   match direction {
     AnimationDirection::Normal => progress,
@@ -327,7 +300,6 @@ fn apply_direction(progress: f32, direction: AnimationDirection, iteration_index
   }
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 fn sample_keyframe_segment<'a>(
   resolved_frames: &'a ResolvedKeyframes,
   base_style: &'a ComputedStyle,
@@ -386,7 +358,6 @@ fn sample_keyframe_segment<'a>(
   ))
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 fn resolve_keyframes(keyframes: &KeyframesRule, base_style: &ComputedStyle) -> ResolvedKeyframes {
   let mut points = keyframes
     .keyframes
@@ -441,42 +412,36 @@ fn resolve_keyframes(keyframes: &KeyframesRule, base_style: &ComputedStyle) -> R
   }
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 #[derive(Debug)]
 struct ResolvedKeyframeStyle {
   style: ComputedStyle,
   mask: PropertyMask,
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 impl ResolvedKeyframeStyle {
   fn new(style: ComputedStyle, mask: PropertyMask) -> Self {
     Self { style, mask }
   }
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 #[derive(Debug)]
 struct ResolvedKeyframePoint {
   offset: f32,
   style_index: usize,
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 #[derive(Debug)]
 struct ResolvedKeyframes {
   points: Vec<ResolvedKeyframePoint>,
   styles: Vec<ResolvedKeyframeStyle>,
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 impl ResolvedKeyframes {
   fn style(&self, index: usize) -> &ResolvedKeyframeStyle {
     &self.styles[index]
   }
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 #[derive(Debug)]
 struct InterpolationSegment<'a> {
   from_style: &'a ComputedStyle,
@@ -485,7 +450,6 @@ struct InterpolationSegment<'a> {
   progress: f32,
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 impl<'a> InterpolationSegment<'a> {
   fn new(
     from_style: &'a ComputedStyle,
@@ -510,7 +474,6 @@ impl<'a> InterpolationSegment<'a> {
   }
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 fn resolve_keyframe_style(
   keyframe: &KeyframeRule,
   base_style: &ComputedStyle,
@@ -521,12 +484,10 @@ fn resolve_keyframe_style(
   ResolvedKeyframeStyle::new(style, mask)
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 fn merge_keyframe_style(style: &mut ResolvedKeyframeStyle, keyframe: &KeyframeRule) {
   apply_keyframe_declarations(&mut style.style, &mut style.mask, keyframe);
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 fn apply_keyframe_declarations(
   style: &mut ComputedStyle,
   mask: &mut PropertyMask,
@@ -538,7 +499,6 @@ fn apply_keyframe_declarations(
   }
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 macro_rules! impl_passthrough_animatable {
   ($($ty:ty),* $(,)?) => {
     $(
@@ -547,7 +507,6 @@ macro_rules! impl_passthrough_animatable {
   };
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 impl_passthrough_animatable!(
   BoxSizing,
   AnimationNames,
@@ -607,7 +566,6 @@ impl_passthrough_animatable!(
   FontVariation,
 );
 
-#[cfg(feature = "css_stylesheet_parsing")]
 impl<const DEFAULT_AUTO: bool> Animatable for Length<DEFAULT_AUTO> {
   fn interpolate(
     &mut self,
@@ -628,7 +586,6 @@ impl<const DEFAULT_AUTO: bool> Animatable for Length<DEFAULT_AUTO> {
   }
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 fn interpolate_length<const DEFAULT_AUTO: bool>(
   from: Length<DEFAULT_AUTO>,
   to: Length<DEFAULT_AUTO>,
@@ -660,7 +617,6 @@ fn interpolate_length<const DEFAULT_AUTO: bool>(
   }
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 fn resolve_length_with_sizing<const DEFAULT_AUTO: bool>(
   value: Length<DEFAULT_AUTO>,
   sizing: &Sizing,
@@ -672,7 +628,7 @@ fn resolve_length_with_sizing<const DEFAULT_AUTO: bool>(
   Some(value.to_px(sizing, sizing.viewport.width.unwrap_or_default() as f32))
 }
 
-#[cfg(all(test, feature = "css_stylesheet_parsing"))]
+#[cfg(test)]
 mod tests {
   use std::rc::Rc;
 

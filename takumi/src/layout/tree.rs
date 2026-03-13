@@ -9,10 +9,6 @@ use taffy::{
   compute_root_layout, round_layout,
 };
 
-#[cfg(feature = "css_stylesheet_parsing")]
-use crate::layout::style::matching::{MatchedDeclarations, match_stylesheets};
-#[cfg(feature = "css_stylesheet_parsing")]
-use crate::layout::style::selector::StyleSheet;
 use crate::{
   Result,
   layout::{
@@ -24,7 +20,8 @@ use crate::{
     node::{Node, NodeStyleLayers},
     style::{
       Affine, BlendMode, Color, ComputedStyle, Display, Filters, Isolation, PercentageNumber,
-      Style as NodeStyle, apply_stylesheet_animations,
+      Style as NodeStyle, StyleSheet, apply_stylesheet_animations,
+      matching::{MatchedDeclarations, match_stylesheets},
     },
   },
   rendering::{
@@ -92,7 +89,7 @@ pub(crate) struct RenderNode<'g, N: Node<N>> {
 
 fn build_style_layers(
   node_layers: NodeStyleLayers,
-  #[cfg(feature = "css_stylesheet_parsing")] matched_declarations: &MatchedDeclarations,
+  matched_declarations: &MatchedDeclarations,
   viewport: Viewport,
 ) -> NodeStyle {
   let mut style = NodeStyle::default();
@@ -101,7 +98,6 @@ fn build_style_layers(
     style.merge_from(preset);
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   for declaration in matched_declarations.normal.iter() {
     declaration.merge_into_ref(&mut style);
   }
@@ -114,7 +110,6 @@ fn build_style_layers(
     style.merge_from(inline);
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   for declaration in matched_declarations.important.iter() {
     declaration.merge_into_ref(&mut style);
   }
@@ -122,7 +117,6 @@ fn build_style_layers(
   style
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 fn registered_custom_property_parent_style(
   parent_style: &ComputedStyle,
   stylesheets: &[StyleSheet],
@@ -178,10 +172,9 @@ fn registered_custom_property_parent_style(
 fn build_inherited_style(
   parent_style: &ComputedStyle,
   node_layers: NodeStyleLayers,
-  #[cfg(feature = "css_stylesheet_parsing")] matched_declarations: MatchedDeclarations,
+  matched_declarations: MatchedDeclarations,
   viewport: Viewport,
 ) -> ComputedStyle {
-  #[cfg(feature = "css_stylesheet_parsing")]
   let style = {
     let mut style = NodeStyle::default();
 
@@ -207,17 +200,9 @@ fn build_inherited_style(
 
     style
   };
-  #[cfg(not(feature = "css_stylesheet_parsing"))]
-  let style = build_style_layers(node_layers, viewport);
-
-  #[cfg(feature = "css_stylesheet_parsing")]
   let inherited_parent =
     registered_custom_property_parent_style(parent_style, &[], Viewport::new(None, None));
-  #[cfg(feature = "css_stylesheet_parsing")]
-  return style.inherit(&inherited_parent);
-
-  #[cfg(not(feature = "css_stylesheet_parsing"))]
-  style.inherit(parent_style)
+  style.inherit(&inherited_parent)
 }
 
 fn push_layout_node<'r, 'g, N: Node<N>>(
@@ -855,18 +840,12 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
   }
 
   pub fn from_node(parent_context: &RenderContext<'g>, node: N) -> Self {
-    #[cfg(feature = "css_stylesheet_parsing")]
     let matched_styles = match_stylesheets(
       &node,
-      &parent_context.stylesheets,
+      &parent_context.stylesheet,
       parent_context.sizing.viewport,
     );
-    let mut tree = Self::from_node_iterative(
-      parent_context,
-      node,
-      #[cfg(feature = "css_stylesheet_parsing")]
-      &matched_styles,
-    );
+    let mut tree = Self::from_node_iterative(parent_context, node, &matched_styles);
 
     if tree.is_inline_level() {
       tree.context.style.display.blockify();
@@ -878,7 +857,7 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
   fn from_node_iterative(
     parent_context: &RenderContext<'g>,
     root: N,
-    #[cfg(feature = "css_stylesheet_parsing")] matched_declarations: &[MatchedDeclarations],
+    matched_declarations: &[MatchedDeclarations],
   ) -> Self {
     struct PendingRenderNode<'g, N: Node<N>> {
       context: RenderContext<'g>,
@@ -916,8 +895,7 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
         draw_debug_border: parent_context.draw_debug_border,
         fetched_resources: parent_context.fetched_resources.clone(),
         sizing,
-        #[cfg(feature = "css_stylesheet_parsing")]
-        stylesheets: parent_context.stylesheets.clone(),
+        stylesheet: parent_context.stylesheet.clone(),
       }
     }
 
@@ -925,31 +903,20 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
       parent_context: &RenderContext<'g>,
       node: &mut N,
       node_index: usize,
-      #[cfg(feature = "css_stylesheet_parsing")] matched_declarations: &[MatchedDeclarations],
+      matched_declarations: &[MatchedDeclarations],
     ) -> (ComputedStyle, Sizing, Color) {
-      #[cfg(feature = "css_stylesheet_parsing")]
       let default_matched = MatchedDeclarations::default();
-      #[cfg(feature = "css_stylesheet_parsing")]
       let matched = matched_declarations
         .get(node_index)
         .unwrap_or(&default_matched);
       let layers = node.take_style_layers();
-      let style_layers = build_style_layers(
-        layers,
-        #[cfg(feature = "css_stylesheet_parsing")]
-        matched,
-        parent_context.sizing.viewport,
-      );
-      #[cfg(feature = "css_stylesheet_parsing")]
+      let style_layers = build_style_layers(layers, matched, parent_context.sizing.viewport);
       let inherited_parent = registered_custom_property_parent_style(
         &parent_context.style,
-        &parent_context.stylesheets,
+        std::slice::from_ref(parent_context.stylesheet.as_ref()),
         parent_context.sizing.viewport,
       );
-      #[cfg(feature = "css_stylesheet_parsing")]
       let mut style = style_layers.inherit(&inherited_parent);
-      #[cfg(not(feature = "css_stylesheet_parsing"))]
-      let mut style = style_layers.inherit(&parent_context.style);
 
       let font_size = style
         .font_size
@@ -967,7 +934,6 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
       );
       style = apply_stylesheet_animations(style, &child_context);
 
-      #[cfg(feature = "css_stylesheet_parsing")]
       for declaration in matched.important.iter() {
         declaration.apply_to_computed(&mut style);
       }
@@ -985,17 +951,12 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
     fn build_pending_node<'g, N: Node<N>>(
       parent_context: &RenderContext<'g>,
       mut node: N,
-      #[cfg(feature = "css_stylesheet_parsing")] matched_declarations: &[MatchedDeclarations],
+      matched_declarations: &[MatchedDeclarations],
       preorder_cursor: &mut usize,
     ) -> PendingRenderNode<'g, N> {
       let node_index = next_preorder_index(preorder_cursor);
-      let (style, sizing, current_color) = resolve_computed_style(
-        parent_context,
-        &mut node,
-        node_index,
-        #[cfg(feature = "css_stylesheet_parsing")]
-        matched_declarations,
-      );
+      let (style, sizing, current_color) =
+        resolve_computed_style(parent_context, &mut node, node_index, matched_declarations);
       let (children_is_some, children) = take_children_vec(&mut node);
       let context = build_render_context(parent_context, style, sizing, current_color);
 
@@ -1012,7 +973,6 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
     let mut stack = vec![build_pending_node(
       parent_context,
       root,
-      #[cfg(feature = "css_stylesheet_parsing")]
       matched_declarations,
       &mut preorder_cursor,
     )];
@@ -1026,7 +986,6 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
         let child_pending = build_pending_node(
           &current.context,
           child,
-          #[cfg(feature = "css_stylesheet_parsing")]
           matched_declarations,
           &mut preorder_cursor,
         );
@@ -1270,25 +1229,29 @@ fn flush_inline_group<'g, N: Node<N>>(
 
 #[cfg(test)]
 mod tests {
-  #[cfg(feature = "css_stylesheet_parsing")]
   use cssparser::{Parser, ParserInput};
-  #[cfg(feature = "css_stylesheet_parsing")]
   use smallvec::smallvec;
 
   use super::build_inherited_style;
-  #[cfg(feature = "css_stylesheet_parsing")]
   use super::registered_custom_property_parent_style;
-  #[cfg(feature = "css_stylesheet_parsing")]
   use crate::layout::style::{
-    LonghandId, StyleDeclaration, StyleDeclarationBlock,
+    LonghandId, PropertyRule, StyleDeclaration, StyleDeclarationBlock, StyleSheet,
     matching::MatchedDeclarations,
-    selector::{PropertyRule, StyleSheet},
   };
   use crate::layout::{
     Viewport,
     node::NodeStyleLayers,
     style::{ComputedStyle, Length, Style},
   };
+
+  fn parse_stylesheet(css: &str) -> StyleSheet {
+    let result = StyleSheet::parse(css);
+    assert!(result.is_ok(), "expected stylesheet to parse: {result:?}");
+    let Ok(stylesheet) = result else {
+      unreachable!();
+    };
+    stylesheet
+  }
 
   #[test]
   fn stylesheet_important_overrides_inline_normal() {
@@ -1298,7 +1261,6 @@ mod tests {
       ..Default::default()
     };
 
-    #[cfg(feature = "css_stylesheet_parsing")]
     let matched = MatchedDeclarations {
       normal: StyleDeclarationBlock {
         declarations: smallvec![StyleDeclaration::width(Length::Px(20.0))],
@@ -1313,7 +1275,6 @@ mod tests {
     let resolved = build_inherited_style(
       &parent,
       layers,
-      #[cfg(feature = "css_stylesheet_parsing")]
       matched,
       Viewport::new(Some(1200), Some(630)),
     );
@@ -1321,7 +1282,6 @@ mod tests {
     assert_eq!(resolved.width, Length::Px(30.0));
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn registered_custom_property_can_disable_inheritance() {
     let mut parent = ComputedStyle::default();
@@ -1348,7 +1308,6 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn registered_custom_property_preserves_parent_value_when_inheriting() {
     let mut parent = ComputedStyle::default();
@@ -1375,7 +1334,6 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn registered_custom_property_uses_initial_value_when_missing_and_inheriting() {
     let parent = ComputedStyle::default();
@@ -1399,7 +1357,6 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn registered_custom_property_uses_last_inherited_initial_value_when_parent_is_missing() {
     let parent = ComputedStyle::default();
@@ -1432,7 +1389,6 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn registered_custom_property_later_inheriting_rule_restores_parent_value() {
     let mut parent = ComputedStyle::default();
@@ -1468,7 +1424,6 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn registered_custom_property_later_inheriting_rule_clears_prior_synthesized_value_without_initial_value()
    {
@@ -1499,11 +1454,10 @@ mod tests {
     assert_eq!(adjusted_parent.custom_properties.get("--box-size"), None);
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn registered_custom_property_accepts_assignment_without_syntax_validation() {
     let parent = ComputedStyle::default();
-    let stylesheet = StyleSheet::parse(
+    let stylesheet = parse_stylesheet(
       r#"
         @property --box-size {
           syntax: "<length>";
@@ -1526,11 +1480,10 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn registered_custom_property_accepts_valid_length_assignment() {
     let parent = ComputedStyle::default();
-    let stylesheet = StyleSheet::parse(
+    let stylesheet = parse_stylesheet(
       r#"
         @property --box-size {
           syntax: "<length>";
@@ -1553,11 +1506,10 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn registered_custom_property_keeps_var_assignment_without_validation() {
     let parent = ComputedStyle::default();
-    let stylesheet = StyleSheet::parse(
+    let stylesheet = parse_stylesheet(
       r#"
         @property --box-size {
           syntax: "<length>";
@@ -1585,11 +1537,10 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn registered_custom_property_still_accepts_keyword_assignment() {
     let parent = ComputedStyle::default();
-    let stylesheet = StyleSheet::parse(
+    let stylesheet = parse_stylesheet(
       r#"
         @property --display-state {
           syntax: "none | auto";
@@ -1612,11 +1563,10 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn registered_custom_property_still_accepts_alternative_assignment() {
     let parent = ComputedStyle::default();
-    let stylesheet = StyleSheet::parse(
+    let stylesheet = parse_stylesheet(
       r#"
         @property --accent {
           syntax: "<length> | <color>";
@@ -1639,11 +1589,10 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn registered_custom_property_still_accepts_supported_assignments() {
     let parent = ComputedStyle::default();
-    let stylesheet = StyleSheet::parse(
+    let stylesheet = parse_stylesheet(
       r#"
         @property --fade-duration {
           syntax: "<time>";
@@ -1693,11 +1642,10 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn registered_custom_property_initial_value_applies_through_var_resolution() {
     let parent = ComputedStyle::default();
-    let stylesheet = StyleSheet::parse(
+    let stylesheet = parse_stylesheet(
       r#"
         @property --box-size {
           syntax: "<length>";
@@ -1726,11 +1674,10 @@ mod tests {
     assert_eq!(resolved.width, Length::Px(10.0));
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn registered_custom_property_accepts_invalid_transform_assignment_without_validation() {
     let parent = ComputedStyle::default();
-    let stylesheet = StyleSheet::parse(
+    let stylesheet = parse_stylesheet(
       r#"
         @property --move {
           syntax: "<transform-function>";

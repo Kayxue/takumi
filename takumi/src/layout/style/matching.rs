@@ -217,7 +217,7 @@ impl<'a, N: Node<N>> Element for ArenaElement<'a, N> {
   fn has_local_name(&self, local_name: &TakumiIdent) -> bool {
     let node = self.tree.nodes[self.index].node;
     if let Some(tag) = node.tag_name() {
-      tag.eq_ignore_ascii_case(&local_name.0)
+      tag.eq_ignore_ascii_case(local_name)
     } else {
       false
     }
@@ -235,13 +235,13 @@ impl<'a, N: Node<N>> Element for ArenaElement<'a, N> {
 
   fn has_id(&self, id: &TakumiIdent, _case_sensitivity: CaseSensitivity) -> bool {
     let node = self.tree.nodes[self.index].node;
-    node.id() == Some(id.0.as_str())
+    node.id() == Some(id)
   }
 
   fn has_class(&self, name: &TakumiIdent, _case_sensitivity: CaseSensitivity) -> bool {
     let node = self.tree.nodes[self.index].node;
     if let Some(classes) = node.class_name() {
-      classes.split_whitespace().any(|c| c == name.0.as_str())
+      classes.split_whitespace().any(|c| c == *name)
     } else {
       false
     }
@@ -320,22 +320,18 @@ struct MatchedRule<'a> {
 
 pub(crate) fn match_stylesheets<N: Node<N>>(
   root: &N,
-  stylesheets: &[StyleSheet],
+  stylesheet: &StyleSheet,
   viewport: Viewport,
 ) -> Vec<MatchedDeclarations> {
   let arena = StyleArena::new(root);
   let mut per_node = vec![MatchedDeclarations::default(); arena.nodes.len()];
 
-  if stylesheets.is_empty() {
-    return per_node;
-  }
-
   let mut matched_rules: Vec<Vec<MatchedRule<'_>>> = vec![Vec::new(); arena.nodes.len()];
   let mut ancestor_bloom_filters = vec![BloomFilter::new(); arena.nodes.len()];
   let mut selector_ancestor_hashes_cache: HashMap<usize, AncestorHashes> = HashMap::new();
-  let flattened_rules: Vec<&CssRule> = stylesheets
+  let flattened_rules: Vec<&CssRule> = stylesheet
+    .rules
     .iter()
-    .flat_map(|sheet| sheet.rules.iter())
     .filter(|rule| {
       rule
         .media_queries
@@ -439,7 +435,7 @@ pub(crate) fn match_stylesheets<N: Node<N>>(
 #[cfg(test)]
 mod tests {
   use super::match_stylesheets;
-  use crate::layout::style::selector::StyleSheet;
+  use crate::layout::style::StyleSheet;
   use crate::layout::{
     Viewport,
     node::{Node, NodeStyleLayers},
@@ -503,13 +499,38 @@ mod tests {
     style.inherit(&ComputedStyle::default()).height
   }
 
+  fn parse_stylesheet(css: &str) -> StyleSheet {
+    let result = StyleSheet::parse(css);
+    assert!(result.is_ok(), "expected stylesheet to parse: {result:?}");
+    let Ok(stylesheet) = result else {
+      unreachable!();
+    };
+    stylesheet
+  }
+
+  fn parse_stylesheet_list<I, S>(stylesheets: I) -> StyleSheet
+  where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+  {
+    let result = StyleSheet::parse_list(stylesheets);
+    assert!(
+      result.is_ok(),
+      "expected stylesheet list to parse: {result:?}"
+    );
+    let Ok(stylesheet) = result else {
+      unreachable!();
+    };
+    stylesheet
+  }
+
   #[test]
   fn layered_rules_outrank_source_order() {
     let root = TestNode {
       class_name: Some("card"),
       ..TestNode::default()
     };
-    let stylesheet = StyleSheet::parse(
+    let stylesheet = parse_stylesheet(
       r#"
         @layer theme, base;
         @layer base {
@@ -521,7 +542,7 @@ mod tests {
       "#,
     );
 
-    let matched = match_stylesheets(&root, &[stylesheet], Viewport::new(None, None));
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
     assert_eq!(matched.len(), 1);
     assert_eq!(computed_width_from_matches(&matched[0]), Length::Px(10.0));
   }
@@ -536,7 +557,7 @@ mod tests {
       }],
       ..TestNode::default()
     };
-    let stylesheet = StyleSheet::parse(
+    let stylesheet = parse_stylesheet(
       r#"
         .card, #panel {
           .title { width: 10px; }
@@ -546,7 +567,7 @@ mod tests {
       "#,
     );
 
-    let matched = match_stylesheets(&root, &[stylesheet], Viewport::new(None, None));
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
     assert_eq!(matched.len(), 2);
     assert_eq!(computed_width_from_matches(&matched[1]), Length::Px(10.0));
   }
@@ -557,7 +578,7 @@ mod tests {
       class_name: Some("card"),
       ..TestNode::default()
     };
-    let stylesheet = StyleSheet::parse(
+    let stylesheet = parse_stylesheet(
       r#"
         @layer theme, base;
         .card { width: 5px !important; }
@@ -570,7 +591,7 @@ mod tests {
       "#,
     );
 
-    let matched = match_stylesheets(&root, &[stylesheet], Viewport::new(None, None));
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
     assert_eq!(matched.len(), 1);
     assert_eq!(computed_width_from_matches(&matched[0]), Length::Px(20.0));
   }
@@ -581,12 +602,36 @@ mod tests {
       class_name: Some("card"),
       ..TestNode::default()
     };
-    let first = StyleSheet::parse(".card { width: 10px; }");
-    let second = StyleSheet::parse(".card { width: 20px; }");
+    let stylesheet = parse_stylesheet(".card { width: 10px; } .card { width: 20px; }");
 
-    let matched = match_stylesheets(&root, &[first, second], Viewport::new(None, None));
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
     assert_eq!(matched.len(), 1);
     assert_eq!(computed_width_from_matches(&matched[0]), Length::Px(20.0));
+  }
+
+  #[test]
+  fn parse_list_preserves_cross_stylesheet_layer_order() {
+    let root = TestNode {
+      class_name: Some("card"),
+      ..TestNode::default()
+    };
+    let stylesheet = parse_stylesheet_list([
+      r#"
+        @layer theme, base;
+        @layer base {
+          .card { width: 10px; }
+        }
+      "#,
+      r#"
+        @layer theme {
+          .card { width: 20px; }
+        }
+      "#,
+    ]);
+
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
+    assert_eq!(matched.len(), 1);
+    assert_eq!(computed_width_from_matches(&matched[0]), Length::Px(10.0));
   }
 
   #[test]
@@ -613,7 +658,7 @@ mod tests {
       ],
       ..TestNode::default()
     };
-    let stylesheet = StyleSheet::parse(
+    let stylesheet = parse_stylesheet(
       r#"
         .container .title { width: 20px; }
         .lead + .title { width: 10px; }
@@ -621,7 +666,7 @@ mod tests {
       "#,
     );
 
-    let matched = match_stylesheets(&root, &[stylesheet], Viewport::new(None, None));
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
     assert_eq!(matched.len(), 5);
     assert_eq!(computed_width_from_matches(&matched[2]), Length::Px(10.0));
     assert_eq!(computed_height_from_matches(&matched[2]), Length::Px(30.0));

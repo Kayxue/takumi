@@ -22,7 +22,10 @@ use std::{fmt::Display, ops::Deref};
 
 use napi::{De, Env, Error, bindgen_prelude::*};
 use serde::{Deserialize, Deserializer, de::DeserializeOwned};
-use takumi::parley::FontStyle;
+use takumi::{
+  layout::style::{KeyframesRule, StyleSheet},
+  parley::FontStyle,
+};
 
 pub use helper::*;
 pub use renderer::Renderer;
@@ -112,6 +115,16 @@ pub(crate) fn deserialize_with_tracing<T: DeserializeOwned>(value: Object) -> Re
 
 pub(crate) fn map_error<E: Display>(err: E) -> napi::Error {
   napi::Error::from_reason(err.to_string())
+}
+
+pub(crate) fn parse_stylesheet(
+  stylesheets: Option<Vec<String>>,
+  keyframes: Vec<KeyframesRule>,
+) -> Result<StyleSheet> {
+  let mut stylesheet =
+    StyleSheet::parse_list(stylesheets.unwrap_or_default()).map_err(map_error)?;
+  stylesheet.extend_keyframes(keyframes);
+  Ok(stylesheet)
 }
 
 /// Trait for accounting external memory to V8's garbage collector.

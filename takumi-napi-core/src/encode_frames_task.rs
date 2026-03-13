@@ -16,7 +16,7 @@ use takumi::{
 };
 
 use crate::{
-  ExternalMemoryAccountable, buffer_from_object, map_error,
+  ExternalMemoryAccountable, buffer_from_object, map_error, parse_stylesheet,
   renderer::{AnimationOutputFormat, EncodeFramesOptions, ImageSource, RendererState},
 };
 
@@ -95,7 +95,7 @@ impl Task for EncodeFramesTask {
 
     let viewport = self.viewport;
     let draw_debug_border = self.draw_debug_border;
-    let stylesheets = self.stylesheets.clone().unwrap_or_default();
+    let stylesheet = parse_stylesheet(self.stylesheets.clone(), Vec::new())?;
     let frames = frames
       .into_par_iter()
       .map(|(node, duration_ms)| {
@@ -104,7 +104,7 @@ impl Task for EncodeFramesTask {
             RenderOptionsBuilder::default()
               .viewport(viewport)
               .fetched_resources(initialized_images.clone())
-              .stylesheets(stylesheets.clone())
+              .stylesheet(stylesheet.clone())
               .node(node)
               .global(&state.global)
               .draw_debug_border(draw_debug_border)

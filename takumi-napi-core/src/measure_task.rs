@@ -4,14 +4,14 @@ use std::{collections::HashMap, sync::Arc};
 
 use napi::bindgen_prelude::*;
 use takumi::{
-  layout::style::KeyframesRule,
+  layout::style::StyleSheet,
   layout::{DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport, node::NodeKind},
   rendering::{RenderOptionsBuilder, measure_layout},
   resources::image::load_image_source_from_bytes,
 };
 
 use crate::{
-  buffer_from_object, map_error,
+  buffer_from_object, map_error, parse_stylesheet,
   renderer::{MeasuredNode, RenderOptions, RendererState, deserialize_keyframes},
 };
 
@@ -20,8 +20,7 @@ pub struct MeasureTask {
   pub(crate) state: Arc<RwLock<RendererState>>,
   pub viewport: Viewport,
   pub time_ms: u64,
-  pub stylesheets: Option<Vec<String>>,
-  pub keyframes: Vec<KeyframesRule>,
+  pub stylesheet: StyleSheet,
   pub fetched_resources: HashMap<Arc<str>, Buffer>,
 }
 
@@ -45,8 +44,10 @@ impl MeasureTask {
           .unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO),
       },
       time_ms: options.time_ms.unwrap_or_default().max(0) as u64,
-      stylesheets: options.stylesheets,
-      keyframes: deserialize_keyframes(options.keyframes)?,
+      stylesheet: parse_stylesheet(
+        options.stylesheets,
+        deserialize_keyframes(options.keyframes)?,
+      )?,
       fetched_resources: options
         .fetched_resources
         .unwrap_or_default()
@@ -85,8 +86,7 @@ impl Task for MeasureTask {
     let options = RenderOptionsBuilder::default()
       .viewport(self.viewport)
       .fetched_resources(initialized_images)
-      .stylesheets(self.stylesheets.clone().unwrap_or_default())
-      .keyframes(take(&mut self.keyframes))
+      .stylesheet(take(&mut self.stylesheet))
       .time_ms(self.time_ms)
       .node(node)
       .global(&state.global)

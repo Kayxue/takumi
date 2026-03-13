@@ -10,7 +10,11 @@ use std::{
 };
 use takumi::{
   GlobalContext,
-  layout::{DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport, node::NodeKind},
+  layout::{
+    DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport,
+    node::NodeKind,
+    style::{KeyframesRule, StyleSheet},
+  },
   parley::{FontWeight, fontique::FontInfoOverride},
   rendering::{
     AnimatedGifOptions, AnimatedPngOptions, AnimatedWebpOptions, AnimationFrame, ImageOutputFormat,
@@ -32,6 +36,19 @@ pub struct Renderer {
 
 #[wasm_bindgen]
 impl Renderer {
+  fn parse_stylesheet(
+    &self,
+    stylesheets: Option<Vec<String>>,
+    keyframes: Vec<KeyframesRule>,
+  ) -> Result<StyleSheet, JsValue> {
+    let stylesheet = StyleSheet::parse_list(stylesheets.unwrap_or_default())
+      .map_err(map_error)
+      .map_err(JsValue::from)?;
+    let mut stylesheet = stylesheet;
+    stylesheet.extend_keyframes(keyframes);
+    Ok(stylesheet)
+  }
+
   fn fetch_resources_map(
     &self,
     resources: Option<&[ImageSource]>,
@@ -214,6 +231,8 @@ impl Renderer {
   fn render_internal(&self, node: NodeKind, options: RenderOptions) -> Result<Vec<u8>, JsValue> {
     let fetched_resources = self.fetch_resources_map(options.fetched_resources.as_deref())?;
     let dithering = options.dithering.unwrap_or_default();
+    let stylesheet =
+      self.parse_stylesheet(options.stylesheets, options.keyframes.unwrap_or_default())?;
 
     let render_options = RenderOptionsBuilder::default()
       .viewport(Viewport {
@@ -226,8 +245,7 @@ impl Renderer {
       })
       .draw_debug_border(options.draw_debug_border.unwrap_or_default())
       .fetched_resources(fetched_resources)
-      .stylesheets(options.stylesheets.unwrap_or_default())
-      .keyframes(options.keyframes.unwrap_or_default())
+      .stylesheet(stylesheet)
       .time_ms(options.time_ms.unwrap_or_default().max(0) as u64)
       .dithering(dithering)
       .node(node)
@@ -270,6 +288,8 @@ impl Renderer {
       .unwrap_or_default();
 
     let fetched_resources = self.fetch_resources_map(options.fetched_resources.as_deref())?;
+    let stylesheet =
+      self.parse_stylesheet(options.stylesheets, options.keyframes.unwrap_or_default())?;
 
     let render_options = RenderOptionsBuilder::default()
       .viewport(Viewport {
@@ -282,8 +302,7 @@ impl Renderer {
       })
       .draw_debug_border(options.draw_debug_border.unwrap_or_default())
       .fetched_resources(fetched_resources)
-      .stylesheets(options.stylesheets.unwrap_or_default())
-      .keyframes(options.keyframes.unwrap_or_default())
+      .stylesheet(stylesheet)
       .time_ms(options.time_ms.unwrap_or_default().max(0) as u64)
       .node(node)
       .global(&self.context)
@@ -359,7 +378,9 @@ impl Renderer {
       device_pixel_ratio: device_pixel_ratio.unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO),
     };
     let draw_debug_border = draw_debug_border.unwrap_or_default();
-    let stylesheets = stylesheets.unwrap_or_default();
+    let stylesheet = StyleSheet::parse_list(stylesheets.unwrap_or_default())
+      .map_err(map_error)
+      .map_err(JsValue::from)?;
     let scene_options = scenes
       .into_iter()
       .map(|scene| {
@@ -369,7 +390,7 @@ impl Renderer {
             RenderOptionsBuilder::default()
               .viewport(viewport)
               .fetched_resources(fetched_resources.clone())
-              .stylesheets(stylesheets.clone())
+              .stylesheet(stylesheet.clone())
               .node(scene.node)
               .global(&self.context)
               .draw_debug_border(draw_debug_border)
@@ -403,7 +424,9 @@ impl Renderer {
         .device_pixel_ratio
         .unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO),
     };
-    let stylesheets = options.stylesheets.unwrap_or_default();
+    let stylesheet = StyleSheet::parse_list(options.stylesheets.unwrap_or_default())
+      .map_err(map_error)
+      .map_err(JsValue::from)?;
     let rendered_frames = frames
       .into_iter()
       .map(|frame| -> Result<AnimationFrame, JsValue> {
@@ -413,7 +436,7 @@ impl Renderer {
           .node(frame.node)
           .global(&self.context)
           .draw_debug_border(options.draw_debug_border.unwrap_or_default())
-          .stylesheets(stylesheets.clone())
+          .stylesheet(stylesheet.clone())
           .build()
           .map_err(|e| JsValue::from_str(&format!("Failed to build render options: {e}")))?;
 

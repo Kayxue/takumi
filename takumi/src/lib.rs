@@ -117,7 +117,7 @@ pub mod resources;
 
 use std::collections::HashSet;
 
-pub use error::{Result, TakumiError as Error};
+pub use error::{Result, StyleSheetParseError, TakumiError as Error};
 
 pub use image;
 pub use parley;

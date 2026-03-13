@@ -24,7 +24,6 @@ features = [
   "svg",
   "rayon",
   "detailed_css_error",
-  "css_stylesheet_parsing",
 ]
 default-features = false
 

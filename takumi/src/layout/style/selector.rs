@@ -5,15 +5,17 @@ use selectors::parser::{
   SelectorParseErrorKind,
 };
 use std::{
-  borrow::Cow,
+  collections::HashMap,
   fmt::{self, Write},
   mem::take,
+  ops::Deref,
   rc::Rc,
 };
 use taffy::Size;
 
-use crate::keyframes::{KeyframePreludeParseError, parse_keyframe_prelude};
 use crate::{
+  error::StyleSheetParseError,
+  keyframes::parse_keyframe_prelude,
   layout::{
     Viewport,
     style::{
@@ -22,38 +24,6 @@ use crate::{
   },
   rendering::Sizing,
 };
-
-#[derive(Debug, Clone)]
-pub enum CssSelectorParseError<'i> {
-  #[allow(dead_code)]
-  Basic(BasicParseErrorKind<'i>),
-  #[allow(dead_code)]
-  Property(Cow<'i, str>),
-  #[allow(dead_code)]
-  Selector(SelectorParseErrorKind<'i>),
-  #[allow(dead_code)]
-  UnsupportedSelectorFeature(&'static str),
-  #[allow(dead_code)]
-  InvalidAtRule(&'static str),
-}
-
-impl<'i> From<SelectorParseErrorKind<'i>> for CssSelectorParseError<'i> {
-  fn from(err: SelectorParseErrorKind<'i>) -> Self {
-    CssSelectorParseError::Selector(err)
-  }
-}
-
-impl<'i> From<Cow<'i, str>> for CssSelectorParseError<'i> {
-  fn from(err: Cow<'i, str>) -> Self {
-    CssSelectorParseError::Property(err)
-  }
-}
-
-impl<'i> From<KeyframePreludeParseError<'i>> for CssSelectorParseError<'i> {
-  fn from(_err: KeyframePreludeParseError<'i>) -> Self {
-    Self::Basic(BasicParseErrorKind::QualifiedRuleInvalid)
-  }
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct PropertyRule {
@@ -73,17 +43,30 @@ pub(crate) enum LayerName {
 type LayerPath = Vec<LayerName>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct TakumiIdent(pub String);
+pub(crate) struct TakumiIdent(String);
 
-impl From<&str> for TakumiIdent {
-  fn from(s: &str) -> Self {
-    Self(s.to_owned())
+impl Deref for TakumiIdent {
+  type Target = str;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
   }
 }
 
-impl AsRef<str> for TakumiIdent {
-  fn as_ref(&self) -> &str {
-    &self.0
+impl PartialEq<&str> for TakumiIdent {
+  fn eq(&self, other: &&str) -> bool {
+    self.0 == *other
+  }
+}
+
+impl PartialEq<TakumiIdent> for &str {
+  fn eq(&self, other: &TakumiIdent) -> bool {
+    self == &other.0
+  }
+}
+impl From<&str> for TakumiIdent {
+  fn from(s: &str) -> Self {
+    Self(s.to_owned())
   }
 }
 
@@ -108,10 +91,10 @@ impl PrecomputedHash for TakumiIdent {
 }
 
 #[derive(Debug, Clone)]
-pub struct TakumiSelectorImpl;
+pub(crate) struct TakumiSelectorImpl;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum UnsupportedPseudoClass {}
+pub(crate) enum UnsupportedPseudoClass {}
 
 impl ToCss for UnsupportedPseudoClass {
   fn to_css<W>(&self, dest: &mut W) -> fmt::Result
@@ -134,7 +117,7 @@ impl NonTSPseudoClass for UnsupportedPseudoClass {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum UnsupportedPseudoElement {}
+pub(crate) enum UnsupportedPseudoElement {}
 
 impl ToCss for UnsupportedPseudoElement {
   fn to_css<W>(&self, dest: &mut W) -> fmt::Result
@@ -167,7 +150,7 @@ struct TakumiSelectorParser;
 
 impl<'i> selectors::Parser<'i> for TakumiSelectorParser {
   type Impl = TakumiSelectorImpl;
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 
   fn parse_parent_selector(&self) -> bool {
     true
@@ -229,7 +212,7 @@ enum StyleRuleBodyItem {
 fn parse_selector_list<'i, 't>(
   input: &mut Parser<'i, 't>,
   parse_relative: ParseRelative,
-) -> Result<SelectorList<TakumiSelectorImpl>, ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<SelectorList<TakumiSelectorImpl>, ParseError<'i, StyleSheetParseError>> {
   let selectors = SelectorList::parse(&TakumiSelectorParser, input, parse_relative)?;
   ensure_supported_selector_list(&selectors).map_err(|err| input.new_custom_error(err))?;
   Ok(selectors)
@@ -255,27 +238,25 @@ fn selector_contains_unsupported_features(selector: &Selector<TakumiSelectorImpl
     })
 }
 
-fn ensure_supported_selector_list<'i>(
+fn ensure_supported_selector_list(
   selectors: &SelectorList<TakumiSelectorImpl>,
-) -> Result<(), CssSelectorParseError<'i>> {
+) -> Result<(), StyleSheetParseError> {
   if selectors
     .slice()
     .iter()
     .any(selector_contains_unsupported_features)
   {
-    return Err(CssSelectorParseError::UnsupportedSelectorFeature(
-      "attribute selectors are not supported",
-    ));
+    return Err(StyleSheetParseError::unsupported_attribute_selector());
   }
 
   Ok(())
 }
 
-pub struct StyleDeclarationParser;
+pub(crate) struct StyleDeclarationParser;
 
 impl<'i> DeclarationParser<'i> for StyleDeclarationParser {
   type Declaration = StyleDeclarationBlock;
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 
   fn parse_value<'t>(
     &mut self,
@@ -297,16 +278,16 @@ impl<'i> DeclarationParser<'i> for StyleDeclarationParser {
 impl<'i> QualifiedRuleParser<'i> for StyleDeclarationParser {
   type Prelude = ();
   type QualifiedRule = StyleDeclarationBlock;
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 }
 
 impl<'i> AtRuleParser<'i> for StyleDeclarationParser {
   type Prelude = ();
   type AtRule = StyleDeclarationBlock;
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 }
 
-impl<'i> RuleBodyItemParser<'i, StyleDeclarationBlock, CssSelectorParseError<'i>>
+impl<'i> RuleBodyItemParser<'i, StyleDeclarationBlock, StyleSheetParseError>
   for StyleDeclarationParser
 {
   fn parse_qualified(&self) -> bool {
@@ -321,7 +302,7 @@ struct PropertyRuleDeclarationParser;
 
 impl<'i> DeclarationParser<'i> for PropertyRuleDeclarationParser {
   type Declaration = (String, String);
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 
   fn parse_value<'t>(
     &mut self,
@@ -338,16 +319,16 @@ impl<'i> DeclarationParser<'i> for PropertyRuleDeclarationParser {
 impl<'i> QualifiedRuleParser<'i> for PropertyRuleDeclarationParser {
   type Prelude = ();
   type QualifiedRule = (String, String);
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 }
 
 impl<'i> AtRuleParser<'i> for PropertyRuleDeclarationParser {
   type Prelude = ();
   type AtRule = (String, String);
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 }
 
-impl<'i> RuleBodyItemParser<'i, (String, String), CssSelectorParseError<'i>>
+impl<'i> RuleBodyItemParser<'i, (String, String), StyleSheetParseError>
   for PropertyRuleDeclarationParser
 {
   fn parse_qualified(&self) -> bool {
@@ -363,11 +344,12 @@ struct NestedStyleRuleParser<'a> {
   parent_selectors: SelectorList<TakumiSelectorImpl>,
   media_queries: &'a [MediaQueryList],
   layer: Option<LayerPath>,
+  lossy: bool,
 }
 
 impl<'i> DeclarationParser<'i> for NestedStyleRuleParser<'_> {
   type Declaration = StyleRuleBodyItem;
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 
   fn parse_value<'t>(
     &mut self,
@@ -386,7 +368,7 @@ impl<'i> DeclarationParser<'i> for NestedStyleRuleParser<'_> {
 impl<'i> QualifiedRuleParser<'i> for NestedStyleRuleParser<'_> {
   type Prelude = SelectorList<TakumiSelectorImpl>;
   type QualifiedRule = StyleRuleBodyItem;
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 
   fn parse_prelude<'t>(
     &mut self,
@@ -402,8 +384,13 @@ impl<'i> QualifiedRuleParser<'i> for NestedStyleRuleParser<'_> {
     input: &mut Parser<'i, 't>,
   ) -> Result<Self::QualifiedRule, ParseError<'i, Self::Error>> {
     let selectors = nested_selectors.replace_parent_selector(&self.parent_selectors);
-    let fragment =
-      parse_style_rule_block(selectors, self.media_queries, self.layer.as_ref(), input)?;
+    let fragment = parse_style_rule_block(
+      selectors,
+      self.media_queries,
+      self.layer.as_ref(),
+      self.lossy,
+      input,
+    )?;
     Ok(StyleRuleBodyItem::Rules(fragment))
   }
 }
@@ -411,7 +398,7 @@ impl<'i> QualifiedRuleParser<'i> for NestedStyleRuleParser<'_> {
 impl<'i> AtRuleParser<'i> for NestedStyleRuleParser<'_> {
   type Prelude = AtRulePrelude;
   type AtRule = StyleRuleBodyItem;
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 
   fn parse_prelude<'t>(
     &mut self,
@@ -431,6 +418,7 @@ impl<'i> AtRuleParser<'i> for NestedStyleRuleParser<'_> {
       &self.parent_selectors,
       self.media_queries,
       self.layer.as_ref(),
+      self.lossy,
       prelude,
       input,
     )?;
@@ -438,7 +426,7 @@ impl<'i> AtRuleParser<'i> for NestedStyleRuleParser<'_> {
   }
 }
 
-impl<'i> RuleBodyItemParser<'i, StyleRuleBodyItem, CssSelectorParseError<'i>>
+impl<'i> RuleBodyItemParser<'i, StyleRuleBodyItem, StyleSheetParseError>
   for NestedStyleRuleParser<'_>
 {
   fn parse_qualified(&self) -> bool {
@@ -454,7 +442,7 @@ struct KeyframeDeclarationParser;
 
 impl<'i> DeclarationParser<'i> for KeyframeDeclarationParser {
   type Declaration = StyleDeclarationBlock;
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 
   fn parse_value<'t>(
     &mut self,
@@ -471,16 +459,16 @@ impl<'i> DeclarationParser<'i> for KeyframeDeclarationParser {
 impl<'i> QualifiedRuleParser<'i> for KeyframeDeclarationParser {
   type Prelude = ();
   type QualifiedRule = StyleDeclarationBlock;
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 }
 
 impl<'i> AtRuleParser<'i> for KeyframeDeclarationParser {
   type Prelude = ();
   type AtRule = StyleDeclarationBlock;
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 }
 
-impl<'i> RuleBodyItemParser<'i, StyleDeclarationBlock, CssSelectorParseError<'i>>
+impl<'i> RuleBodyItemParser<'i, StyleDeclarationBlock, StyleSheetParseError>
   for KeyframeDeclarationParser
 {
   fn parse_qualified(&self) -> bool {
@@ -497,7 +485,7 @@ struct KeyframeRuleParser;
 impl<'i> QualifiedRuleParser<'i> for KeyframeRuleParser {
   type Prelude = Vec<f32>;
   type QualifiedRule = KeyframeRule;
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 
   fn parse_prelude<'t>(
     &mut self,
@@ -531,11 +519,12 @@ impl<'i> QualifiedRuleParser<'i> for KeyframeRuleParser {
 impl<'i> AtRuleParser<'i> for KeyframeRuleParser {
   type Prelude = ();
   type AtRule = KeyframeRule;
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 }
 
-struct TakumiRuleParser {
+struct RuleParser {
   current_layer: Option<LayerPath>,
+  lossy: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -655,7 +644,7 @@ fn compare_media_feature(comparison: MediaFeatureComparison, actual: f32, expect
 
 fn parse_media_query_list<'i, 't>(
   input: &mut Parser<'i, 't>,
-) -> Result<MediaQueryList, ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<MediaQueryList, ParseError<'i, StyleSheetParseError>> {
   let mut queries = Vec::new();
 
   loop {
@@ -671,7 +660,7 @@ fn parse_media_query_list<'i, 't>(
 
 fn parse_media_query<'i, 't>(
   input: &mut Parser<'i, 't>,
-) -> Result<MediaQuery, ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<MediaQuery, ParseError<'i, StyleSheetParseError>> {
   let mut negated = false;
   let mut media_type = MediaType::All;
   let mut features = Vec::new();
@@ -730,7 +719,7 @@ fn parse_media_type(name: CowRcStr<'_>) -> MediaType {
 fn parse_media_feature_block<'i, 't>(
   input: &mut Parser<'i, 't>,
   features: &mut Vec<MediaFeature>,
-) -> Result<(), ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<(), ParseError<'i, StyleSheetParseError>> {
   let location = input.current_source_location();
   let token = input.next()?;
   match token {
@@ -744,7 +733,7 @@ fn parse_media_feature_block<'i, 't>(
 
 fn parse_media_feature<'i, 't>(
   input: &mut Parser<'i, 't>,
-) -> Result<MediaFeature, ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<MediaFeature, ParseError<'i, StyleSheetParseError>> {
   let feature_name = input.expect_ident_cloned()?;
   input.expect_colon()?;
 
@@ -788,11 +777,7 @@ fn parse_media_feature<'i, 't>(
   {
     Ok(MediaFeature::Height(comparison, length))
   } else {
-    Err(
-      input.new_custom_error(CssSelectorParseError::UnsupportedSelectorFeature(
-        "unsupported media feature",
-      )),
-    )
+    Err(input.new_custom_error(StyleSheetParseError::unsupported_media_feature()))
   }
 }
 
@@ -805,35 +790,41 @@ enum AtRulePrelude {
   Supports(bool),
 }
 
-fn parse_fragment(
-  input: &mut Parser<'_, '_>,
-  current_layer: Option<&LayerPath>,
-) -> StyleSheetFragment {
-  let mut parser = TakumiRuleParser {
-    current_layer: current_layer.cloned(),
-  };
+fn parse_fragment_with_mode<'i, 't>(
+  input: &mut Parser<'i, 't>,
+  parser: &mut RuleParser,
+) -> Result<StyleSheetFragment, ParseError<'i, StyleSheetParseError>> {
   let mut fragment = StyleSheetFragment::default();
-  for nested in StyleSheetParser::new(input, &mut parser).flatten() {
-    fragment.extend(nested);
+  let lossy = parser.lossy;
+  for nested in StyleSheetParser::new(input, parser) {
+    match nested {
+      Ok(nested) => fragment.extend(nested),
+      Err((error, _)) => {
+        if lossy {
+          continue;
+        }
+        return Err(error);
+      }
+    }
   }
 
-  fragment
+  Ok(fragment)
 }
 
 #[derive(Debug, Clone)]
-pub struct CssRule {
-  pub selectors: SelectorList<TakumiSelectorImpl>,
-  pub normal_declarations: StyleDeclarationBlock,
-  pub important_declarations: StyleDeclarationBlock,
-  pub media_queries: Vec<MediaQueryList>,
-  pub layer: Option<LayerPath>,
-  pub layer_order: Option<usize>,
+pub(crate) struct CssRule {
+  pub(crate) selectors: SelectorList<TakumiSelectorImpl>,
+  pub(crate) normal_declarations: StyleDeclarationBlock,
+  pub(crate) important_declarations: StyleDeclarationBlock,
+  pub(crate) media_queries: Vec<MediaQueryList>,
+  pub(crate) layer: Option<LayerPath>,
+  pub(crate) layer_order: Option<usize>,
 }
 
 fn parse_property_rule<'i, 't>(
   property_name: String,
   input: &mut Parser<'i, 't>,
-) -> Result<PropertyRule, ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<PropertyRule, ParseError<'i, StyleSheetParseError>> {
   let mut parser = PropertyRuleDeclarationParser;
   let mut syntax = None;
   let mut inherits = None;
@@ -872,20 +863,14 @@ fn parse_property_rule<'i, 't>(
   }
 
   if invalid_inherits {
-    return Err(input.new_custom_error(CssSelectorParseError::InvalidAtRule(
-      "@property inherits must be true or false",
-    )));
+    return Err(input.new_custom_error(StyleSheetParseError::property_inherits_must_be_boolean()));
   }
 
   let Some(syntax) = syntax else {
-    return Err(input.new_custom_error(CssSelectorParseError::InvalidAtRule(
-      "missing `@property` syntax",
-    )));
+    return Err(input.new_custom_error(StyleSheetParseError::missing_property_syntax()));
   };
   let Some(inherits) = inherits else {
-    return Err(input.new_custom_error(CssSelectorParseError::InvalidAtRule(
-      "missing `@property` inherits",
-    )));
+    return Err(input.new_custom_error(StyleSheetParseError::missing_property_inherits()));
   };
 
   Ok(PropertyRule {
@@ -899,7 +884,7 @@ fn parse_property_rule<'i, 't>(
 
 fn supports_declaration<'i, 't>(
   input: &mut Parser<'i, 't>,
-) -> Result<bool, ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<bool, ParseError<'i, StyleSheetParseError>> {
   let name = input.expect_ident_cloned()?;
   input.expect_colon()?;
   let declaration = StyleDeclarationBlock::parse(&name, input).map_err(ParseError::into)?;
@@ -908,7 +893,7 @@ fn supports_declaration<'i, 't>(
 
 fn parse_supports_in_parens<'i, 't>(
   input: &mut Parser<'i, 't>,
-) -> Result<bool, ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<bool, ParseError<'i, StyleSheetParseError>> {
   let location = input.current_source_location();
   match input.next()? {
     Token::ParenthesisBlock => input.parse_nested_block(|input| {
@@ -928,7 +913,7 @@ fn parse_supports_in_parens<'i, 't>(
 
 fn parse_supports_not<'i, 't>(
   input: &mut Parser<'i, 't>,
-) -> Result<bool, ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<bool, ParseError<'i, StyleSheetParseError>> {
   if input
     .try_parse(|input| input.expect_ident_matching("not"))
     .is_ok()
@@ -941,7 +926,7 @@ fn parse_supports_not<'i, 't>(
 
 fn parse_supports_condition<'i, 't>(
   input: &mut Parser<'i, 't>,
-) -> Result<bool, ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<bool, ParseError<'i, StyleSheetParseError>> {
   let mut result = parse_supports_not(input)?;
   let mut operator = None;
 
@@ -951,9 +936,9 @@ fn parse_supports_condition<'i, 't>(
       .is_ok()
     {
       if matches!(operator, Some(false)) {
-        return Err(input.new_custom_error(CssSelectorParseError::InvalidAtRule(
-          "@supports cannot mix `and` and `or` without parentheses",
-        )));
+        return Err(
+          input.new_custom_error(StyleSheetParseError::supports_mixed_and_or_without_parentheses()),
+        );
       }
       operator = Some(true);
       result &= parse_supports_not(input)?;
@@ -965,9 +950,9 @@ fn parse_supports_condition<'i, 't>(
       .is_ok()
     {
       if matches!(operator, Some(true)) {
-        return Err(input.new_custom_error(CssSelectorParseError::InvalidAtRule(
-          "@supports cannot mix `and` and `or` without parentheses",
-        )));
+        return Err(
+          input.new_custom_error(StyleSheetParseError::supports_mixed_and_or_without_parentheses()),
+        );
       }
       operator = Some(false);
       result |= parse_supports_not(input)?;
@@ -983,7 +968,7 @@ fn parse_supports_condition<'i, 't>(
 fn parse_at_rule_prelude<'i, 't>(
   name: CowRcStr<'i>,
   input: &mut Parser<'i, 't>,
-) -> Result<AtRulePrelude, ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<AtRulePrelude, ParseError<'i, StyleSheetParseError>> {
   if name.eq_ignore_ascii_case("layer") {
     let mut layer_names = Vec::new();
     while let Ok(layer_name) = input.try_parse(parse_layer_name) {
@@ -1015,9 +1000,9 @@ fn parse_at_rule_prelude<'i, 't>(
   if name.eq_ignore_ascii_case("property") {
     let property_name = input.expect_ident_or_string()?.to_string();
     if !property_name.starts_with("--") {
-      return Err(input.new_custom_error(CssSelectorParseError::InvalidAtRule(
-        "@property name must be a custom property",
-      )));
+      return Err(
+        input.new_custom_error(StyleSheetParseError::property_name_must_be_custom_property()),
+      );
     }
     return Ok(AtRulePrelude::Property(property_name));
   }
@@ -1027,7 +1012,7 @@ fn parse_at_rule_prelude<'i, 't>(
 
 fn parse_layer_name<'i, 't>(
   input: &mut Parser<'i, 't>,
-) -> Result<LayerPath, ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<LayerPath, ParseError<'i, StyleSheetParseError>> {
   let mut segments = Vec::new();
 
   loop {
@@ -1064,22 +1049,21 @@ fn extend_layer_name(
 fn ensure_single_layer_name<'i>(
   layer_names: &[LayerPath],
   input: &Parser<'i, '_>,
-) -> Result<(), ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<(), ParseError<'i, StyleSheetParseError>> {
   if layer_names.len() <= 1 {
     return Ok(());
   }
 
-  Err(input.new_custom_error(CssSelectorParseError::InvalidAtRule(
-    "@layer blocks accept at most one name",
-  )))
+  Err(input.new_custom_error(StyleSheetParseError::layer_block_multiple_names()))
 }
 
 fn parse_style_rule_block<'i, 't>(
   selectors: SelectorList<TakumiSelectorImpl>,
   media_queries: &[MediaQueryList],
   layer: Option<&LayerPath>,
+  lossy: bool,
   input: &mut Parser<'i, 't>,
-) -> Result<StyleSheetFragment, ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<StyleSheetFragment, ParseError<'i, StyleSheetParseError>> {
   let mut normal_declarations = StyleDeclarationBlock::default();
   let mut important_declarations = StyleDeclarationBlock::default();
   let layer = layer.cloned();
@@ -1088,11 +1072,18 @@ fn parse_style_rule_block<'i, 't>(
     parent_selectors: selectors.clone(),
     media_queries,
     layer: layer.clone(),
+    lossy,
   };
 
-  for result in RuleBodyParser::new(input, &mut parser).flatten() {
+  for result in RuleBodyParser::new(input, &mut parser) {
     match result {
-      StyleRuleBodyItem::Declarations(declarations) => {
+      Err((error, _)) => {
+        if lossy {
+          continue;
+        }
+        return Err(error);
+      }
+      Ok(StyleRuleBodyItem::Declarations(declarations)) => {
         let declarations = *declarations;
         if declarations.importance.is_empty() {
           normal_declarations.append(declarations);
@@ -1100,7 +1091,7 @@ fn parse_style_rule_block<'i, 't>(
           important_declarations.append(declarations);
         }
       }
-      StyleRuleBodyItem::Rules(nested_rules) => {
+      Ok(StyleRuleBodyItem::Rules(nested_rules)) => {
         if !normal_declarations.declarations.is_empty()
           || !important_declarations.declarations.is_empty()
         {
@@ -1137,9 +1128,10 @@ fn parse_nested_at_rule_block<'i, 't>(
   parent_selectors: &SelectorList<TakumiSelectorImpl>,
   media_queries: &[MediaQueryList],
   current_layer: Option<&LayerPath>,
+  lossy: bool,
   prelude: AtRulePrelude,
   input: &mut Parser<'i, 't>,
-) -> Result<StyleSheetFragment, ParseError<'i, CssSelectorParseError<'i>>> {
+) -> Result<StyleSheetFragment, ParseError<'i, StyleSheetParseError>> {
   match prelude {
     AtRulePrelude::Layer(layer_names) => {
       ensure_single_layer_name(&layer_names, input)?;
@@ -1151,6 +1143,7 @@ fn parse_nested_at_rule_block<'i, 't>(
         parent_selectors.clone(),
         media_queries,
         nested_layer.as_ref(),
+        lossy,
         input,
       )
     }
@@ -1161,6 +1154,7 @@ fn parse_nested_at_rule_block<'i, 't>(
         parent_selectors.clone(),
         &merged_media_queries,
         current_layer,
+        lossy,
         input,
       )
     }
@@ -1168,6 +1162,7 @@ fn parse_nested_at_rule_block<'i, 't>(
       parent_selectors.clone(),
       media_queries,
       current_layer,
+      lossy,
       input,
     ),
     AtRulePrelude::Supports(false) => {
@@ -1175,20 +1170,21 @@ fn parse_nested_at_rule_block<'i, 't>(
         parent_selectors: parent_selectors.clone(),
         media_queries,
         layer: current_layer.cloned(),
+        lossy,
       };
       for _ in RuleBodyParser::new(input, &mut parser).flatten() {}
       Ok(StyleSheetFragment::default())
     }
-    AtRulePrelude::Keyframes(_) | AtRulePrelude::Property(_) => Err(input.new_custom_error(
-      CssSelectorParseError::InvalidAtRule("unsupported nested at-rule"),
-    )),
+    AtRulePrelude::Keyframes(_) | AtRulePrelude::Property(_) => {
+      Err(input.new_custom_error(StyleSheetParseError::unsupported_nested_at_rule()))
+    }
   }
 }
 
-impl<'i> QualifiedRuleParser<'i> for TakumiRuleParser {
+impl<'i> QualifiedRuleParser<'i> for RuleParser {
   type Prelude = ParsedSelectors;
   type QualifiedRule = StyleSheetFragment;
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 
   fn parse_prelude<'t>(
     &mut self,
@@ -1205,14 +1201,20 @@ impl<'i> QualifiedRuleParser<'i> for TakumiRuleParser {
     _location: &ParserState,
     input: &mut Parser<'i, 't>,
   ) -> Result<Self::QualifiedRule, ParseError<'i, Self::Error>> {
-    parse_style_rule_block(selectors.selectors, &[], self.current_layer.as_ref(), input)
+    parse_style_rule_block(
+      selectors.selectors,
+      &[],
+      self.current_layer.as_ref(),
+      self.lossy,
+      input,
+    )
   }
 }
 
-impl<'i> AtRuleParser<'i> for TakumiRuleParser {
+impl<'i> AtRuleParser<'i> for RuleParser {
   type Prelude = AtRulePrelude;
   type AtRule = StyleSheetFragment;
-  type Error = CssSelectorParseError<'i>;
+  type Error = StyleSheetParseError;
 
   fn parse_prelude<'t>(
     &mut self,
@@ -1242,15 +1244,29 @@ impl<'i> AtRuleParser<'i> for TakumiRuleParser {
           });
         };
         let nested_layer = extend_layer_name(self.current_layer.as_ref(), &layer_name);
-        let mut fragment = parse_fragment(input, nested_layer.as_ref());
+        let mut fragment = parse_fragment_with_mode(
+          input,
+          &mut RuleParser {
+            current_layer: nested_layer.clone(),
+            lossy: self.lossy,
+          },
+        )?;
         fragment.declared_layers.splice(0..0, declared_layers);
         Ok(fragment)
       }
       AtRulePrelude::Keyframes(name) => {
         let mut parser = KeyframeRuleParser;
         let mut keyframes = Vec::new();
-        for keyframe in StyleSheetParser::new(input, &mut parser).flatten() {
-          keyframes.push(keyframe);
+        for keyframe in StyleSheetParser::new(input, &mut parser) {
+          match keyframe {
+            Ok(keyframe) => keyframes.push(keyframe),
+            Err((error, _)) => {
+              if self.lossy {
+                continue;
+              }
+              return Err(error);
+            }
+          }
         }
 
         Ok(StyleSheetFragment {
@@ -1263,7 +1279,13 @@ impl<'i> AtRuleParser<'i> for TakumiRuleParser {
         })
       }
       AtRulePrelude::Media(media_query) => {
-        let mut fragment = parse_fragment(input, self.current_layer.as_ref());
+        let mut fragment = parse_fragment_with_mode(
+          input,
+          &mut RuleParser {
+            current_layer: self.current_layer.clone(),
+            lossy: self.lossy,
+          },
+        )?;
 
         for rule in &mut fragment.rules {
           rule.media_queries.push(media_query.clone());
@@ -1279,14 +1301,21 @@ impl<'i> AtRuleParser<'i> for TakumiRuleParser {
       }
       AtRulePrelude::Supports(is_supported) => {
         if !is_supported {
-          let mut parser = TakumiRuleParser {
+          let mut parser = RuleParser {
             current_layer: self.current_layer.clone(),
+            lossy: self.lossy,
           };
           for _ in StyleSheetParser::new(input, &mut parser) {}
           return Ok(StyleSheetFragment::default());
         }
 
-        Ok(parse_fragment(input, self.current_layer.as_ref()))
+        parse_fragment_with_mode(
+          input,
+          &mut RuleParser {
+            current_layer: self.current_layer.clone(),
+            lossy: self.lossy,
+          },
+        )
       }
       AtRulePrelude::Property(name) => Ok(StyleSheetFragment {
         property_rules: vec![parse_property_rule(name, input)?],
@@ -1313,49 +1342,116 @@ impl<'i> AtRuleParser<'i> for TakumiRuleParser {
   }
 }
 
+/// Defines a stylesheet with rules, keyframes, and property rules.
 #[derive(Debug, Clone, Default)]
-pub(crate) struct StyleSheet {
-  pub rules: Vec<CssRule>,
-  pub keyframes: Vec<KeyframesRule>,
-  pub property_rules: Vec<PropertyRule>,
+pub struct StyleSheet {
+  pub(crate) rules: Vec<CssRule>,
+  pub(crate) keyframes: Vec<KeyframesRule>,
+  pub(crate) property_rules: Vec<PropertyRule>,
+}
+
+impl From<Vec<KeyframesRule>> for StyleSheet {
+  fn from(keyframes: Vec<KeyframesRule>) -> Self {
+    Self {
+      keyframes,
+      ..Default::default()
+    }
+  }
 }
 
 impl StyleSheet {
-  pub(crate) fn parse_list<'a, I>(stylesheets: I) -> impl Iterator<Item = Self>
-  where
-    I: IntoIterator<Item = &'a str>,
-  {
-    stylesheets.into_iter().map(Self::parse)
+  /// Extends the stylesheet with keyframes.
+  pub fn extend_keyframes(&mut self, keyframes: Vec<KeyframesRule>) {
+    self.keyframes.extend(keyframes);
   }
 
-  pub(crate) fn parse(css: &str) -> Self {
+  /// Parses a list of stylesheets.
+  pub fn parse_list<I, S>(stylesheets: I) -> Result<Self, StyleSheetParseError>
+  where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+  {
+    let mut combined_css = String::new();
+
+    for css in stylesheets {
+      combined_css.push_str(css.as_ref());
+    }
+
+    Self::parse(&combined_css)
+  }
+
+  /// Parses a list of stylesheets while discarding invalid rules.
+  pub fn parse_list_loosy<I, S>(stylesheets: I) -> Self
+  where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+  {
+    let mut combined_css = String::new();
+
+    for css in stylesheets {
+      combined_css.push_str(css.as_ref());
+    }
+
+    Self::parse_loosy(&combined_css)
+  }
+
+  /// Parses a stylesheet.
+  pub fn parse(css: &str) -> Result<Self, StyleSheetParseError> {
+    Self::parse_with_mode(css, false)
+  }
+
+  /// Parses a stylesheet while discarding invalid rules.
+  pub fn parse_loosy(css: &str) -> Self {
+    let Ok(stylesheet) = Self::parse_with_mode(css, true) else {
+      unreachable!();
+    };
+    stylesheet
+  }
+
+  fn parse_with_mode(css: &str, lossy: bool) -> Result<Self, StyleSheetParseError> {
     let mut input = ParserInput::new(css);
     let mut parser = Parser::new(&mut input);
-    let mut rule_parser = TakumiRuleParser {
+    let mut rule_parser = RuleParser {
       current_layer: None,
+      lossy,
     };
+
     let mut rules = Vec::new();
     let mut keyframes = Vec::new();
     let mut property_rules = Vec::new();
     let mut declared_layers = Vec::new();
-    for fragment in StyleSheetParser::new(&mut parser, &mut rule_parser).flatten() {
-      rules.extend(fragment.rules);
-      keyframes.extend(fragment.keyframes);
-      property_rules.extend(fragment.property_rules);
-      declared_layers.extend(fragment.declared_layers);
+
+    for fragment in StyleSheetParser::new(&mut parser, &mut rule_parser) {
+      match fragment {
+        Ok(fragment) => {
+          rules.extend(fragment.rules);
+          keyframes.extend(fragment.keyframes);
+          property_rules.extend(fragment.property_rules);
+          declared_layers.extend(fragment.declared_layers);
+        }
+        Err((error, context)) => {
+          if lossy {
+            continue;
+          }
+          return Err(StyleSheetParseError::from_parse_error(css, context, error));
+        }
+      }
     }
 
-    let mut layer_order = std::collections::HashMap::<LayerPath, usize>::new();
+    let mut layer_order = HashMap::<LayerPath, usize>::new();
+
     for layer_name in declared_layers {
       let next_order = layer_order.len();
       layer_order.entry(layer_name).or_insert(next_order);
     }
+
     for rule in &rules {
       if let Some(layer_name) = &rule.layer {
         let next_order = layer_order.len();
         layer_order.entry(layer_name.clone()).or_insert(next_order);
       }
     }
+
     for rule in &mut rules {
       rule.layer_order = rule
         .layer
@@ -1368,14 +1464,972 @@ impl StyleSheet {
         || !rule.important_declarations.declarations.is_empty()
     });
 
-    Self {
+    Ok(Self {
       rules,
       keyframes,
       property_rules,
-    }
+    })
   }
 }
 
 #[cfg(test)]
-#[path = "selector_tests.rs"]
-mod tests;
+mod tests {
+  use super::*;
+  use cssparser::ToCss;
+
+  use crate::layout::style::{Color, ColorInput, ComputedStyle, Length, Style, StyleDeclaration};
+
+  fn computed_style_from_declarations(declarations: &StyleDeclarationBlock) -> ComputedStyle {
+    let mut style = Style::default();
+    for declaration in &declarations.declarations {
+      declaration.merge_into_ref(&mut style);
+    }
+    style.inherit(&ComputedStyle::default())
+  }
+
+  fn selector_text(rule: &CssRule) -> String {
+    rule.selectors.to_css_string()
+  }
+
+  fn parse_stylesheet(css: &str) -> StyleSheet {
+    let result = StyleSheet::parse(css);
+    assert!(result.is_ok(), "expected stylesheet to parse: {result:?}");
+    let Ok(stylesheet) = result else {
+      unreachable!();
+    };
+    stylesheet
+  }
+
+  fn parse_stylesheet_loosy(css: &str) -> StyleSheet {
+    StyleSheet::parse_loosy(css)
+  }
+
+  fn assert_lossy_parse_keeps_single_valid_rule(css: &str) {
+    let sheet = parse_stylesheet_loosy(css);
+    assert_eq!(sheet.rules.len(), 1);
+    assert_eq!(selector_text(&sheet.rules[0]), ".card");
+    assert_eq!(
+      computed_style_from_declarations(&sheet.rules[0].normal_declarations).width,
+      Length::Px(100.0)
+    );
+  }
+
+  #[test]
+  fn test_parse_stylesheet() {
+    let css = r#"
+            .box {
+                width: 100px;
+                color: red;
+            }
+        "#;
+    let sheet = parse_stylesheet(css);
+    assert_eq!(sheet.rules.len(), 1);
+    let rule = &sheet.rules[0];
+
+    assert_eq!(rule.selectors.slice().len(), 1);
+    assert_eq!(
+      computed_style_from_declarations(&rule.normal_declarations).width,
+      Length::Px(100.0)
+    );
+  }
+
+  #[test]
+  fn test_parse_stylesheet_compound_selectors_specificity() {
+    let sheet = parse_stylesheet(
+      r#"
+        div.box { width: 10px; }
+        #hero .label { height: 20px; }
+      "#,
+    );
+    assert_eq!(sheet.rules.len(), 2);
+    assert_eq!(sheet.rules[0].selectors.slice().len(), 1);
+    assert_eq!(sheet.rules[1].selectors.slice().len(), 1);
+    assert!(sheet.rules[0].selectors.slice()[0].specificity() > 0);
+    assert!(
+      sheet.rules[1].selectors.slice()[0].specificity()
+        > sheet.rules[0].selectors.slice()[0].specificity()
+    );
+  }
+
+  #[test]
+  fn test_parse_stylesheet_multiple_rules() {
+    let sheet = parse_stylesheet(
+      r#"
+        .a { width: 10px; }
+        .b { height: 20px; }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 2);
+    assert_eq!(
+      computed_style_from_declarations(&sheet.rules[0].normal_declarations).width,
+      Length::Px(10.0)
+    );
+    assert_eq!(
+      computed_style_from_declarations(&sheet.rules[1].normal_declarations).height,
+      Length::Px(20.0)
+    );
+  }
+
+  #[test]
+  fn test_parse_stylesheet_multiple_selectors_in_rule() {
+    let sheet = parse_stylesheet(
+      r#"
+        .a, .b { width: 12px; }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 1);
+    assert_eq!(sheet.rules[0].selectors.slice().len(), 2);
+    assert_eq!(
+      computed_style_from_declarations(&sheet.rules[0].normal_declarations).width,
+      Length::Px(12.0)
+    );
+  }
+
+  #[test]
+  fn test_parse_stylesheet_universal_selector() {
+    let sheet = parse_stylesheet(
+      r#"
+        * { width: 100px; }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 1);
+    assert_eq!(selector_text(&sheet.rules[0]), "*");
+    assert_eq!(sheet.rules[0].selectors.slice().len(), 1);
+    assert_eq!(
+      computed_style_from_declarations(&sheet.rules[0].normal_declarations).width,
+      Length::Px(100.0)
+    );
+  }
+
+  #[test]
+  fn test_parse_stylesheet_important_declaration() {
+    let sheet = parse_stylesheet(
+      r#"
+        .a { width: 10px !important; height: 20px; }
+      "#,
+    );
+
+    let rule = &sheet.rules[0];
+    assert_eq!(
+      computed_style_from_declarations(&rule.important_declarations).width,
+      Length::Px(10.0)
+    );
+    assert_eq!(
+      computed_style_from_declarations(&rule.normal_declarations).height,
+      Length::Px(20.0)
+    );
+  }
+
+  #[test]
+  fn test_parse_stylesheet_shorthand_clears_prior_longhand() {
+    let sheet = parse_stylesheet(
+      r#"
+        .a { padding-left: 4px; padding: 10px; }
+      "#,
+    );
+
+    let declarations = &sheet.rules[0].normal_declarations;
+    assert_eq!(declarations.declarations.len(), 5);
+    assert_eq!(
+      declarations.declarations[0],
+      StyleDeclaration::padding_left(Length::Px(4.0))
+    );
+    assert_eq!(
+      declarations.declarations[1],
+      StyleDeclaration::padding_top(Length::Px(10.0))
+    );
+    assert_eq!(
+      declarations.declarations[2],
+      StyleDeclaration::padding_right(Length::Px(10.0))
+    );
+    assert_eq!(
+      declarations.declarations[3],
+      StyleDeclaration::padding_bottom(Length::Px(10.0))
+    );
+    assert_eq!(
+      declarations.declarations[4],
+      StyleDeclaration::padding_left(Length::Px(10.0))
+    );
+  }
+
+  #[test]
+  fn test_parse_stylesheet_webkit_alias_property() {
+    let sheet = parse_stylesheet(
+      r#"
+        .a { -webkit-text-fill-color: rgb(255, 0, 0); }
+      "#,
+    );
+
+    let style = computed_style_from_declarations(&sheet.rules[0].normal_declarations);
+    assert_eq!(
+      style.webkit_text_fill_color,
+      Some(ColorInput::Value(Color([255, 0, 0, 255])))
+    );
+  }
+
+  #[test]
+  fn test_parse_stylesheet_unknown_property_does_not_drop_supported_declarations() {
+    let sheet = parse_stylesheet(
+      r#"
+        .a { --local-token: 1; width: 14px; unsupported-prop: 2; height: 6px; }
+      "#,
+    );
+
+    let style = computed_style_from_declarations(&sheet.rules[0].normal_declarations);
+    assert_eq!(style.width, Length::Px(14.0));
+    assert_eq!(style.height, Length::Px(6.0));
+  }
+
+  #[test]
+  fn test_unsupported_attribute_selector_rule_is_rejected() {
+    let sheet = parse_stylesheet_loosy(
+      r#"
+        [data-kind="hero"] { width: 10px; }
+      "#,
+    );
+
+    assert!(sheet.rules.is_empty());
+  }
+
+  #[test]
+  fn test_parse_stylesheet_returns_error_for_unsupported_selector() {
+    let result = StyleSheet::parse(
+      r#"
+        [data-kind="hero"] { width: 10px; }
+      "#,
+    );
+
+    assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_unsupported_pseudo_selector_rule_is_rejected() {
+    let sheet = parse_stylesheet_loosy(
+      r#"
+        .a:hover { width: 10px; }
+      "#,
+    );
+
+    assert!(sheet.rules.is_empty());
+  }
+
+  #[test]
+  fn test_parse_keyframes_rule() {
+    let sheet = parse_stylesheet(
+      r#"
+        @keyframes fade {
+          from { opacity: 0; }
+          50% { opacity: 0.5; }
+          to { opacity: 1; }
+        }
+      "#,
+    );
+
+    assert!(sheet.rules.is_empty());
+    assert_eq!(sheet.keyframes.len(), 1);
+    assert_eq!(sheet.keyframes[0].name, "fade");
+    assert_eq!(sheet.keyframes[0].keyframes.len(), 3);
+    assert_eq!(sheet.keyframes[0].keyframes[0].offsets, vec![0.0]);
+    assert_eq!(sheet.keyframes[0].keyframes[1].offsets, vec![0.5]);
+    assert_eq!(sheet.keyframes[0].keyframes[2].offsets, vec![1.0]);
+  }
+
+  #[test]
+  fn test_parse_media_rule_with_viewport_features() {
+    let sheet = parse_stylesheet(
+      r#"
+        @media screen and (min-width: 600px) and (orientation: landscape) {
+          .card { width: 100px; }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 1);
+    assert!(sheet.keyframes.is_empty());
+    assert!(
+      sheet.rules[0]
+        .media_queries
+        .first()
+        .is_some_and(|media| media.matches(Viewport::new(Some(800), Some(600))))
+    );
+    assert!(
+      !sheet.rules[0]
+        .media_queries
+        .first()
+        .is_some_and(|media| media.matches(Viewport::new(Some(500), Some(800))))
+    );
+  }
+
+  #[test]
+  fn test_parse_media_rule_with_comma_list() {
+    let sheet = parse_stylesheet(
+      r#"
+        @media (max-width: 480px), (min-width: 1024px) {
+          .card { width: 100px; }
+        }
+      "#,
+    );
+
+    let Some(media) = sheet.rules[0].media_queries.first() else {
+      unreachable!("expected media queries on parsed rule");
+    };
+    assert!(media.matches(Viewport::new(Some(400), Some(800))));
+    assert!(media.matches(Viewport::new(Some(1280), Some(800))));
+    assert!(!media.matches(Viewport::new(Some(800), Some(800))));
+  }
+
+  #[test]
+  fn test_parse_media_rule_applies_to_keyframes_and_property_rules() {
+    let sheet = parse_stylesheet(
+      r#"
+        @media (min-width: 600px) {
+          @keyframes fade {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+
+          @property --box-size {
+            syntax: "<length>";
+            inherits: false;
+            initial-value: 10px;
+          }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.keyframes.len(), 1);
+    assert_eq!(sheet.property_rules.len(), 1);
+    assert!(
+      sheet.keyframes[0]
+        .media_queries
+        .first()
+        .is_some_and(|media| media.matches(Viewport::new(Some(800), Some(600))))
+    );
+    assert!(
+      sheet.property_rules[0]
+        .media_queries
+        .first()
+        .is_some_and(|media| media.matches(Viewport::new(Some(800), Some(600))))
+    );
+  }
+
+  #[test]
+  fn test_parse_nested_rule_is_flattened() {
+    let sheet = parse_stylesheet(
+      r#"
+        .card {
+          width: 100px;
+          .title { height: 20px; }
+          & > .icon { width: 12px; }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 3);
+    assert_eq!(selector_text(&sheet.rules[0]), ".card");
+    assert_eq!(selector_text(&sheet.rules[1]), ":is(.card) .title");
+    assert_eq!(selector_text(&sheet.rules[2]), ":is(.card) > .icon");
+  }
+
+  #[test]
+  fn test_parse_nested_rule_cross_product_for_selector_lists() {
+    let sheet = parse_stylesheet(
+      r#"
+        .card, .panel {
+          & .title, & .subtitle { width: 12px; }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 1);
+    assert_eq!(
+      selector_text(&sheet.rules[0]),
+      ":is(.card, .panel) .title, :is(.card, .panel) .subtitle"
+    );
+  }
+
+  #[test]
+  fn test_parse_nested_rule_uses_is_wrapper_for_multi_parent_lists() {
+    let sheet = parse_stylesheet(
+      r#"
+        .card, .panel {
+          & + .item { width: 12px; }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 1);
+    assert_eq!(selector_text(&sheet.rules[0]), ":is(.card, .panel) + .item");
+  }
+
+  #[test]
+  fn test_parse_nested_media_and_supports_rules() {
+    let sheet = parse_stylesheet(
+      r#"
+        .card {
+          @media (min-width: 600px) {
+            @supports (display: grid) {
+              width: 100px;
+            }
+          }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 1);
+    assert_eq!(selector_text(&sheet.rules[0]), ".card");
+    assert_eq!(sheet.rules[0].media_queries.len(), 1);
+    assert!(
+      sheet.rules[0]
+        .media_queries
+        .first()
+        .is_some_and(|media| media.matches(Viewport::new(Some(800), Some(600))))
+    );
+  }
+
+  #[test]
+  fn test_parse_multiple_nested_media_queries_accumulate() {
+    let sheet = parse_stylesheet(
+      r#"
+        .card {
+          @media (min-width: 600px) {
+            @media (orientation: landscape) {
+              width: 100px;
+            }
+          }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 1);
+    assert_eq!(sheet.rules[0].media_queries.len(), 2);
+    assert!(sheet.rules[0].media_queries[0].matches(Viewport::new(Some(800), Some(600))));
+    assert!(sheet.rules[0].media_queries[1].matches(Viewport::new(Some(800), Some(600))));
+    assert!(!sheet.rules[0].media_queries[1].matches(Viewport::new(Some(500), Some(800))));
+  }
+
+  #[test]
+  fn test_parse_supports_rule_filters_unsupported_declarations() {
+    let sheet = parse_stylesheet(
+      r#"
+        @supports (display: grid) {
+          .card { width: 100px; }
+        }
+
+        @supports (unknown-prop: nope) {
+          .card { height: 20px; }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 1);
+    assert_eq!(selector_text(&sheet.rules[0]), ".card");
+    assert_eq!(
+      computed_style_from_declarations(&sheet.rules[0].normal_declarations).width,
+      Length::Px(100.0)
+    );
+  }
+
+  #[test]
+  fn test_parse_supports_not_and_or_conditions() {
+    let sheet = parse_stylesheet(
+      r#"
+        @supports (display: grid) and (not (unknown-prop: nope)) {
+          .grid { width: 10px; }
+        }
+
+        @supports (unknown-prop: nope) or (display: flex) {
+          .flex { height: 20px; }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 2);
+    assert_eq!(selector_text(&sheet.rules[0]), ".grid");
+    assert_eq!(selector_text(&sheet.rules[1]), ".flex");
+  }
+
+  #[test]
+  fn test_parse_supports_mixed_and_or_requires_parentheses() {
+    let sheet = parse_stylesheet_loosy(
+      r#"
+        @supports (display: grid) and (color: red) or (display: flex) {
+          .invalid { width: 10px; }
+        }
+
+        .valid { height: 20px; }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 1);
+    assert_eq!(selector_text(&sheet.rules[0]), ".valid");
+    assert_eq!(
+      computed_style_from_declarations(&sheet.rules[0].normal_declarations).height,
+      Length::Px(20.0)
+    );
+  }
+
+  #[test]
+  fn test_parse_property_rule() {
+    let sheet = parse_stylesheet(
+      r#"
+        @property --box-size {
+          syntax: "<length>";
+          inherits: false;
+          initial-value: 10px;
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.property_rules.len(), 1);
+    assert_eq!(sheet.property_rules[0].name, "--box-size");
+    assert_eq!(sheet.property_rules[0].syntax, "\"<length>\"");
+    assert!(!sheet.property_rules[0].inherits);
+    assert_eq!(
+      sheet.property_rules[0].initial_value,
+      Some("10px".to_owned())
+    );
+  }
+
+  #[test]
+  fn test_parse_property_rule_descriptors_case_insensitively() {
+    let sheet = parse_stylesheet(
+      r#"
+        @property --box-size {
+          SYNTAX: "<length>";
+          InHeRiTs: false;
+          INITIAL-VALUE: 10px;
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.property_rules.len(), 1);
+    assert_eq!(sheet.property_rules[0].name, "--box-size");
+    assert_eq!(sheet.property_rules[0].syntax, "\"<length>\"");
+    assert!(!sheet.property_rules[0].inherits);
+    assert_eq!(
+      sheet.property_rules[0].initial_value,
+      Some("10px".to_owned())
+    );
+  }
+
+  #[test]
+  fn test_parse_property_rule_requires_initial_value_for_typed_syntax() {
+    let sheet = parse_stylesheet(
+      r#"
+        @property --tw-rotate-x {
+          syntax: "*";
+          inherits: false;
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.property_rules.len(), 1);
+    assert_eq!(sheet.property_rules[0].name, "--tw-rotate-x");
+    assert_eq!(sheet.property_rules[0].syntax, "\"*\"");
+    assert!(!sheet.property_rules[0].inherits);
+    assert_eq!(sheet.property_rules[0].initial_value, None);
+
+    let sheet = parse_stylesheet(
+      r#"
+        @property --box-size {
+          syntax: "<length>";
+          inherits: false;
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.property_rules.len(), 1);
+    assert_eq!(sheet.property_rules[0].initial_value, None);
+  }
+
+  #[test]
+  fn test_parse_property_rule_supports_extended_syntaxes() {
+    let sheet = parse_stylesheet(
+      r#"
+        @property --accent {
+          syntax: "<length> | <color>";
+          inherits: false;
+          initial-value: red;
+        }
+        @property --display-state {
+          syntax: "none | auto";
+          inherits: false;
+          initial-value: none;
+        }
+        @property --fade-duration {
+          syntax: "<time>";
+          inherits: false;
+          initial-value: 150ms;
+        }
+        @property --move {
+          syntax: "<transform-function>";
+          inherits: false;
+          initial-value: translate(10px, 20px);
+        }
+        @property --curve {
+          syntax: "<easing-function>";
+          inherits: false;
+          initial-value: ease-in-out;
+        }
+        @property --fx {
+          syntax: "<filter-function>";
+          inherits: false;
+          initial-value: blur(4px);
+        }
+        @property --bg {
+          syntax: "<image>";
+          inherits: false;
+          initial-value: linear-gradient(red, blue);
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.property_rules.len(), 7);
+    assert_eq!(sheet.property_rules[0].syntax, "\"<length> | <color>\"");
+    assert_eq!(sheet.property_rules[1].syntax, "\"none | auto\"");
+    assert_eq!(sheet.property_rules[2].syntax, "\"<time>\"");
+    assert_eq!(sheet.property_rules[3].syntax, "\"<transform-function>\"");
+    assert_eq!(sheet.property_rules[4].syntax, "\"<easing-function>\"");
+    assert_eq!(sheet.property_rules[5].syntax, "\"<filter-function>\"");
+    assert_eq!(sheet.property_rules[6].syntax, "\"<image>\"");
+  }
+
+  #[test]
+  fn test_lossy_parse_rejects_invalid_property_rules() {
+    for css in [
+      r#"
+        @property color {
+          syntax: "<color>";
+          inherits: false;
+          initial-value: red;
+        }
+
+        .card { width: 100px; }
+      "#,
+      r#"
+        @property --box-size {
+          inherits: false;
+          initial-value: 10px;
+        }
+
+        .card { width: 100px; }
+      "#,
+      r#"
+        @property --accent {
+          syntax: "<color>";
+          initial-value: red;
+        }
+
+        .card { width: 100px; }
+      "#,
+      r#"
+        @property --box-size {
+          syntax: "<length>";
+          inherits: maybe;
+          initial-value: 10px;
+        }
+
+        .card { width: 100px; }
+      "#,
+    ] {
+      let sheet = parse_stylesheet_loosy(css);
+
+      assert!(sheet.property_rules.is_empty());
+      assert_eq!(sheet.rules.len(), 1);
+      assert_eq!(selector_text(&sheet.rules[0]), ".card");
+      assert_eq!(
+        computed_style_from_declarations(&sheet.rules[0].normal_declarations).width,
+        Length::Px(100.0)
+      );
+    }
+  }
+
+  #[test]
+  fn test_parse_stylesheet_returns_error_for_invalid_property_rule() {
+    let result = StyleSheet::parse(
+      r#"
+        @property --box-size {
+          inherits: false;
+          initial-value: 10px;
+        }
+      "#,
+    );
+
+    assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_property_rule_computationally_dependent_initial_value_is_preserved() {
+    let sheet = parse_stylesheet(
+      r#"
+        @property --box-size {
+          syntax: "<length>";
+          inherits: false;
+          initial-value: var(--fallback);
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.property_rules.len(), 1);
+    assert_eq!(
+      sheet.property_rules[0].initial_value,
+      Some("var(--fallback)".to_owned())
+    );
+  }
+
+  #[test]
+  fn test_parse_layer_rule_without_block() {
+    let sheet = parse_stylesheet(
+      r#"
+        @layer theme, base, components, utilities;
+        @layer utilities {
+          .card { width: 100px; }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 1);
+    assert_eq!(selector_text(&sheet.rules[0]), ".card");
+    assert_eq!(
+      sheet.rules[0].layer.as_ref(),
+      Some(&vec![LayerName::Named("utilities".to_owned())])
+    );
+    assert_eq!(sheet.rules[0].layer_order, Some(3));
+    assert_eq!(
+      computed_style_from_declarations(&sheet.rules[0].normal_declarations).width,
+      Length::Px(100.0)
+    );
+  }
+
+  #[test]
+  fn test_parse_nested_layers_are_transparent() {
+    let sheet = parse_stylesheet(
+      r#"
+        @layer theme {
+          @layer components {
+            .card { width: 100px; }
+          }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 1);
+    assert_eq!(selector_text(&sheet.rules[0]), ".card");
+    assert_eq!(
+      sheet.rules[0].layer.as_ref(),
+      Some(&vec![
+        LayerName::Named("theme".to_owned()),
+        LayerName::Named("components".to_owned()),
+      ])
+    );
+    assert_eq!(
+      computed_style_from_declarations(&sheet.rules[0].normal_declarations).width,
+      Length::Px(100.0)
+    );
+  }
+
+  #[test]
+  fn test_parse_nested_layer_inside_style_rule_preserves_parent_selector() {
+    let sheet = parse_stylesheet(
+      r#"
+        .card {
+          @layer theme {
+            width: 100px;
+            .title { height: 20px; }
+          }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 2);
+    assert_eq!(selector_text(&sheet.rules[0]), ".card");
+    assert_eq!(selector_text(&sheet.rules[1]), ":is(.card) .title");
+    assert_eq!(
+      sheet.rules[0].layer.as_ref(),
+      Some(&vec![LayerName::Named("theme".to_owned())])
+    );
+    assert_eq!(
+      sheet.rules[1].layer.as_ref(),
+      Some(&vec![LayerName::Named("theme".to_owned())])
+    );
+    assert_eq!(
+      computed_style_from_declarations(&sheet.rules[0].normal_declarations).width,
+      Length::Px(100.0)
+    );
+    assert_eq!(
+      computed_style_from_declarations(&sheet.rules[1].normal_declarations).height,
+      Length::Px(20.0)
+    );
+  }
+
+  #[test]
+  fn test_parse_anonymous_nested_layer_has_distinct_order() {
+    let sheet = parse_stylesheet(
+      r#"
+        @layer theme {
+          .parent { width: 10px; }
+
+          @layer {
+            .child { width: 20px; }
+          }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 2);
+    assert_eq!(
+      sheet.rules[0].layer.as_ref(),
+      Some(&vec![LayerName::Named("theme".to_owned())])
+    );
+    assert_eq!(
+      sheet.rules[1].layer.as_ref(),
+      Some(&vec![
+        LayerName::Named("theme".to_owned()),
+        LayerName::Anonymous,
+      ])
+    );
+    assert_ne!(sheet.rules[0].layer_order, sheet.rules[1].layer_order);
+  }
+
+  #[test]
+  fn test_parse_layer_block_rejects_multiple_names() {
+    let sheet = parse_stylesheet_loosy(
+      r#"
+        @layer theme, components {
+          .invalid { width: 10px; }
+        }
+
+        .valid { height: 20px; }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 1);
+    assert_eq!(selector_text(&sheet.rules[0]), ".valid");
+    assert_eq!(sheet.rules[0].layer, None);
+    assert_eq!(
+      computed_style_from_declarations(&sheet.rules[0].normal_declarations).height,
+      Length::Px(20.0)
+    );
+  }
+
+  #[test]
+  fn test_parse_nested_rules_preserves_source_order() {
+    let sheet = parse_stylesheet(
+      r#"
+        .card {
+          width: 100px;
+          & .title { color: red; }
+          height: 20px;
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 3);
+    assert_eq!(selector_text(&sheet.rules[0]), ".card");
+    assert_eq!(
+      computed_style_from_declarations(&sheet.rules[0].normal_declarations).width,
+      Length::Px(100.0)
+    );
+    assert_eq!(selector_text(&sheet.rules[1]), ":is(.card) .title");
+    assert_eq!(selector_text(&sheet.rules[2]), ".card");
+    assert_eq!(
+      computed_style_from_declarations(&sheet.rules[2].normal_declarations).height,
+      Length::Px(20.0)
+    );
+  }
+
+  #[test]
+  fn test_nested_unsupported_supports_rule_is_discarded() {
+    let sheet = parse_stylesheet(
+      r#"
+        .card {
+          width: 100px;
+          @supports (unknown-prop: nope) {
+            height: 20px;
+            & .title { color: red; }
+          }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 1);
+    assert_eq!(selector_text(&sheet.rules[0]), ".card");
+
+    let computed = computed_style_from_declarations(&sheet.rules[0].normal_declarations);
+    assert_eq!(computed.width, Length::Px(100.0));
+    assert_eq!(computed.height, Length::Auto);
+  }
+
+  #[test]
+  fn test_nested_keyframes_rule_is_rejected() {
+    let sheet = parse_stylesheet_loosy(
+      r#"
+        .card {
+          width: 100px;
+          @keyframes pulse {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 1);
+    assert_eq!(sheet.keyframes.len(), 0);
+    assert_eq!(selector_text(&sheet.rules[0]), ".card");
+    assert_eq!(
+      computed_style_from_declarations(&sheet.rules[0].normal_declarations).width,
+      Length::Px(100.0)
+    );
+  }
+
+  #[test]
+  fn test_nested_property_rule_is_rejected() {
+    let sheet = parse_stylesheet_loosy(
+      r#"
+        .card {
+          width: 100px;
+          @property --box-size {
+            syntax: "<length>";
+            inherits: false;
+            initial-value: 10px;
+          }
+        }
+      "#,
+    );
+
+    assert_eq!(sheet.rules.len(), 1);
+    assert!(sheet.property_rules.is_empty());
+    assert_eq!(selector_text(&sheet.rules[0]), ".card");
+    assert_eq!(
+      computed_style_from_declarations(&sheet.rules[0].normal_declarations).width,
+      Length::Px(100.0)
+    );
+  }
+
+  #[test]
+  fn test_lossy_parse_rejects_unknown_rules_and_keeps_valid_siblings() {
+    for css in [
+      r#"
+        @media (resolution: 2dppx) {
+          .card { width: 10px; }
+        }
+
+        .card { width: 100px; }
+      "#,
+      r#"
+        @unknown something {
+          .card { width: 10px; }
+        }
+
+        .card { width: 100px; }
+      "#,
+    ] {
+      assert_lossy_parse_keeps_single_valid_rule(css);
+    }
+  }
+}

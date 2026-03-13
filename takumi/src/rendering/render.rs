@@ -6,8 +6,6 @@ use parley::{GlyphRun, PositionedLayoutItem};
 use serde::Serialize;
 use taffy::{AvailableSpace, Layout, NodeId, TaffyError, geometry::Size};
 
-#[cfg(feature = "css_stylesheet_parsing")]
-use crate::layout::style::selector::StyleSheet;
 use crate::{
   Error, GlobalContext, Result,
   layout::{
@@ -18,7 +16,7 @@ use crate::{
     },
     node::Node,
     style::{
-      Affine, ComputedStyle, Filter, ImageScalingAlgorithm, KeyframesRule, SpacePair,
+      Affine, ComputedStyle, Filter, ImageScalingAlgorithm, SpacePair, StyleSheet,
       apply_backdrop_filter, apply_filters,
     },
     tree::{LayoutResults, LayoutTree, RenderNode},
@@ -49,10 +47,7 @@ pub struct RenderOptions<'g, N: Node<N>> {
   pub(crate) fetched_resources: HashMap<Arc<str>, Arc<ImageSource>>,
   /// CSS stylesheets to apply before layout/rendering.
   #[builder(default)]
-  pub(crate) stylesheets: Vec<String>,
-  /// Structured keyframes to register alongside stylesheets.
-  #[builder(default)]
-  pub(crate) keyframes: Vec<KeyframesRule>,
+  pub(crate) stylesheet: StyleSheet,
   /// Global animation time in milliseconds.
   #[builder(default)]
   pub(crate) time_ms: u64,
@@ -172,24 +167,17 @@ pub fn measure_layout<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<M
     node,
     draw_debug_border,
     fetched_resources,
-    stylesheets,
-    keyframes,
+    stylesheet,
     time_ms,
     dithering: _,
   } = options;
-  #[cfg(feature = "css_stylesheet_parsing")]
-  let parsed_stylesheets = build_stylesheets(stylesheets, keyframes);
-  #[cfg(feature = "css_stylesheet_parsing")]
   let mut render_context = RenderContext::new(
     global,
     viewport,
     fetched_resources,
-    parsed_stylesheets,
+    stylesheet.into(),
     RenderTime { time_ms },
   );
-  #[cfg(not(feature = "css_stylesheet_parsing"))]
-  let mut render_context =
-    RenderContext::new(global, viewport, fetched_resources, RenderTime { time_ms });
   render_context.draw_debug_border = draw_debug_border;
   let mut root = RenderNode::from_node(&render_context, node);
   let mut tree = LayoutTree::from_render_node(&root);
@@ -429,24 +417,18 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
     node,
     draw_debug_border,
     fetched_resources,
-    stylesheets,
-    keyframes,
+    stylesheet,
     time_ms,
     dithering,
   } = options;
-  #[cfg(feature = "css_stylesheet_parsing")]
-  let parsed_stylesheets = build_stylesheets(stylesheets, keyframes);
-  #[cfg(feature = "css_stylesheet_parsing")]
+
   let mut render_context = RenderContext::new(
     global,
     viewport,
     fetched_resources,
-    parsed_stylesheets,
+    stylesheet.into(),
     RenderTime { time_ms },
   );
-  #[cfg(not(feature = "css_stylesheet_parsing"))]
-  let mut render_context =
-    RenderContext::new(global, viewport, fetched_resources, RenderTime { time_ms });
   render_context.draw_debug_border = draw_debug_border;
 
   let mut root = RenderNode::from_node(&render_context, node);
@@ -846,20 +828,6 @@ pub(crate) fn render_node<'g, Nodes: Node<Nodes>>(
   Ok(())
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
-fn build_stylesheets(stylesheets: Vec<String>, keyframes: Vec<KeyframesRule>) -> Vec<StyleSheet> {
-  let mut parsed: Vec<StyleSheet> =
-    StyleSheet::parse_list(stylesheets.iter().map(String::as_str)).collect();
-  if !keyframes.is_empty() {
-    parsed.push(StyleSheet {
-      rules: Vec::new(),
-      keyframes,
-      property_rules: Vec::new(),
-    });
-  }
-  parsed
-}
-
 #[cfg(test)]
 mod tests {
   use super::{
@@ -1017,25 +985,27 @@ mod tests {
       .global(&global)
       .viewport(Viewport::new(Some(200), Some(100)))
       .node(node)
-      .keyframes(vec![KeyframesRule {
-        name: "grow".to_string(),
-        keyframes: vec![
-          KeyframeRule {
-            offsets: vec![0.0],
-            declarations: Style::default()
-              .with(StyleDeclaration::width(Px(100.0)))
-              .into(),
-          },
-          KeyframeRule {
-            offsets: vec![1.0],
-            declarations: Style::default()
-              .with(StyleDeclaration::width(Px(200.0)))
-              .into(),
-          },
-        ],
-        #[cfg(feature = "css_stylesheet_parsing")]
-        media_queries: Vec::new(),
-      }])
+      .stylesheet(
+        vec![KeyframesRule {
+          name: "grow".to_string(),
+          keyframes: vec![
+            KeyframeRule {
+              offsets: vec![0.0],
+              declarations: Style::default()
+                .with(StyleDeclaration::width(Px(100.0)))
+                .into(),
+            },
+            KeyframeRule {
+              offsets: vec![1.0],
+              declarations: Style::default()
+                .with(StyleDeclaration::width(Px(200.0)))
+                .into(),
+            },
+          ],
+          media_queries: Vec::new(),
+        }]
+        .into(),
+      )
       .time_ms(500)
       .build();
     assert!(options_result.is_ok());

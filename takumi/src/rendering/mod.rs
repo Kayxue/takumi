@@ -32,13 +32,11 @@ pub use render::*;
 pub(crate) use text_drawing::*;
 pub use write::*;
 
-#[cfg(feature = "css_stylesheet_parsing")]
-use crate::layout::style::selector::StyleSheet;
 use crate::{
   GlobalContext,
   layout::{
     Viewport,
-    style::{Affine, CalcArena, Color, ComputedStyle},
+    style::{Affine, CalcArena, Color, ComputedStyle, StyleSheet},
   },
   resources::image::ImageSource,
 };
@@ -99,42 +97,15 @@ pub struct RenderContext<'g> {
   /// The resources fetched externally.
   pub(crate) fetched_resources: HashMap<Arc<str>, Arc<ImageSource>>,
   /// The stylesheets to apply before layout/rendering.
-  #[cfg(feature = "css_stylesheet_parsing")]
-  pub(crate) stylesheets: Rc<[StyleSheet]>,
+  pub(crate) stylesheet: Rc<StyleSheet>,
 }
 
 impl<'g> RenderContext<'g> {
-  #[cfg(feature = "css_stylesheet_parsing")]
-  pub(crate) fn new<I: IntoIterator<Item = StyleSheet>>(
-    global: &'g GlobalContext,
-    viewport: Viewport,
-    fetched_resources: HashMap<Arc<str>, Arc<ImageSource>>,
-    stylesheets: I,
-    time: RenderTime,
-  ) -> Self {
-    Self {
-      global,
-      sizing: Sizing {
-        viewport,
-        container_size: Size::NONE,
-        font_size: viewport.font_size,
-        calc_arena: Rc::new(CalcArena::default()),
-      },
-      transform: Affine::IDENTITY,
-      current_color: Color::black(),
-      style: Box::default(),
-      time,
-      draw_debug_border: false,
-      fetched_resources,
-      stylesheets: Rc::from_iter(stylesheets),
-    }
-  }
-
-  #[cfg(not(feature = "css_stylesheet_parsing"))]
   pub(crate) fn new(
     global: &'g GlobalContext,
     viewport: Viewport,
     fetched_resources: HashMap<Arc<str>, Arc<ImageSource>>,
+    stylesheet: Rc<StyleSheet>,
     time: RenderTime,
   ) -> Self {
     Self {
@@ -151,27 +122,20 @@ impl<'g> RenderContext<'g> {
       time,
       draw_debug_border: false,
       fetched_resources,
+      stylesheet,
     }
   }
 
   /// Internal, only used in tests.
   #[cfg(test)]
   pub(crate) fn new_test(global: &'g GlobalContext, viewport: Viewport) -> Self {
-    #[cfg(feature = "css_stylesheet_parsing")]
-    {
-      use std::iter::empty;
-      Self::new(
-        global,
-        viewport,
-        Default::default(),
-        empty(),
-        RenderTime::default(),
-      )
-    }
-    #[cfg(not(feature = "css_stylesheet_parsing"))]
-    {
-      Self::new(global, viewport, Default::default(), RenderTime::default())
-    }
+    Self::new(
+      global,
+      viewport,
+      Default::default(),
+      Default::default(),
+      RenderTime::default(),
+    )
   }
 }
 

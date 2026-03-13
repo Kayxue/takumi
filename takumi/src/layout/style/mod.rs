@@ -1,9 +1,7 @@
 mod animation;
-#[cfg(feature = "css_stylesheet_parsing")]
 pub(crate) mod matching;
 mod properties;
-#[cfg(feature = "css_stylesheet_parsing")]
-pub(crate) mod selector;
+mod selector;
 mod stylesheets;
 /// Tailwind CSS Parser.
 pub mod tw;
@@ -13,6 +11,7 @@ use std::{borrow::Cow, fmt::Formatter};
 pub(crate) use animation::apply_stylesheet_animations;
 pub use animation::{KeyframeRule, KeyframesRule};
 pub use properties::*;
+pub use selector::*;
 use serde::{
   Deserialize,
   de::{self, DeserializeSeed, Deserializer, Expected, IgnoredAny, MapAccess, SeqAccess, Visitor},

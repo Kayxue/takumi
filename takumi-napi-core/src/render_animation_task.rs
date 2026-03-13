@@ -1,6 +1,7 @@
 use std::{
   borrow::Cow,
   collections::HashMap,
+  mem::take,
   sync::{Arc, RwLock},
 };
 
@@ -17,6 +18,7 @@ use takumi::{
 
 use crate::{
   ExternalMemoryAccountable, buffer_from_object, deserialize_with_tracing, map_error,
+  parse_stylesheet,
   renderer::{AnimationOutputFormat, ImageSource, RenderAnimationOptions, RendererState},
 };
 
@@ -118,7 +120,7 @@ impl Task for RenderAnimationTask {
       .state
       .read()
       .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
-    let stylesheets = self.stylesheets.clone().unwrap_or_default();
+    let stylesheet = parse_stylesheet(take(&mut self.stylesheets), Vec::new())?;
     let scene_options = scenes
       .into_iter()
       .map(|(node, duration_ms)| {
@@ -128,7 +130,7 @@ impl Task for RenderAnimationTask {
             RenderOptionsBuilder::default()
               .viewport(self.viewport)
               .fetched_resources(initialized_images.clone())
-              .stylesheets(stylesheets.clone())
+              .stylesheet(stylesheet.clone())
               .node(node)
               .global(&state.global)
               .draw_debug_border(self.draw_debug_border)

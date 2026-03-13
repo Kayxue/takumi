@@ -74,8 +74,9 @@ fn test_stylesheets() {
     .viewport(create_test_viewport())
     .node(root.into())
     .global(&CONTEXT)
-    .stylesheets(vec![
-      r#"
+    .stylesheet(
+      StyleSheet::parse(
+        r#"
           .card {
             width: 560px;
             height: 260px;
@@ -101,9 +102,10 @@ fn test_stylesheets() {
             font-size: 24px;
             text-align: center;
           }
-        "#
-      .to_string(),
-    ])
+        "#,
+      )
+      .unwrap(),
+    )
     .build()
     .unwrap();
 
@@ -156,15 +158,15 @@ fn test_stylesheets_background_multiple_gradients() {
       .viewport(create_test_viewport())
       .node(root.clone().into())
       .global(&CONTEXT)
-      .stylesheets(vec![
+      .stylesheet(StyleSheet::parse(
         r#"
           .multi-gradient-card {
             background: radial-gradient(circle at 80% 20%, #FF3D00 0%, transparent 40%), radial-gradient(circle at 20% 80%, #00E5FF 0%, transparent 40%);
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
           }
-        "#
-        .to_string(),
-      ])
+        "#,
+      )
+      .unwrap())
       .build()
       .unwrap()
   };

@@ -191,11 +191,20 @@ fn keyframe_interpolation_frames() -> Vec<AnimationFrame> {
 }
 
 fn keyframe_interpolation_options() -> RenderOptions<'static, NodeKind> {
+  let stylesheet_result = StyleSheet::parse(keyframe_interpolation_stylesheet());
+  assert!(
+    stylesheet_result.is_ok(),
+    "expected stylesheet to parse: {stylesheet_result:?}"
+  );
+  let Ok(stylesheet) = stylesheet_result else {
+    unreachable!();
+  };
+
   RenderOptionsBuilder::default()
     .viewport(create_test_viewport_with_size(800, 400))
     .node(keyframe_interpolation_node())
     .global(&CONTEXT)
-    .stylesheets(vec![keyframe_interpolation_stylesheet().to_string()])
+    .stylesheet(stylesheet)
     .build()
     .unwrap()
 }

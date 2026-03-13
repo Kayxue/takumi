@@ -7,7 +7,6 @@ use serde::de::IgnoredAny;
 use smallvec::SmallVec;
 use taffy::{Point, Rect, Size, prelude::FromLength};
 
-#[cfg(feature = "css_stylesheet_parsing")]
 use crate::layout::style::selector::{PropertyRule, StyleDeclarationParser};
 use crate::{
   error::StyleDeclarationBlockParseError,
@@ -18,7 +17,6 @@ use crate::{
   rendering::{RenderContext, SizedShadow, Sizing},
   resources::task::FetchTaskCollection,
 };
-#[cfg(feature = "css_stylesheet_parsing")]
 use cssparser::RuleBodyParser;
 
 macro_rules! define_inherited_default {
@@ -199,7 +197,6 @@ fn normalize_kebab_property_name(name: &str) -> Cow<'_, str> {
   )
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 #[allow(clippy::too_many_arguments)]
 fn interpolate_option_with_missing<T: Animatable + Clone>(
   target: &mut Option<T>,
@@ -766,8 +763,7 @@ macro_rules! define_style {
       #[derive(Clone, Debug, Default)]
       pub struct ComputedStyle {
         pub(crate) custom_properties: HashMap<String, String>,
-        #[cfg(feature = "css_stylesheet_parsing")]
-        pub(crate) registered_custom_properties: HashMap<String, PropertyRule>,
+                pub(crate) registered_custom_properties: HashMap<String, PropertyRule>,
         $(pub(crate) $longhand: $longhand_ty,)*
       }
 
@@ -791,8 +787,7 @@ macro_rules! define_style {
         pub(crate) fn from_parent(parent: &Self) -> Self {
           Self {
             custom_properties: parent.custom_properties.clone(),
-            #[cfg(feature = "css_stylesheet_parsing")]
-            registered_custom_properties: parent.registered_custom_properties.clone(),
+                        registered_custom_properties: parent.registered_custom_properties.clone(),
             $($longhand: define_inherited_default!(parent.$longhand $(, $longhand_inherit)?),)*
           }
         }
@@ -801,8 +796,7 @@ macro_rules! define_style {
           $(self.$longhand.make_computed(sizing);)*
         }
 
-        #[cfg(feature = "css_stylesheet_parsing")]
-        pub(crate) fn apply_interpolated_properties(
+                pub(crate) fn apply_interpolated_properties(
           &mut self,
           from: &Self,
           to: &Self,
@@ -1796,7 +1790,6 @@ impl StyleDeclarationBlock {
   }
 }
 
-#[cfg(feature = "css_stylesheet_parsing")]
 impl FromStr for StyleDeclarationBlock {
   type Err = StyleDeclarationBlockParseError;
 
@@ -2383,7 +2376,6 @@ mod tests {
     assert!(declarations.iter().next().is_none());
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn style_declaration_block_from_str_parses_multiple_declarations() {
     let Ok(declarations) = StyleDeclarationBlock::from_str("color: #ff0000; padding: 1px 2px;")
@@ -2403,7 +2395,6 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "css_stylesheet_parsing")]
   #[test]
   fn style_declaration_block_from_str_tracks_important_declarations() {
     let Ok(declarations) = StyleDeclarationBlock::from_str("color: inherit !important;") else {

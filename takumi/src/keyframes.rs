@@ -62,7 +62,6 @@ where
       Ok(KeyframesRule {
         name,
         keyframes,
-        #[cfg(feature = "css_stylesheet_parsing")]
         media_queries: Vec::new(),
       })
     })
