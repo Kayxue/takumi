@@ -2,7 +2,7 @@ use cssparser::{Parser, match_ignore_ascii_case};
 
 use crate::{
   layout::style::{
-    CssToken, FromCss, Length, MakeComputed, ParseResult,
+    CssToken, FromCss, Length, MakeComputed, ParseResult, parse_calc_number_expression,
     tw::{TW_VAR_SPACING, TailwindPropertyParser},
   },
   rendering::Sizing,
@@ -55,6 +55,10 @@ impl<'i> FromCss<'i> for LineHeight {
       return Ok(Self::Normal);
     }
 
+    if let Ok(number) = input.try_parse(parse_calc_number_expression) {
+      return Ok(LineHeight::Unitless(number));
+    }
+
     let Ok(number) = input.try_parse(Parser::expect_number) else {
       return Length::from_css(input).map(Into::into);
     };
@@ -82,5 +86,19 @@ impl MakeComputed for LineHeight {
     if let Self::Length(length) = self {
       length.make_computed(sizing);
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::LineHeight;
+  use crate::layout::style::FromCss;
+
+  #[test]
+  fn parses_unitless_calc_expression() {
+    assert_eq!(
+      LineHeight::from_str("calc(1.75 / 1.125)"),
+      Ok(LineHeight::Unitless(1.75 / 1.125))
+    );
   }
 }

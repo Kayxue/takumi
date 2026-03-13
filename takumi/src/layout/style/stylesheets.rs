@@ -711,9 +711,7 @@ macro_rules! define_style {
 
         pub(crate) fn inherit(self, parent: &ComputedStyle) -> ComputedStyle {
           let mut style = ComputedStyle::from_parent(parent);
-          for declaration in self.declarations.declarations {
-            declaration.apply_with_parent(&mut style, parent);
-          }
+          apply_cascaded_declarations(&mut style, Some(parent), &self.declarations.declarations);
           style
         }
 
@@ -1496,6 +1494,32 @@ fn apply_resolved_declarations(
           None => declaration.apply_to_computed(style),
         }
       }
+    }
+  }
+}
+
+fn apply_cascaded_declarations(
+  style: &mut ComputedStyle,
+  parent: Option<&ComputedStyle>,
+  declarations: &[StyleDeclaration],
+) {
+  for declaration in declarations {
+    if let StyleDeclaration::CustomProperty(..) = declaration {
+      match parent {
+        Some(parent) => declaration.clone().apply_with_parent(style, parent),
+        None => declaration.apply_to_computed(style),
+      }
+    }
+  }
+
+  for declaration in declarations {
+    if matches!(declaration, StyleDeclaration::CustomProperty(..)) {
+      continue;
+    }
+
+    match parent {
+      Some(parent) => declaration.clone().apply_with_parent(style, parent),
+      None => declaration.apply_to_computed(style),
     }
   }
 }
@@ -2648,6 +2672,16 @@ mod tests {
     );
 
     assert_eq!(style.padding_left, Length::Px(12.0));
+  }
+
+  #[test]
+  fn test_var_resolves_custom_property_declared_later_on_same_element() {
+    let style = inherited_style_from_pairs(
+      [("width", "var(--card-width)"), ("--card-width", "24px")],
+      &ComputedStyle::default(),
+    );
+
+    assert_eq!(style.width, Length::Px(24.0));
   }
 
   #[test]

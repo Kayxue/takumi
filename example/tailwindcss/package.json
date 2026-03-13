@@ -1,0 +1,22 @@
+{
+  "name": "example-tailwindcss",
+  "module": "src/index.tsx",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "render": "bun ./src/index.tsx"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "tailwindcss": "^4.2.1",
+    "typescript": "catalog:"
+  },
+  "dependencies": {
+    "@takumi-rs/core": "workspace:*",
+    "@takumi-rs/helpers": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  }
+}

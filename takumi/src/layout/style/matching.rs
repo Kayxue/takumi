@@ -635,6 +635,22 @@ mod tests {
   }
 
   #[test]
+  fn root_selector_list_with_host_keeps_matching_root() {
+    let root = TestNode::default();
+    let stylesheet = parse_stylesheet(
+      r#"
+        :root, :host {
+          width: 10px;
+        }
+      "#,
+    );
+
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
+    assert_eq!(matched.len(), 1);
+    assert_eq!(computed_width_from_matches(&matched[0]), Length::Px(10.0));
+  }
+
+  #[test]
   fn sibling_combinators_only_match_the_correct_siblings() {
     let root = TestNode {
       class_name: Some("container"),

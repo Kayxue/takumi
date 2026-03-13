@@ -156,6 +156,10 @@ impl<'i> selectors::Parser<'i> for TakumiSelectorParser {
     true
   }
 
+  fn parse_host(&self) -> bool {
+    true
+  }
+
   fn parse_non_ts_pseudo_class(
     &self,
     location: SourceLocation,

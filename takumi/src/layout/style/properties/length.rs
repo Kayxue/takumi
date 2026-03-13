@@ -394,6 +394,21 @@ fn parse_calc_sum<'i>(input: &mut Parser<'i, '_>) -> ParseResult<'i, CalcValue> 
   Ok(value)
 }
 
+pub(crate) fn parse_calc_number_expression<'i>(input: &mut Parser<'i, '_>) -> ParseResult<'i, f32> {
+  let location = input.current_source_location();
+  let token = input.next()?.clone();
+
+  match &token {
+    Token::Function(function) if function.eq_ignore_ascii_case("calc") => {
+      match input.parse_nested_block(parse_calc_sum)? {
+        CalcValue::Number(value) => Ok(value),
+        _ => Err(location.new_unexpected_token_error(token.clone())),
+      }
+    }
+    _ => Err(location.new_unexpected_token_error(token.clone())),
+  }
+}
+
 fn parse_calc_product<'i>(input: &mut Parser<'i, '_>) -> ParseResult<'i, CalcValue> {
   let mut value = parse_calc_factor(input)?;
 

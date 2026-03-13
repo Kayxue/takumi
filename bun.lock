@@ -136,6 +136,22 @@
         "typescript": "catalog:",
       },
     },
+    "example/tailwindcss": {
+      "name": "example-tailwindcss",
+      "dependencies": {
+        "@takumi-rs/core": "workspace:*",
+        "@takumi-rs/helpers": "workspace:*",
+        "react": "catalog:",
+        "react-dom": "catalog:",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "tailwindcss": "^4.2.1",
+        "typescript": "catalog:",
+      },
+    },
     "example/tanstack-start": {
       "name": "example-tanstack-start",
       "dependencies": {
@@ -1711,6 +1727,8 @@
     "example-nextjs": ["example-nextjs@workspace:example/nextjs"],
 
     "example-satori-html": ["example-satori-html@workspace:example/satori-html"],
+
+    "example-tailwindcss": ["example-tailwindcss@workspace:example/tailwindcss"],
 
     "example-tanstack-start": ["example-tanstack-start@workspace:example/tanstack-start"],
 
