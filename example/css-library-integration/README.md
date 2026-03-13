@@ -2,6 +2,9 @@
 
 This example compiles Tailwind CSS and UnoCSS in-process and passes the resulting CSS into Takumi's `stylesheets` render option.
 
+![Tailwind CSS output](./output/tailwind-stylesheets.png)
+![UnoCSS output](./output/unocss-stylesheets.png)
+
 ## Run
 
 Before running the example, build the native package once from the workspace root.
@@ -14,7 +17,7 @@ Then render the example image.
 
 ```bash
 cd example/css-library-integration
-bun run render
+bun render
 ```
 
 This writes:

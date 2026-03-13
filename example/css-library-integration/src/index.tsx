@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { Renderer } from "@takumi-rs/core";
 import { fromJsx } from "@takumi-rs/helpers/jsx";
 import { write } from "bun";
-import { CssLibraryCard } from "./card";
+import { TailwindCard, UnoCard } from "./card";
 import { compileTailwindStylesheet } from "./tailwind-compile";
 import { compileUnoStylesheet } from "./unocss-compile";
 
@@ -13,8 +13,8 @@ const height = 630;
 
 const currentFile = fileURLToPath(import.meta.url);
 const currentDir = dirname(currentFile);
-const exampleDir = dirname(currentDir);
-const outputDir = join(exampleDir, "output");
+const exampleDir = dirname(currentFile);
+const outputDir = join(exampleDir, "..", "output");
 const renderer = new Renderer();
 
 await mkdir(outputDir, { recursive: true });
@@ -43,8 +43,11 @@ const stylesheets = [
 for (const stylesheet of stylesheets) {
   await write(join(outputDir, stylesheet.outputName), stylesheet.css);
 
+  const CardComponent =
+    stylesheet.libraryName === "Tailwind CSS" ? TailwindCard : UnoCard;
+
   const { node } = await fromJsx(
-    <CssLibraryCard
+    <CardComponent
       description={stylesheet.description}
       libraryName={stylesheet.libraryName}
       title={stylesheet.title}
