@@ -1395,6 +1395,25 @@ impl StyleSheet {
     Self::parse_loosy(&combined_css)
   }
 
+  /// Parses a list of owned stylesheets while discarding invalid rules.
+  pub fn parse_owned_list_loosy(stylesheets: Vec<String>) -> Self {
+    if stylesheets.is_empty() {
+      return Self::default();
+    }
+
+    if stylesheets.len() == 1 {
+      return Self::parse_loosy(&stylesheets[0]);
+    }
+
+    let mut combined_css = String::with_capacity(stylesheets.iter().map(String::len).sum());
+
+    for css in stylesheets {
+      combined_css.push_str(&css);
+    }
+
+    Self::parse_loosy(&combined_css)
+  }
+
   /// Parses a stylesheet.
   pub fn parse(css: &str) -> Result<Self, StyleSheetParseError> {
     Self::parse_with_mode(css, false)

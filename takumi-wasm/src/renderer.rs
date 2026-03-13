@@ -41,9 +41,7 @@ impl Renderer {
     stylesheets: Option<Vec<String>>,
     keyframes: Vec<KeyframesRule>,
   ) -> Result<StyleSheet, JsValue> {
-    let stylesheet = StyleSheet::parse_list(stylesheets.unwrap_or_default())
-      .map_err(map_error)
-      .map_err(JsValue::from)?;
+    let stylesheet = StyleSheet::parse_owned_list_loosy(stylesheets.unwrap_or_default());
     let mut stylesheet = stylesheet;
     stylesheet.extend_keyframes(keyframes);
     Ok(stylesheet)
@@ -378,9 +376,7 @@ impl Renderer {
       device_pixel_ratio: device_pixel_ratio.unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO),
     };
     let draw_debug_border = draw_debug_border.unwrap_or_default();
-    let stylesheet = StyleSheet::parse_list(stylesheets.unwrap_or_default())
-      .map_err(map_error)
-      .map_err(JsValue::from)?;
+    let stylesheet = StyleSheet::parse_owned_list_loosy(stylesheets.unwrap_or_default());
     let scene_options = scenes
       .into_iter()
       .map(|scene| {
@@ -424,9 +420,7 @@ impl Renderer {
         .device_pixel_ratio
         .unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO),
     };
-    let stylesheet = StyleSheet::parse_list(options.stylesheets.unwrap_or_default())
-      .map_err(map_error)
-      .map_err(JsValue::from)?;
+    let stylesheet = StyleSheet::parse_owned_list_loosy(options.stylesheets.unwrap_or_default());
     let rendered_frames = frames
       .into_iter()
       .map(|frame| -> Result<AnimationFrame, JsValue> {

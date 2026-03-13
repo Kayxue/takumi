@@ -121,8 +121,7 @@ pub(crate) fn parse_stylesheet(
   stylesheets: Option<Vec<String>>,
   keyframes: Vec<KeyframesRule>,
 ) -> Result<StyleSheet> {
-  let mut stylesheet =
-    StyleSheet::parse_list(stylesheets.unwrap_or_default()).map_err(map_error)?;
+  let mut stylesheet = StyleSheet::parse_owned_list_loosy(stylesheets.unwrap_or_default());
   stylesheet.extend_keyframes(keyframes);
   Ok(stylesheet)
 }
