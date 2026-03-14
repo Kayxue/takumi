@@ -13,56 +13,30 @@ use selectors::{
 
 use crate::layout::{
   Viewport,
-  node::{Node, NodeMetadata},
+  node::Node,
   style::{
     StyleDeclarationBlock,
     selector::{CssRule, StyleSheet, TakumiIdent, TakumiSelectorImpl},
   },
 };
 
-pub(crate) trait MatchNode: Sized + Clone {
-  fn metadata(&self) -> &NodeMetadata;
-  fn children_ref(&self) -> Option<&[Self]> {
-    None
-  }
-  fn tag_name(&self) -> Option<&str> {
-    self.metadata().tag_name.as_deref()
-  }
-  fn class_name(&self) -> Option<&str> {
-    self.metadata().class_name.as_deref()
-  }
-  fn id(&self) -> Option<&str> {
-    self.metadata().id.as_deref()
-  }
+pub(crate) struct StyleArena<'a> {
+  pub nodes: Vec<StyleNode<'a>>,
 }
-
-impl MatchNode for Node {
-  fn metadata(&self) -> &NodeMetadata {
-    &self.metadata
-  }
-
-  fn children_ref(&self) -> Option<&[Self]> {
-    self.children_ref()
-  }
-}
-
-pub(crate) struct StyleArena<'a, N: MatchNode> {
-  pub nodes: Vec<StyleNode<'a, N>>,
-}
-pub(crate) struct StyleNode<'a, N: MatchNode> {
-  pub node: &'a N,
+pub(crate) struct StyleNode<'a> {
+  pub node: &'a Node,
   pub parent: Option<usize>,
   pub prev_sibling: Option<usize>,
   pub next_sibling: Option<usize>,
   pub first_child: Option<usize>,
 }
 #[derive(Clone, Copy)]
-pub(crate) struct ArenaElement<'a, N: MatchNode> {
-  pub tree: &'a StyleArena<'a, N>,
+pub(crate) struct ArenaElement<'a> {
+  pub tree: &'a StyleArena<'a>,
   pub index: usize,
 }
 
-impl<N: MatchNode> fmt::Debug for ArenaElement<'_, N> {
+impl fmt::Debug for ArenaElement<'_> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.debug_struct("ArenaElement")
       .field("index", &self.index)
@@ -70,17 +44,22 @@ impl<N: MatchNode> fmt::Debug for ArenaElement<'_, N> {
   }
 }
 
-impl<'a, N: MatchNode> StyleArena<'a, N> {
-  pub fn new(root: &'a N) -> Self {
+impl<'a> StyleArena<'a> {
+  pub fn new(root: &'a Node) -> Self {
     let mut arena = StyleArena { nodes: Vec::new() };
     arena.add_node(root, None, None);
     arena
   }
 
-  fn add_node(&mut self, node: &'a N, parent: Option<usize>, prev_sibling: Option<usize>) -> usize {
-    struct ChildFrame<'a, N: MatchNode> {
+  fn add_node(
+    &mut self,
+    node: &'a Node,
+    parent: Option<usize>,
+    prev_sibling: Option<usize>,
+  ) -> usize {
+    struct ChildFrame<'a> {
       parent_index: usize,
-      children: &'a [N],
+      children: &'a [Node],
       next_child: usize,
       current_prev: Option<usize>,
     }
@@ -128,7 +107,7 @@ impl<'a, N: MatchNode> StyleArena<'a, N> {
 
   fn push_node(
     &mut self,
-    node: &'a N,
+    node: &'a Node,
     parent: Option<usize>,
     prev_sibling: Option<usize>,
   ) -> usize {
@@ -158,20 +137,20 @@ fn hash_ascii_case_insensitive(value: &str) -> u32 {
   hash
 }
 
-fn add_node_unique_hashes_to_filter<N: MatchNode>(node: &N, filter: &mut BloomFilter) -> bool {
+fn add_node_unique_hashes_to_filter(node: &Node, filter: &mut BloomFilter) -> bool {
   let mut added = false;
 
-  if let Some(tag) = node.tag_name() {
+  if let Some(tag) = node.metadata.tag_name.as_deref() {
     filter.insert_hash(hash_ascii_case_insensitive(tag));
     added = true;
   }
 
-  if let Some(id) = node.id() {
+  if let Some(id) = node.metadata.id.as_deref() {
     filter.insert_hash(hash_ascii_case_insensitive(id));
     added = true;
   }
 
-  if let Some(classes) = node.class_name() {
+  if let Some(classes) = node.metadata.class_name.as_deref() {
     for class_name in classes.split_whitespace() {
       filter.insert_hash(hash_ascii_case_insensitive(class_name));
       added = true;
@@ -181,7 +160,23 @@ fn add_node_unique_hashes_to_filter<N: MatchNode>(node: &N, filter: &mut BloomFi
   added
 }
 
-impl<'a, N: MatchNode> Element for ArenaElement<'a, N> {
+fn attribute_value<'a>(node: &'a Node, local_name: &TakumiIdent) -> Option<&'a str> {
+  if &**local_name == "id" {
+    return node.metadata.id.as_deref();
+  }
+  if &**local_name == "class" {
+    return node.metadata.class_name.as_deref();
+  }
+
+  node.metadata.attributes.as_ref().and_then(|attributes| {
+    attributes
+      .iter()
+      .find(|(name, _)| name.eq_ignore_ascii_case(local_name))
+      .map(|(_, value)| value.as_ref())
+  })
+}
+
+impl<'a> Element for ArenaElement<'a> {
   type Impl = TakumiSelectorImpl;
 
   fn opaque(&self) -> OpaqueElement {
@@ -242,7 +237,7 @@ impl<'a, N: MatchNode> Element for ArenaElement<'a, N> {
 
   fn has_local_name(&self, local_name: &TakumiIdent) -> bool {
     let node = self.tree.nodes[self.index].node;
-    if let Some(tag) = node.tag_name() {
+    if let Some(tag) = node.metadata.tag_name.as_deref() {
       tag.eq_ignore_ascii_case(local_name)
     } else {
       false
@@ -254,19 +249,27 @@ impl<'a, N: MatchNode> Element for ArenaElement<'a, N> {
   }
 
   fn is_same_type(&self, other: &Self) -> bool {
-    let my_tag = self.tree.nodes[self.index].node.tag_name();
-    let other_tag = other.tree.nodes[other.index].node.tag_name();
+    let my_tag = self.tree.nodes[self.index]
+      .node
+      .metadata
+      .tag_name
+      .as_deref();
+    let other_tag = other.tree.nodes[other.index]
+      .node
+      .metadata
+      .tag_name
+      .as_deref();
     my_tag == other_tag
   }
 
   fn has_id(&self, id: &TakumiIdent, _case_sensitivity: CaseSensitivity) -> bool {
     let node = self.tree.nodes[self.index].node;
-    node.id() == Some(id)
+    node.metadata.id.as_deref() == Some(&**id)
   }
 
   fn has_class(&self, name: &TakumiIdent, _case_sensitivity: CaseSensitivity) -> bool {
     let node = self.tree.nodes[self.index].node;
-    if let Some(classes) = node.class_name() {
+    if let Some(classes) = node.metadata.class_name.as_deref() {
       classes.split_whitespace().any(|c| c == *name)
     } else {
       false
@@ -295,12 +298,20 @@ impl<'a, N: MatchNode> Element for ArenaElement<'a, N> {
 
   fn attr_matches(
     &self,
-    _ns: &selectors::attr::NamespaceConstraint<&TakumiIdent>,
-    _local_name: &TakumiIdent,
-    _operation: &selectors::attr::AttrSelectorOperation<&TakumiIdent>,
+    ns: &selectors::attr::NamespaceConstraint<&TakumiIdent>,
+    local_name: &TakumiIdent,
+    operation: &selectors::attr::AttrSelectorOperation<&TakumiIdent>,
   ) -> bool {
-    // TODO(#attr-selectors): implement CSS attribute selector matching.
-    false
+    let namespace_supported = match ns {
+      selectors::attr::NamespaceConstraint::Any => true,
+      selectors::attr::NamespaceConstraint::Specific(url) => url.is_empty(),
+    };
+    if !namespace_supported {
+      return false;
+    }
+
+    attribute_value(self.tree.nodes[self.index].node, local_name)
+      .is_some_and(|value| operation.eval_str(value))
   }
   fn match_non_ts_pseudo_class(
     &self,
@@ -344,8 +355,8 @@ struct MatchedRule<'a> {
   declarations: &'a StyleDeclarationBlock,
 }
 
-pub(crate) fn match_stylesheets<N: MatchNode>(
-  root: &N,
+pub(crate) fn match_stylesheets(
+  root: &Node,
   stylesheet: &StyleSheet,
   viewport: Viewport,
 ) -> Vec<MatchedDeclarations> {
@@ -460,40 +471,18 @@ pub(crate) fn match_stylesheets<N: MatchNode>(
 
 #[cfg(test)]
 mod tests {
+  use std::collections::BTreeMap;
+
   use super::match_stylesheets;
   use crate::layout::style::StyleSheet;
   use crate::layout::{
     Viewport,
-    node::NodeMetadata,
+    node::Node,
     style::{ComputedStyle, Length, Style},
   };
 
-  #[derive(Clone, Default)]
-  struct TestNode {
-    metadata: NodeMetadata,
-    children: Vec<TestNode>,
-  }
-
-  impl TestNode {
-    fn with_class_name(mut self, class_name: impl Into<Box<str>>) -> Self {
-      self.metadata.class_name = Some(class_name.into());
-      self
-    }
-
-    fn with_children(mut self, children: Vec<TestNode>) -> Self {
-      self.children = children;
-      self
-    }
-  }
-
-  impl super::MatchNode for TestNode {
-    fn metadata(&self) -> &NodeMetadata {
-      &self.metadata
-    }
-
-    fn children_ref(&self) -> Option<&[TestNode]> {
-      Some(&self.children)
-    }
+  fn container_with_class(class_name: &str) -> Node {
+    Node::container([]).with_class_name(class_name)
   }
 
   fn computed_width_from_matches(matches: &super::MatchedDeclarations) -> Length {
@@ -545,7 +534,7 @@ mod tests {
 
   #[test]
   fn layered_rules_outrank_source_order() {
-    let root = TestNode::default().with_class_name("card");
+    let root = container_with_class("card");
     let stylesheet = parse_stylesheet(
       r#"
         @layer theme, base;
@@ -565,9 +554,7 @@ mod tests {
 
   #[test]
   fn nested_selector_uses_parent_list_specificity() {
-    let root = TestNode::default()
-      .with_class_name("card notice")
-      .with_children(vec![TestNode::default().with_class_name("title")]);
+    let root = Node::container([container_with_class("title")]).with_class_name("card notice");
 
     let stylesheet = parse_stylesheet(
       r#"
@@ -586,7 +573,7 @@ mod tests {
 
   #[test]
   fn important_layered_rules_outrank_unlayered_important() {
-    let root = TestNode::default().with_class_name("card");
+    let root = container_with_class("card");
     let stylesheet = parse_stylesheet(
       r#"
         @layer theme, base;
@@ -607,7 +594,7 @@ mod tests {
 
   #[test]
   fn later_stylesheet_rules_outrank_earlier_stylesheets_on_ties() {
-    let root = TestNode::default().with_class_name("card");
+    let root = container_with_class("card");
     let stylesheet = parse_stylesheet(".card { width: 10px; } .card { width: 20px; }");
 
     let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
@@ -617,7 +604,7 @@ mod tests {
 
   #[test]
   fn parse_list_preserves_cross_stylesheet_layer_order() {
-    let root = TestNode::default().with_class_name("card");
+    let root = container_with_class("card");
     let stylesheet = parse_stylesheet_list([
       r#"
         @layer theme, base;
@@ -639,7 +626,7 @@ mod tests {
 
   #[test]
   fn root_selector_list_with_host_keeps_matching_root() {
-    let root = TestNode::default();
+    let root = Node::default();
     let stylesheet = parse_stylesheet(
       r#"
         :root, :host {
@@ -655,15 +642,13 @@ mod tests {
 
   #[test]
   fn sibling_combinators_only_match_the_correct_siblings() {
-    let root = TestNode {
-      children: vec![
-        TestNode::default().with_class_name("lead"),
-        TestNode::default().with_class_name("title"),
-        TestNode::default().with_class_name("spacer"),
-        TestNode::default().with_class_name("title"),
-      ],
-      ..TestNode::default().with_class_name("container")
-    };
+    let root = Node::container([
+      container_with_class("lead"),
+      container_with_class("title"),
+      container_with_class("spacer"),
+      container_with_class("title"),
+    ])
+    .with_class_name("container");
     let stylesheet = parse_stylesheet(
       r#"
         .container .title { width: 20px; }
@@ -678,5 +663,32 @@ mod tests {
     assert_eq!(computed_height_from_matches(&matched[2]), Length::Px(30.0));
     assert_eq!(computed_width_from_matches(&matched[4]), Length::Px(20.0));
     assert_eq!(computed_height_from_matches(&matched[4]), Length::Px(30.0));
+  }
+
+  #[test]
+  fn attribute_selectors_match_node_metadata_and_attributes() {
+    let root = Node::container([Node::container([])
+      .with_id("hero")
+      .with_class_name("card featured")
+      .with_attributes(BTreeMap::from([
+        (Box::<str>::from("data-kind"), Box::<str>::from("promo")),
+        (
+          Box::<str>::from("data-state"),
+          Box::<str>::from("ready now"),
+        ),
+      ]))]);
+    let stylesheet = parse_stylesheet(
+      r#"
+        [id="hero"] { width: 10px; }
+        [class~="featured"] { height: 20px; }
+        [data-kind="promo"] { width: 30px; }
+        [data-state~="ready"] { height: 40px; }
+      "#,
+    );
+
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
+    assert_eq!(matched.len(), 2);
+    assert_eq!(computed_width_from_matches(&matched[1]), Length::Px(30.0));
+    assert_eq!(computed_height_from_matches(&matched[1]), Length::Px(40.0));
   }
 }

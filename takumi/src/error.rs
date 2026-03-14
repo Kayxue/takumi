@@ -44,10 +44,6 @@ pub enum StyleSheetParseErrorKind {
   #[error("{0}")]
   InvalidStyleSheet(String),
 
-  /// Attribute selectors are not supported.
-  #[error("attribute selectors are not supported")]
-  UnsupportedAttributeSelector,
-
   /// The stylesheet uses an unsupported media feature.
   #[error("unsupported media feature")]
   UnsupportedMediaFeature,
@@ -118,10 +114,6 @@ impl<'i> From<KeyframePreludeParseError<'i>> for StyleSheetParseError {
 impl StyleSheetParseError {
   pub(crate) fn invalid_reason(reason: impl Into<String>) -> Self {
     Self::new(StyleSheetParseErrorKind::InvalidStyleSheet(reason.into()))
-  }
-
-  pub(crate) fn unsupported_attribute_selector() -> Self {
-    Self::new(StyleSheetParseErrorKind::UnsupportedAttributeSelector)
   }
 
   pub(crate) fn unsupported_media_feature() -> Self {

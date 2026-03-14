@@ -1,7 +1,7 @@
 use cssparser::*;
 use precomputed_hash::PrecomputedHash;
 use selectors::parser::{
-  Component, NonTSPseudoClass, ParseRelative, PseudoElement, Selector, SelectorImpl, SelectorList,
+  NonTSPseudoClass, ParseRelative, PseudoElement, SelectorImpl, SelectorList,
   SelectorParseErrorKind,
 };
 use std::{
@@ -49,6 +49,12 @@ impl Deref for TakumiIdent {
   type Target = str;
 
   fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
+impl AsRef<str> for TakumiIdent {
+  fn as_ref(&self) -> &str {
     &self.0
   }
 }
@@ -213,49 +219,6 @@ enum StyleRuleBodyItem {
   Rules(StyleSheetFragment),
 }
 
-fn parse_selector_list<'i, 't>(
-  input: &mut Parser<'i, 't>,
-  parse_relative: ParseRelative,
-) -> Result<SelectorList<TakumiSelectorImpl>, ParseError<'i, StyleSheetParseError>> {
-  let selectors = SelectorList::parse(&TakumiSelectorParser, input, parse_relative)?;
-  ensure_supported_selector_list(&selectors).map_err(|err| input.new_custom_error(err))?;
-  Ok(selectors)
-}
-
-fn selector_contains_unsupported_features(selector: &Selector<TakumiSelectorImpl>) -> bool {
-  selector
-    .iter_raw_match_order()
-    .any(|component| match component {
-      Component::AttributeInNoNamespaceExists { .. }
-      | Component::AttributeInNoNamespace { .. }
-      | Component::AttributeOther(_) => true,
-      Component::Negation(list) | Component::Is(list) | Component::Where(list) => list
-        .slice()
-        .iter()
-        .any(selector_contains_unsupported_features),
-      Component::Has(relatives) => relatives
-        .iter()
-        .any(|rel| selector_contains_unsupported_features(&rel.selector)),
-      Component::Slotted(inner) => selector_contains_unsupported_features(inner),
-      Component::Host(Some(inner)) => selector_contains_unsupported_features(inner),
-      _ => false,
-    })
-}
-
-fn ensure_supported_selector_list(
-  selectors: &SelectorList<TakumiSelectorImpl>,
-) -> Result<(), StyleSheetParseError> {
-  if selectors
-    .slice()
-    .iter()
-    .any(selector_contains_unsupported_features)
-  {
-    return Err(StyleSheetParseError::unsupported_attribute_selector());
-  }
-
-  Ok(())
-}
-
 pub(crate) struct StyleDeclarationParser;
 
 impl<'i> DeclarationParser<'i> for StyleDeclarationParser {
@@ -378,7 +341,7 @@ impl<'i> QualifiedRuleParser<'i> for NestedStyleRuleParser<'_> {
     &mut self,
     input: &mut Parser<'i, 't>,
   ) -> Result<Self::Prelude, ParseError<'i, Self::Error>> {
-    parse_selector_list(input, ParseRelative::ForNesting)
+    SelectorList::parse(&TakumiSelectorParser, input, ParseRelative::ForNesting)
   }
 
   fn parse_block<'t>(
@@ -1177,7 +1140,7 @@ impl<'i> QualifiedRuleParser<'i> for RuleParser {
     input: &mut Parser<'i, 't>,
   ) -> Result<Self::Prelude, ParseError<'i, Self::Error>> {
     Ok(ParsedSelectors {
-      selectors: parse_selector_list(input, ParseRelative::No)?,
+      selectors: SelectorList::parse(&TakumiSelectorParser, input, ParseRelative::No)?,
     })
   }
 
@@ -1689,25 +1652,25 @@ mod tests {
   }
 
   #[test]
-  fn test_unsupported_attribute_selector_rule_is_rejected() {
+  fn test_attribute_selector_rule_is_preserved() {
     let sheet = parse_stylesheet_loosy(
       r#"
         [data-kind="hero"] { width: 10px; }
       "#,
     );
 
-    assert!(sheet.rules.is_empty());
+    assert_eq!(sheet.rules.len(), 1);
   }
 
   #[test]
-  fn test_parse_stylesheet_returns_error_for_unsupported_selector() {
+  fn test_parse_stylesheet_accepts_attribute_selector() {
     let result = StyleSheet::parse(
       r#"
         [data-kind="hero"] { width: 10px; }
       "#,
     );
 
-    assert!(result.is_err());
+    assert!(result.is_ok());
   }
 
   #[test]
