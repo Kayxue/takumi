@@ -177,6 +177,32 @@ fn text_align_center() {
 }
 
 #[test]
+fn text_align_center_in_block_container() {
+  let paragraph = Node::text("This line should align center.".to_string())
+    .with_tag_name("p")
+    .with_style(
+      Style::default()
+        .with(StyleDeclaration::display(Display::Inline))
+        .with(StyleDeclaration::font_size(Px(48.0).into())),
+    );
+
+  let container = Node::container([paragraph])
+    .with_tag_name("div")
+    .with_style(
+      Style::default()
+        .with(StyleDeclaration::display(Display::Inline))
+        .with(StyleDeclaration::width(Percentage(100.0)))
+        .with(StyleDeclaration::height(Percentage(100.0)))
+        .with(StyleDeclaration::text_align(TextAlign::Center))
+        .with(StyleDeclaration::background_color(ColorInput::Value(
+          Color([240, 240, 240, 255]),
+        ))),
+    );
+
+  run_fixture_test(container, "text_align_center_chinese_in_block_container");
+}
+
+#[test]
 fn text_align_right() {
   let text = Node::text("Right aligned".to_string()).with_style(
     Style::default()
