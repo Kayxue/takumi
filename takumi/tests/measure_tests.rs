@@ -3,7 +3,7 @@ mod test_utils;
 use takumi::{
   layout::{
     DEFAULT_FONT_SIZE, Viewport,
-    node::{ContainerNode, ImageNode, NodeKind, TextNode},
+    node::Node,
     style::{
       Affine, AlignItems, BorderStyle, Color, ColorInput, Display, FlexDirection, JustifyContent,
       Length::*, Position, Sides, Style, StyleDeclaration,
@@ -26,7 +26,7 @@ fn create_measure_viewport_with_dpr(device_pixel_ratio: f32) -> Viewport {
   }
 }
 
-fn measure(node: NodeKind, viewport: Viewport) -> MeasuredNode {
+fn measure(node: Node, viewport: Viewport) -> MeasuredNode {
   measure_layout(
     RenderOptionsBuilder::default()
       .viewport(viewport)
@@ -47,16 +47,14 @@ fn assert_close(actual: f32, expected: f32) {
 
 #[test]
 fn test_measure_simple_container() {
-  let node: NodeKind = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Px(100.0)))
-        .with(StyleDeclaration::height(Px(100.0)))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([255, 0, 0, 255]),
-        ))),
-    )
-    .into();
+  let node: Node = Node::container([]).with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Px(100.0)))
+      .with(StyleDeclaration::height(Px(100.0)))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([255, 0, 0, 255]),
+      ))),
+  );
 
   let result = measure_layout(
     RenderOptionsBuilder::default()
@@ -82,14 +80,11 @@ fn test_measure_simple_container() {
 
 #[test]
 fn test_measure_text_node() {
-  let node: NodeKind = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Px(300.0)))
-        .with(StyleDeclaration::font_size(Px(20.0).into())),
-    )
-    .with_text("Hello World".to_string())
-    .into();
+  let node: Node = Node::text("Hello World".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Px(300.0)))
+      .with(StyleDeclaration::font_size(Px(20.0).into())),
+  );
 
   let result = measure_layout(
     RenderOptionsBuilder::default()
@@ -127,18 +122,15 @@ fn test_measure_text_node() {
 
 #[test]
 fn test_measure_flex_text_node_centers_inner_text() {
-  let node: NodeKind = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Px(300.0)))
-        .with(StyleDeclaration::height(Px(120.0)))
-        .with(StyleDeclaration::display(Display::Flex))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::font_size(Px(20.0).into())),
-    )
-    .with_text("Hello World".to_string())
-    .into();
+  let node: Node = Node::text("Hello World".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Px(300.0)))
+      .with(StyleDeclaration::height(Px(120.0)))
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::font_size(Px(20.0).into())),
+  );
 
   let result = measure_layout(
     RenderOptionsBuilder::default()
@@ -176,18 +168,15 @@ fn test_measure_flex_text_node_centers_inner_text() {
 
 #[test]
 fn test_measure_flex_text_node_anonymous_item_uses_intrinsic_size() {
-  let node: NodeKind = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Px(300.0)))
-        .with(StyleDeclaration::height(Px(120.0)))
-        .with(StyleDeclaration::display(Display::Flex))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::font_size(Px(20.0).into())),
-    )
-    .with_text("Hello World".to_string())
-    .into();
+  let node: Node = Node::text("Hello World".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Px(300.0)))
+      .with(StyleDeclaration::height(Px(120.0)))
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::font_size(Px(20.0).into())),
+  );
 
   let result = measure_layout(
     RenderOptionsBuilder::default()
@@ -218,37 +207,27 @@ fn test_measure_flex_text_node_anonymous_item_uses_intrinsic_size() {
 
 #[test]
 fn test_measure_inline_layout() {
-  let children: Vec<NodeKind> = vec![
-    TextNode::default()
-      .with_style(Style::default().with(StyleDeclaration::display(Display::Inline)))
-      .with_text("Hello World".to_string())
-      .into(),
-    ImageNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::display(Display::Inline))
-          .with(StyleDeclaration::background_color(ColorInput::Value(
-            Color([255, 0, 0, 255]),
-          ))),
-      )
-      .with_src("assets/images/yeecord.png")
-      .into(),
-    TextNode::default()
-      .with_style(Style::default().with(StyleDeclaration::display(Display::Inline)))
-      .with_text("This is Takumi Speaking".to_string())
-      .into(),
+  let children: Vec<Node> = vec![
+    Node::text("Hello World".to_string())
+      .with_style(Style::default().with(StyleDeclaration::display(Display::Inline))),
+    Node::image("assets/images/yeecord.png").with_style(
+      Style::default()
+        .with(StyleDeclaration::display(Display::Inline))
+        .with(StyleDeclaration::background_color(ColorInput::Value(
+          Color([255, 0, 0, 255]),
+        ))),
+    ),
+    Node::text("This is Takumi Speaking".to_string())
+      .with_style(Style::default().with(StyleDeclaration::display(Display::Inline))),
   ];
 
-  let node: NodeKind = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Px(400.0)))
-        .with(StyleDeclaration::height(Px(300.0)))
-        .with(StyleDeclaration::font_size(Px(20.0).into()))
-        .with(StyleDeclaration::display(Display::Block)),
-    )
-    .with_children(children)
-    .into();
+  let node: Node = Node::container(children).with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Px(400.0)))
+      .with(StyleDeclaration::height(Px(300.0)))
+      .with(StyleDeclaration::font_size(Px(20.0).into()))
+      .with(StyleDeclaration::display(Display::Block)),
+  );
 
   let result = measure_layout(
     RenderOptionsBuilder::default()
@@ -302,34 +281,28 @@ fn test_measure_inline_layout() {
 
 #[test]
 fn test_measure_inline_layout_preserves_text_span_boundaries() {
-  let node: NodeKind = ContainerNode::default()
-    .with_style(
+  let node: Node = Node::container([
+    Node::text("STEAM ".to_string())
+      .with_style(Style::default().with(StyleDeclaration::display(Display::Inline))),
+    Node::text("education can".to_string()).with_style(
       Style::default()
-        .with(StyleDeclaration::width(Px(600.0)))
-        .with(StyleDeclaration::height(Px(120.0)))
-        .with(StyleDeclaration::font_size(Px(20.0).into()))
-        .with(StyleDeclaration::display(Display::Block)),
-    )
-    .with_children([
-      TextNode::default()
-        .with_style(Style::default().with(StyleDeclaration::display(Display::Inline)))
-        .with_text("STEAM ".to_string()),
-      TextNode::default()
-        .with_style(
-          Style::default()
-            .with(StyleDeclaration::display(Display::Inline))
-            .with(StyleDeclaration::outline_width(Px(2.0)))
-            .with(StyleDeclaration::outline_style(BorderStyle::Solid))
-            .with(StyleDeclaration::outline_color(ColorInput::Value(Color([
-              255, 0, 0, 255,
-            ])))),
-        )
-        .with_text("education can".to_string()),
-      TextNode::default()
-        .with_style(Style::default().with(StyleDeclaration::display(Display::Inline)))
-        .with_text(" for everyone.".to_string()),
-    ])
-    .into();
+        .with(StyleDeclaration::display(Display::Inline))
+        .with(StyleDeclaration::outline_width(Px(2.0)))
+        .with(StyleDeclaration::outline_style(BorderStyle::Solid))
+        .with(StyleDeclaration::outline_color(ColorInput::Value(Color([
+          255, 0, 0, 255,
+        ])))),
+    ),
+    Node::text(" for everyone.".to_string())
+      .with_style(Style::default().with(StyleDeclaration::display(Display::Inline))),
+  ])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Px(600.0)))
+      .with(StyleDeclaration::height(Px(120.0)))
+      .with(StyleDeclaration::font_size(Px(20.0).into()))
+      .with(StyleDeclaration::display(Display::Block)),
+  );
 
   let result = measure(node, create_measure_viewport());
 
@@ -349,26 +322,20 @@ fn test_measure_text_node_rem_font_size_matches_px_when_dpr_is_below_one() {
   let text = "Rem font size still applies".to_string();
 
   let rem_result = measure(
-    TextNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::width(Px(400.0)))
-          .with(StyleDeclaration::font_size(Rem(1.0).into())),
-      )
-      .with_text(text.clone())
-      .into(),
+    Node::text(text.clone()).with_style(
+      Style::default()
+        .with(StyleDeclaration::width(Px(400.0)))
+        .with(StyleDeclaration::font_size(Rem(1.0).into())),
+    ),
     viewport,
   );
 
   let px_result = measure(
-    TextNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::width(Px(400.0)))
-          .with(StyleDeclaration::font_size(Px(16.0).into())),
-      )
-      .with_text(text)
-      .into(),
+    Node::text(text).with_style(
+      Style::default()
+        .with(StyleDeclaration::width(Px(400.0)))
+        .with(StyleDeclaration::font_size(Px(16.0).into())),
+    ),
     viewport,
   );
 
@@ -390,30 +357,24 @@ fn test_measure_nested_em_font_size_inherits_correctly_from_rem_when_dpr_is_belo
   let viewport = create_measure_viewport_with_dpr(0.75);
 
   let rem_parent_result = measure(
-    ContainerNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::width(Px(400.0)))
-          .with(StyleDeclaration::font_size(Rem(1.0).into())),
-      )
-      .with_children([TextNode::default()
-        .with_style(Style::default().with(StyleDeclaration::font_size(Em(2.0).into())))
-        .with_text("Nested em".to_string())])
-      .into(),
+    Node::container([Node::text("Nested em".to_string())
+      .with_style(Style::default().with(StyleDeclaration::font_size(Em(2.0).into())))])
+    .with_style(
+      Style::default()
+        .with(StyleDeclaration::width(Px(400.0)))
+        .with(StyleDeclaration::font_size(Rem(1.0).into())),
+    ),
     viewport,
   );
 
   let px_parent_result = measure(
-    ContainerNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::width(Px(400.0)))
-          .with(StyleDeclaration::font_size(Px(16.0).into())),
-      )
-      .with_children([TextNode::default()
-        .with_style(Style::default().with(StyleDeclaration::font_size(Em(2.0).into())))
-        .with_text("Nested em".to_string())])
-      .into(),
+    Node::container([Node::text("Nested em".to_string())
+      .with_style(Style::default().with(StyleDeclaration::font_size(Em(2.0).into())))])
+    .with_style(
+      Style::default()
+        .with(StyleDeclaration::width(Px(400.0)))
+        .with(StyleDeclaration::font_size(Px(16.0).into())),
+    ),
     viewport,
   );
 
@@ -437,21 +398,18 @@ fn test_measure_nested_em_font_size_inherits_correctly_from_rem_when_dpr_is_belo
 fn test_measure_svg_attr_size_in_absolute_flex_container() {
   let svg = r##"<svg width="100" height="100" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 0L24.4903 15.5097L40 20L24.4903 24.4903L20 40L15.5097 24.4903L0 20L15.5097 15.5097L20 0Z" fill="#E0FF25"/></svg>"##;
 
-  let node: NodeKind = ContainerNode::default()
+  let node: Node = Node::container([Node::container([Node::image(svg).with_tag_name("svg")])
     .with_style(
       Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0))),
-    )
-    .with_children([ContainerNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::position(Position::Absolute))
-          .with_inset(Sides([Auto, Px(40.0), Px(40.0), Auto]))
-          .with(StyleDeclaration::display(Display::Flex)),
-      )
-      .with_children([ImageNode::default().with_tag_name("svg").with_src(svg)])])
-    .into();
+        .with(StyleDeclaration::position(Position::Absolute))
+        .with_inset(Sides([Auto, Px(40.0), Px(40.0), Auto]))
+        .with(StyleDeclaration::display(Display::Flex)),
+    )])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0))),
+  );
 
   let result = measure_layout(
     RenderOptionsBuilder::default()
@@ -484,30 +442,25 @@ fn test_measure_svg_attr_size_in_absolute_flex_container() {
 fn test_measure_svg_attr_size_in_absolute_flex_container_with_parent_padding() {
   let svg = r##"<svg width="150" height="46" viewBox="0 0 90 28" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 0L10 10" fill="#FFFFFF"/></svg>"##;
 
-  let node: NodeKind = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::position(Position::Relative))
-        .with(StyleDeclaration::display(Display::Flex))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center))
-        .with_padding(Sides([Px(60.0); 4])),
-    )
-    .with_children([ContainerNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::position(Position::Absolute))
-          .with_inset(Sides([Auto, Px(60.0), Px(60.0), Auto]))
-          .with(StyleDeclaration::display(Display::Flex)),
-      )
-      .with_children([ImageNode::default()
-        .with_tag_name("svg")
-        .with_src(svg)
-        .with_width(150.0)
-        .with_height(46.0)])])
-    .into();
+  let node: Node = Node::container([Node::container([
+    Node::image((svg, 150.0, 46.0)).with_tag_name("svg")
+  ])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::position(Position::Absolute))
+      .with_inset(Sides([Auto, Px(60.0), Px(60.0), Auto]))
+      .with(StyleDeclaration::display(Display::Flex)),
+  )])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::position(Position::Relative))
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with_padding(Sides([Px(60.0); 4])),
+  );
 
   let result = measure_layout(
     RenderOptionsBuilder::default()
@@ -540,19 +493,16 @@ fn test_measure_svg_attr_size_in_absolute_flex_container_with_parent_padding() {
 fn test_measure_svg_with_width_only_preserves_intrinsic_ratio() {
   let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><circle cx="64" cy="64" r="64" fill="#ffffff"/></svg>"##;
 
-  let node: NodeKind = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::display(Display::Flex))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column)),
-    )
-    .with_children([ImageNode::default()
-      .with_tag_name("svg")
-      .with_style(Style::default().with(StyleDeclaration::width(Px(96.0))))
-      .with_src(svg)])
-    .into();
+  let node: Node = Node::container([Node::image(svg)
+    .with_tag_name("svg")
+    .with_style(Style::default().with(StyleDeclaration::width(Px(96.0))))])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column)),
+  );
 
   let result = measure_layout(
     RenderOptionsBuilder::default()
@@ -606,27 +556,17 @@ fn test_measure_img_svg_attribute_sizing_cases() {
   for (case_index, (svg, width, height, expected_width, expected_height)) in
     cases.into_iter().enumerate()
   {
-    let image = ImageNode::default()
+    let image = Node::image((svg, width, height))
       .with_tag_name("img")
-      .with_preset(Style::default().with(StyleDeclaration::display(Display::Inline)))
-      .with_src(svg);
-    let image = match (width, height) {
-      (Some(width), Some(height)) => image.with_width(width).with_height(height),
-      (Some(width), None) => image.with_width(width),
-      (None, Some(height)) => image.with_height(height),
-      (None, None) => image,
-    };
+      .with_preset(Style::default().with(StyleDeclaration::display(Display::Inline)));
 
-    let node: NodeKind = ContainerNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::width(Percentage(100.0)))
-          .with(StyleDeclaration::height(Percentage(100.0)))
-          .with(StyleDeclaration::display(Display::Flex))
-          .with(StyleDeclaration::flex_direction(FlexDirection::Column)),
-      )
-      .with_children([image])
-      .into();
+    let node: Node = Node::container([image]).with_style(
+      Style::default()
+        .with(StyleDeclaration::width(Percentage(100.0)))
+        .with(StyleDeclaration::height(Percentage(100.0)))
+        .with(StyleDeclaration::display(Display::Flex))
+        .with(StyleDeclaration::flex_direction(FlexDirection::Column)),
+    );
 
     let result = measure_layout(
       RenderOptionsBuilder::default()

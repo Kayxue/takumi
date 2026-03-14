@@ -5,7 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 use napi::bindgen_prelude::*;
 use takumi::{
   layout::style::StyleSheet,
-  layout::{DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport, node::NodeKind},
+  layout::{DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport, node::Node},
   rendering::{RenderOptionsBuilder, measure_layout},
   resources::image::load_image_source_from_bytes,
 };
@@ -16,7 +16,7 @@ use crate::{
 };
 
 pub struct MeasureTask {
-  pub node: Option<NodeKind>,
+  pub node: Option<Node>,
   pub(crate) state: Arc<RwLock<RendererState>>,
   pub viewport: Viewport,
   pub time_ms: u64,
@@ -27,7 +27,7 @@ pub struct MeasureTask {
 impl MeasureTask {
   pub(crate) fn from_options(
     env: Env,
-    node: NodeKind,
+    node: Node,
     options: RenderOptions,
     state: Arc<RwLock<RendererState>>,
   ) -> Result<Self> {

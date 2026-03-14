@@ -1,31 +1,28 @@
 use takumi::layout::{
-  node::{ContainerNode, NodeKind, TextNode},
+  node::Node,
   style::{Length::*, *},
 };
 
 use crate::test_utils::run_fixture_test;
 
 /// Creates a single card with backdrop-filter for testing.
-fn create_backdrop_card(filter: &str, label_font_size_px: f32) -> NodeKind {
-  ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::display(Display::Flex))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center))
-        .with(StyleDeclaration::backdrop_filter(
-          Filters::from_str(filter).unwrap(),
-        ))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([255, 255, 255, 60]),
-        )))
-        .with(StyleDeclaration::font_size(Px(label_font_size_px).into()))
-        .with(StyleDeclaration::color(ColorInput::Value(Color::black())))
-        .with_padding(Sides([Px(8.0); 4])),
-    )
-    .with_children([TextNode::default().with_text(filter.to_string())])
-    .into()
+fn create_backdrop_card(filter: &str, label_font_size_px: f32) -> Node {
+  Node::container([Node::text(filter.to_string())]).with_style(
+    Style::default()
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with(StyleDeclaration::backdrop_filter(
+        Filters::from_str(filter).unwrap(),
+      ))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([255, 255, 255, 60]),
+      )))
+      .with(StyleDeclaration::font_size(Px(label_font_size_px).into()))
+      .with(StyleDeclaration::color(ColorInput::Value(Color::black())))
+      .with_padding(Sides([Px(8.0); 4])),
+  )
 }
 
 #[test]
@@ -53,12 +50,12 @@ fn test_style_backdrop_filter() {
     "blur(5px) grayscale(50%)",
   ];
 
-  let children: Vec<NodeKind> = filter_effects
+  let children: Vec<Node> = filter_effects
     .iter()
     .map(|filter| create_backdrop_card(filter, 14.0))
     .collect();
 
-  let container = ContainerNode::default()
+  let container = Node::container(children)
   .with_style(Style::default()
         .with(StyleDeclaration::width(Percentage(100.0)))
         .with(StyleDeclaration::height(Percentage(100.0)))
@@ -75,71 +72,63 @@ fn test_style_backdrop_filter() {
         .with(StyleDeclaration::background_position(
           BackgroundPositions::from_str("center center").unwrap(),
         )),)
-  .with_children(children)
-  .into();
+  ;
 
   run_fixture_test(container, "style_backdrop_filter");
 }
 
 #[test]
 fn test_style_backdrop_filter_frosted_glass() {
-  let container = ContainerNode::default()
-    .with_style(
+  let container = Node::container([Node::container([
+    Node::text("Frosted Glass".to_string()).with_style(
       Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::display(Display::Flex))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center))
-        .with(StyleDeclaration::background_image(Some(
-          BackgroundImages::from_str("url(assets/images/yeecord.png)").unwrap(),
-        )))
-        .with(StyleDeclaration::background_position(
-          BackgroundPositions::from_str("center center").unwrap(),
-        ))
-        .with(StyleDeclaration::background_size(
-          BackgroundSizes::from_str("cover").unwrap(),
-        )),
-    )
-    .with_children([ContainerNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::display(Display::Flex))
-          .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-          .with(StyleDeclaration::align_items(AlignItems::Center))
-          .with(StyleDeclaration::justify_content(JustifyContent::Center))
-          .with(StyleDeclaration::backdrop_filter(
-            Filters::from_str("blur(16px)").unwrap(),
-          ))
-          .with(StyleDeclaration::background_color(ColorInput::Value(
-            Color([255, 255, 255, 80]),
-          )))
-          .with_border_radius(Box::new(BorderRadius::from_str("24px").unwrap()))
-          .with_padding(Sides([Px(48.0); 4]))
-          .with_gap(SpacePair::from_single(Px(16.0))),
-      )
-      .with_children([
-        TextNode::default()
-          .with_style(
-            Style::default()
-              .with(StyleDeclaration::font_size(Px(48.0).into()))
-              .with(StyleDeclaration::font_weight(FontWeight::from(700.0)))
-              .with(StyleDeclaration::color(ColorInput::Value(Color([
-                0, 0, 0, 200,
-              ])))),
-          )
-          .with_text("Frosted Glass".to_string()),
-        TextNode::default()
-          .with_style(
-            Style::default()
-              .with(StyleDeclaration::font_size(Px(24.0).into()))
-              .with(StyleDeclaration::color(ColorInput::Value(Color([
-                0, 0, 0, 150,
-              ])))),
-          )
-          .with_text("backdrop-filter: blur(16px)".to_string()),
-      ])])
-    .into();
+        .with(StyleDeclaration::font_size(Px(48.0).into()))
+        .with(StyleDeclaration::font_weight(FontWeight::from(700.0)))
+        .with(StyleDeclaration::color(ColorInput::Value(Color([
+          0, 0, 0, 200,
+        ])))),
+    ),
+    Node::text("backdrop-filter: blur(16px)".to_string()).with_style(
+      Style::default()
+        .with(StyleDeclaration::font_size(Px(24.0).into()))
+        .with(StyleDeclaration::color(ColorInput::Value(Color([
+          0, 0, 0, 150,
+        ])))),
+    ),
+  ])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with(StyleDeclaration::backdrop_filter(
+        Filters::from_str("blur(16px)").unwrap(),
+      ))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([255, 255, 255, 80]),
+      )))
+      .with_border_radius(Box::new(BorderRadius::from_str("24px").unwrap()))
+      .with_padding(Sides([Px(48.0); 4]))
+      .with_gap(SpacePair::from_single(Px(16.0))),
+  )])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with(StyleDeclaration::background_image(Some(
+        BackgroundImages::from_str("url(assets/images/yeecord.png)").unwrap(),
+      )))
+      .with(StyleDeclaration::background_position(
+        BackgroundPositions::from_str("center center").unwrap(),
+      ))
+      .with(StyleDeclaration::background_size(
+        BackgroundSizes::from_str("cover").unwrap(),
+      )),
+  );
 
   run_fixture_test(container, "style_backdrop_filter_frosted_glass");
 }

@@ -1,5 +1,5 @@
 use takumi::layout::{
-  node::{ContainerNode, NodeKind, TextNode},
+  node::Node,
   style::{Length::*, *},
 };
 
@@ -8,77 +8,67 @@ use crate::test_utils::run_fixture_test;
 #[test]
 fn inline_vertical_align_types() {
   let row = |label: &str, align: VerticalAlign, color: Color| {
-    ContainerNode::default()
-      .with_style(
+    Node::container([
+      Node::text(format!("Baseline guide {label} ")).with_style(
         Style::default()
-          .with(StyleDeclaration::display(Display::Block))
-          .with(StyleDeclaration::width(Percentage(48.0)))
-          .with_margin(Sides([Px(4.0); 4]))
-          .with_padding(Sides([Px(4.0), Px(8.0), Px(4.0), Px(8.0)]))
-          .with(StyleDeclaration::line_height(LineHeight::Length(Px(72.0))))
-          .with(StyleDeclaration::font_size(Px(32.0).into()))
-          .with(StyleDeclaration::background_color(ColorInput::Value(
-            Color([248, 248, 248, 255]),
-          )))
-          .with_border_width(Sides([Px(1.0); 4]))
+          .with(StyleDeclaration::display(Display::Inline))
+          .with_text_decoration(TextDecoration {
+            line: TextDecorationLines::UNDERLINE,
+            style: None,
+            color: Some(ColorInput::Value(Color([220, 38, 38, 255]))),
+            thickness: Some(TextDecorationThickness::Length(Px(3.0))),
+          })
+          .with(StyleDeclaration::text_decoration_skip_ink(
+            TextDecorationSkipInk::None,
+          )),
+      ),
+      Node::container([]).with_style(
+        Style::default()
+          .with(StyleDeclaration::display(Display::InlineBlock))
+          .with(StyleDeclaration::width(Px(44.0)))
+          .with(StyleDeclaration::height(Px(44.0)))
+          .with(StyleDeclaration::background_color(ColorInput::Value(color)))
+          .with(StyleDeclaration::vertical_align(align))
+          .with_border_width(Sides([Px(2.0); 4]))
           .with(StyleDeclaration::border_style(BorderStyle::Solid))
           .with(StyleDeclaration::border_color(ColorInput::Value(Color([
-            180, 180, 180, 255,
+            30, 30, 30, 255,
           ])))),
-      )
-      .with_child(
-        TextNode::default()
-          .with_style(
-            Style::default()
-              .with(StyleDeclaration::display(Display::Inline))
-              .with_text_decoration(TextDecoration {
-                line: TextDecorationLines::UNDERLINE,
-                style: None,
-                color: Some(ColorInput::Value(Color([220, 38, 38, 255]))),
-                thickness: Some(TextDecorationThickness::Length(Px(3.0))),
-              })
-              .with(StyleDeclaration::text_decoration_skip_ink(
-                TextDecorationSkipInk::None,
-              )),
-          )
-          .with_text(format!("Baseline guide {label} ")),
-      )
-      .with_child(
-        ContainerNode::default().with_style(
-          Style::default()
-            .with(StyleDeclaration::display(Display::InlineBlock))
-            .with(StyleDeclaration::width(Px(44.0)))
-            .with(StyleDeclaration::height(Px(44.0)))
-            .with(StyleDeclaration::background_color(ColorInput::Value(color)))
-            .with(StyleDeclaration::vertical_align(align))
-            .with_border_width(Sides([Px(2.0); 4]))
-            .with(StyleDeclaration::border_style(BorderStyle::Solid))
-            .with(StyleDeclaration::border_color(ColorInput::Value(Color([
-              30, 30, 30, 255,
-            ])))),
-        ),
-      )
-      .with_child(
-        TextNode::default()
-          .with_style(
-            Style::default()
-              .with(StyleDeclaration::display(Display::Inline))
-              .with_text_decoration(TextDecoration {
-                line: TextDecorationLines::UNDERLINE,
-                style: None,
-                color: Some(ColorInput::Value(Color([220, 38, 38, 255]))),
-                thickness: Some(TextDecorationThickness::Length(Px(3.0))),
-              })
-              .with(StyleDeclaration::text_decoration_skip_ink(
-                TextDecorationSkipInk::None,
-              )),
-          )
-          .with_text(" marker".to_string()),
-      )
-      .into()
+      ),
+      Node::text(" marker".to_string()).with_style(
+        Style::default()
+          .with(StyleDeclaration::display(Display::Inline))
+          .with_text_decoration(TextDecoration {
+            line: TextDecorationLines::UNDERLINE,
+            style: None,
+            color: Some(ColorInput::Value(Color([220, 38, 38, 255]))),
+            thickness: Some(TextDecorationThickness::Length(Px(3.0))),
+          })
+          .with(StyleDeclaration::text_decoration_skip_ink(
+            TextDecorationSkipInk::None,
+          )),
+      ),
+    ])
+    .with_style(
+      Style::default()
+        .with(StyleDeclaration::display(Display::Block))
+        .with(StyleDeclaration::width(Percentage(48.0)))
+        .with_margin(Sides([Px(4.0); 4]))
+        .with_padding(Sides([Px(4.0), Px(8.0), Px(4.0), Px(8.0)]))
+        .with(StyleDeclaration::line_height(LineHeight::Length(Px(72.0))))
+        .with(StyleDeclaration::font_size(Px(32.0).into()))
+        .with(StyleDeclaration::background_color(ColorInput::Value(
+          Color([248, 248, 248, 255]),
+        )))
+        .with_border_width(Sides([Px(1.0); 4]))
+        .with(StyleDeclaration::border_style(BorderStyle::Solid))
+        .with(StyleDeclaration::border_color(ColorInput::Value(Color([
+          180, 180, 180, 255,
+        ])))),
+    )
   };
 
-  let children: Vec<NodeKind> = vec![
+  let children: Vec<Node> = vec![
     row(
       "baseline",
       VerticalAlign::Keyword(VerticalAlignKeyword::Baseline),
@@ -141,20 +131,18 @@ fn inline_vertical_align_types() {
     ),
   ];
 
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::display(Display::Flex))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Row))
-        .with(StyleDeclaration::flex_wrap(FlexWrap::Wrap))
-        .with_padding(Sides([Px(8.0); 4]))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color::white(),
-        ))),
-    )
-    .with_children(children);
+  let container = Node::container(children).with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Row))
+      .with(StyleDeclaration::flex_wrap(FlexWrap::Wrap))
+      .with_padding(Sides([Px(8.0); 4]))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color::white(),
+      ))),
+  );
 
-  run_fixture_test(container.into(), "inline_vertical_align_types");
+  run_fixture_test(container, "inline_vertical_align_types");
 }

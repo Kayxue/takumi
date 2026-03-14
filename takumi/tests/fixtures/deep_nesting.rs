@@ -1,5 +1,5 @@
 use takumi::layout::{
-  node::{ContainerNode, NodeKind, TextNode},
+  node::Node,
   style::{
     Color, ColorInput, Display, FlexDirection, FontWeight,
     Length::{Percentage, Px},
@@ -13,25 +13,22 @@ use crate::test_utils::{CONTEXT, create_test_viewport, run_fixture_test};
 const STACK_OVERFLOW_DEPTH: usize = 200;
 const VISUAL_RECURSIVE_DEPTH: usize = 12;
 
-fn make_text_node(text: String) -> NodeKind {
-  TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::font_size(Px(20.0).into()))
-        .with(StyleDeclaration::font_weight(FontWeight::from(600.0)))
-        .with(StyleDeclaration::color(ColorInput::Value(Color([
-          35, 35, 35, 255,
-        ])))),
-    )
-    .with_text(text)
-    .into()
+fn make_text_node(text: String) -> Node {
+  Node::text(text).with_style(
+    Style::default()
+      .with(StyleDeclaration::font_size(Px(20.0).into()))
+      .with(StyleDeclaration::font_weight(FontWeight::from(600.0)))
+      .with(StyleDeclaration::color(ColorInput::Value(Color([
+        35, 35, 35, 255,
+      ])))),
+  )
 }
 
-fn wrap_in_plain_container(node: NodeKind) -> NodeKind {
-  ContainerNode::default().with_children([node]).into()
+fn wrap_in_plain_container(node: Node) -> Node {
+  Node::container([node])
 }
 
-fn iterative_nesting_node(depth: usize) -> NodeKind {
+fn iterative_nesting_node(depth: usize) -> Node {
   let mut current_node = make_text_node("Deep".to_string());
 
   for _ in 0..depth {
@@ -51,7 +48,7 @@ fn recursive_level_background(level: usize) -> Color {
   ])
 }
 
-fn recursive_visual_node(level: usize, max_depth: usize) -> NodeKind {
+fn recursive_visual_node(level: usize, max_depth: usize) -> Node {
   let label = if level == max_depth {
     "base case: return".to_string()
   } else {
@@ -63,40 +60,34 @@ fn recursive_visual_node(level: usize, max_depth: usize) -> NodeKind {
     children.push(recursive_visual_node(level + 1, max_depth));
   }
 
-  ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::display(Display::Flex))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-        .with_padding(Sides([Px(10.0), Px(10.0), Px(10.0), Px(14.0)]))
-        .with_margin(Sides([Px(0.0), Px(0.0), Px(0.0), Px(8.0)]))
-        .with_border_width(Sides([Px(0.0), Px(0.0), Px(0.0), Px(3.0)]))
-        .with(StyleDeclaration::border_color(ColorInput::Value(Color([
-          215, 132, 55, 255,
-        ]))))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          recursive_level_background(level),
-        ))),
-    )
-    .with_children(children.into_boxed_slice())
-    .into()
+  Node::container(children.into_boxed_slice()).with_style(
+    Style::default()
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with_padding(Sides([Px(10.0), Px(10.0), Px(10.0), Px(14.0)]))
+      .with_margin(Sides([Px(0.0), Px(0.0), Px(0.0), Px(8.0)]))
+      .with_border_width(Sides([Px(0.0), Px(0.0), Px(0.0), Px(3.0)]))
+      .with(StyleDeclaration::border_color(ColorInput::Value(Color([
+        215, 132, 55, 255,
+      ]))))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        recursive_level_background(level),
+      ))),
+  )
 }
 
-fn recursive_visual_fixture_tree() -> NodeKind {
-  ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::display(Display::Flex))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-        .with_padding(Sides([Px(16.0); 4]))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([250, 248, 244, 255]),
-        ))),
-    )
-    .with_children([recursive_visual_node(0, VISUAL_RECURSIVE_DEPTH)])
-    .into()
+fn recursive_visual_fixture_tree() -> Node {
+  Node::container([recursive_visual_node(0, VISUAL_RECURSIVE_DEPTH)]).with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with_padding(Sides([Px(16.0); 4]))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([250, 248, 244, 255]),
+      ))),
+  )
 }
 
 #[test]

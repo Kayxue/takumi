@@ -3,12 +3,9 @@ mod image;
 mod text;
 
 use ::image::RgbaImage;
-pub use container::*;
-pub use image::*;
-pub use text::*;
-
 use serde::Deserialize;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use taffy::{AvailableSpace, Layout, Point, Size};
 use zeno::Fill;
 
@@ -26,134 +23,19 @@ use crate::{
   resources::task::FetchTaskCollection,
 };
 
-/// Implements the Node trait for an enum type that contains different node variants.
-macro_rules! impl_node_enum {
-  ($name:ident, $($variant:ident => $variant_type:ty),*) => {
-    impl $crate::layout::node::Node<$name> for $name {
-      fn take_children(&mut self) -> Option<Box<[$name]>> {
-        match self {
-          $( $name::$variant(inner) => inner.take_children(), )*
-        }
-      }
+use self::{
+  container::{
+    container_children_ref, deserialize_children, drop_container_children, take_container_children,
+    take_container_style_layers,
+  },
+  image::{
+    draw_image_node_content, image_collect_fetch_tasks, image_inline_content, measure_image_node,
+    take_image_style_layers,
+  },
+  text::{draw_text_node_content, measure_text_node, take_text_style_layers, text_inline_content},
+};
 
-      fn children_ref(&self) -> Option<&[$name]> {
-        match self {
-          $( $name::$variant(inner) => inner.children_ref(), )*
-        }
-      }
-
-      fn take_style_layers(&mut self) -> $crate::layout::node::NodeStyleLayers {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::take_style_layers(inner), )*
-        }
-      }
-
-      fn inline_content(&self) -> Option<$crate::layout::inline::InlineContentKind<'_>> {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::inline_content(inner), )*
-        }
-      }
-
-      fn measure(
-        &self,
-        context: &$crate::rendering::RenderContext,
-        available_space: $crate::taffy::Size<$crate::taffy::AvailableSpace>,
-        known_dimensions: $crate::taffy::Size<Option<f32>>,
-        style: &taffy::Style,
-      ) -> $crate::taffy::Size<f32> {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::measure(inner, context, available_space, known_dimensions, style), )*
-        }
-      }
-
-      fn draw_content(&self, context: &$crate::rendering::RenderContext, canvas: &mut $crate::rendering::Canvas, layout: $crate::taffy::Layout) -> $crate::Result<()> {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::draw_content(inner, context, canvas, layout), )*
-        }
-      }
-
-      fn draw_border(&self, context: &$crate::rendering::RenderContext, canvas: &mut $crate::rendering::Canvas, layout: $crate::taffy::Layout) -> $crate::Result<()> {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::draw_border(inner, context, canvas, layout), )*
-        }
-      }
-
-      fn draw_outline(&self, context: &$crate::rendering::RenderContext, canvas: &mut $crate::rendering::Canvas, layout: $crate::taffy::Layout) -> $crate::Result<()> {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::draw_outline(inner, context, canvas, layout), )*
-        }
-      }
-
-      fn draw_outset_box_shadow(&self, context: &$crate::rendering::RenderContext, canvas: &mut $crate::rendering::Canvas, layout: $crate::taffy::Layout) -> $crate::Result<()> {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::draw_outset_box_shadow(inner, context, canvas, layout), )*
-        }
-      }
-
-      fn draw_inset_box_shadow(&self, context: &$crate::rendering::RenderContext, canvas: &mut $crate::rendering::Canvas, layout: $crate::taffy::Layout) -> $crate::Result<()> {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::draw_inset_box_shadow(inner, context, canvas, layout), )*
-        }
-      }
-
-      fn tag_name(&self) -> Option<&str> {
-        self.metadata().tag_name.as_deref()
-      }
-
-      fn class_name(&self) -> Option<&str> {
-        self.metadata().class_name.as_deref()
-      }
-
-      fn id(&self) -> Option<&str> {
-        self.metadata().id.as_deref()
-      }
-
-      fn metadata(&self) -> &$crate::layout::node::NodeMetadata {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::metadata(inner), )*
-        }
-      }
-
-      fn metadata_mut(&mut self) -> &mut $crate::layout::node::NodeMetadata {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::metadata_mut(inner), )*
-        }
-      }
-
-      fn is_replaced_element(&self) -> bool {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::is_replaced_element(inner), )*
-        }
-      }
-
-      fn collect_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::collect_fetch_tasks(inner, collection), )*
-        }
-      }
-
-      fn collect_style_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::collect_style_fetch_tasks(inner, collection), )*
-        }
-      }
-
-      fn draw_background(&self, context: &$crate::rendering::RenderContext, canvas: &mut $crate::rendering::Canvas, layout: $crate::taffy::Layout) -> $crate::Result<()> {
-        match self {
-          $( $name::$variant(inner) => <_ as $crate::layout::node::Node<$name>>::draw_background(inner, context, canvas, layout), )*
-        }
-      }
-    }
-
-    $(
-      impl From<$variant_type> for $name {
-        fn from(inner: $variant_type) -> Self {
-          $name::$variant(inner)
-        }
-      }
-    )*
-  };
-}
+pub(crate) use self::image::resolve_image;
 
 /// Shared metadata stored by every renderable node.
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -175,89 +57,201 @@ pub struct NodeMetadata {
   pub(crate) tw: Option<TailwindValues>,
 }
 
-/// A trait representing a node in the layout tree.
-///
-/// This trait defines the common interface for all elements that can be
-/// rendered in the layout system, including containers, text, and images.
-pub trait Node<N: Node<N>>: Send + Sync + Clone {
-  /// Returns the shared node metadata.
-  fn metadata(&self) -> &NodeMetadata;
+#[derive(Debug, Default, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+/// Variant-specific text node data.
+pub struct TextData {
+  pub(crate) text: String,
+}
 
-  /// Returns the shared node metadata mutably.
-  fn metadata_mut(&mut self) -> &mut NodeMetadata;
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+/// Variant-specific image node data.
+pub struct ImageData {
+  pub(crate) src: Arc<str>,
+  pub(crate) width: Option<f32>,
+  pub(crate) height: Option<f32>,
+}
 
-  /// Returns the tag name of the node, if any.
-  fn tag_name(&self) -> Option<&str> {
-    self.metadata().tag_name.as_deref()
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+/// A renderable node with shared metadata and variant-specific content.
+pub struct Node {
+  #[serde(flatten)]
+  pub(crate) metadata: NodeMetadata,
+  #[serde(flatten)]
+  pub(crate) kind: NodeKind,
+}
+
+/// Represents the nodes enum.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum NodeKind {
+  /// A node that contains other nodes.
+  Container {
+    /// The container child nodes.
+    #[serde(default, deserialize_with = "deserialize_children")]
+    children: Vec<Node>,
+  },
+  /// A node that displays an image.
+  Image(ImageData),
+  /// A node that displays text.
+  Text(TextData),
+}
+
+impl Default for Node {
+  fn default() -> Self {
+    Self::container([])
   }
+}
 
-  /// Returns the class name of the node, if any.
-  fn class_name(&self) -> Option<&str> {
-    self.metadata().class_name.as_deref()
+impl Drop for Node {
+  fn drop(&mut self) {
+    drop_container_children(&mut self.kind);
   }
+}
 
-  /// Returns the id of the node, if any.
-  fn id(&self) -> Option<&str> {
-    self.metadata().id.as_deref()
-  }
-
-  /// Returns the value of an attribute, if any.
-  fn attr(&self, name: &str) -> Option<&str> {
-    self
-      .metadata()
-      .attributes
-      .as_ref()
-      .and_then(|attributes| attributes.get(name).map(Box::as_ref))
-  }
-
-  /// Gets reference of children.
-  fn children_ref(&self) -> Option<&[N]> {
-    None
-  }
-
-  /// Creates resolving tasks for node's http resources.
-  fn collect_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
-    let Some(children) = self.children_ref() else {
-      return;
-    };
-
-    for child in children {
-      child.collect_fetch_tasks(collection);
+impl Node {
+  /// Creates a container node with the provided child nodes.
+  pub fn container(children: impl Into<Vec<Node>>) -> Self {
+    Self {
+      metadata: NodeMetadata::default(),
+      kind: NodeKind::Container {
+        children: children.into(),
+      },
     }
   }
 
-  /// Returns a reference to this node's raw [`Style`], if any.
-  fn get_style(&self) -> Option<&Style> {
-    self.metadata().style.as_ref()
+  /// Creates an image node from any supported image input shape.
+  pub fn image(data: impl Into<ImageData>) -> Self {
+    Self {
+      metadata: NodeMetadata::default(),
+      kind: NodeKind::Image(data.into()),
+    }
   }
 
-  /// Returns a reference to this node's preset style, if any.
-  fn get_preset(&self) -> Option<&Style> {
-    self.metadata().preset.as_ref()
+  /// Creates a text node from the provided text.
+  pub fn text(text: impl Into<String>) -> Self {
+    Self {
+      metadata: NodeMetadata::default(),
+      kind: NodeKind::Text(TextData { text: text.into() }),
+    }
   }
 
-  /// Returns a reference to this node's Tailwind values, if any.
-  fn get_tw(&self) -> Option<&TailwindValues> {
-    self.metadata().tw.as_ref()
+  pub(crate) fn children_ref(&self) -> Option<&[Node]> {
+    container_children_ref(&self.kind)
   }
 
-  /// Whether this node behaves like a [CSS replaced element](https://drafts.csswg.org/css-display/#replaced-element)
-  /// for sizing purposes.
-  fn is_replaced_element(&self) -> bool {
-    false
+  pub(crate) fn take_children(&mut self) -> Option<Box<[Node]>> {
+    take_container_children(&mut self.kind)
   }
 
-  /// Creates resolving tasks for style's http resources.
-  fn collect_style_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
-    if let Some(preset) = self.get_preset() {
+  /// Sets the tag name and returns the updated node.
+  pub fn with_tag_name(mut self, tag_name: impl Into<Box<str>>) -> Self {
+    self.metadata.tag_name = Some(tag_name.into());
+    self
+  }
+
+  /// Sets the class name and returns the updated node.
+  pub fn with_class_name(mut self, class_name: impl Into<Box<str>>) -> Self {
+    self.metadata.class_name = Some(class_name.into());
+    self
+  }
+
+  /// Sets the element id and returns the updated node.
+  pub fn with_id(mut self, id: impl Into<Box<str>>) -> Self {
+    self.metadata.id = Some(id.into());
+    self
+  }
+
+  /// Sets the element attributes and returns the updated node.
+  pub fn with_attributes(mut self, attributes: BTreeMap<Box<str>, Box<str>>) -> Self {
+    self.metadata.attributes = Some(attributes);
+    self
+  }
+
+  /// Sets the preset style and returns the updated node.
+  pub fn with_preset(mut self, preset: Style) -> Self {
+    self.metadata.preset = Some(preset);
+    self
+  }
+
+  /// Sets the inline style and returns the updated node.
+  pub fn with_style(mut self, style: Style) -> Self {
+    self.metadata.style = Some(style);
+    self
+  }
+
+  /// Sets the Tailwind-derived style input and returns the updated node.
+  pub fn with_tw(mut self, tw: TailwindValues) -> Self {
+    self.metadata.tw = Some(tw);
+    self
+  }
+
+  pub(crate) fn take_style_layers(&mut self) -> NodeStyleLayers {
+    if matches!(self.kind, NodeKind::Container { .. }) {
+      return take_container_style_layers(self);
+    }
+
+    if let NodeKind::Image(image) = &self.kind {
+      return take_image_style_layers(self, image.width, image.height);
+    }
+
+    take_text_style_layers(self)
+  }
+
+  pub(crate) fn inline_content(&self) -> Option<InlineContentKind<'_>> {
+    match &self.kind {
+      NodeKind::Container { .. } => None,
+      NodeKind::Image(_) => image_inline_content(&self.kind),
+      NodeKind::Text(text) => text_inline_content(text),
+    }
+  }
+
+  pub(crate) fn measure(
+    &self,
+    context: &RenderContext,
+    available_space: Size<AvailableSpace>,
+    known_dimensions: Size<Option<f32>>,
+    style: &taffy::Style,
+  ) -> Size<f32> {
+    match &self.kind {
+      NodeKind::Container { .. } => Size::ZERO,
+      NodeKind::Image(image) => {
+        measure_image_node(image, context, available_space, known_dimensions, style)
+      }
+      NodeKind::Text(text) => measure_text_node(text, context, available_space, known_dimensions),
+    }
+  }
+
+  /// Collects resource URLs referenced by this node tree.
+  pub fn collect_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
+    match &self.kind {
+      NodeKind::Container { .. } => {
+        let Some(children) = self.children_ref() else {
+          return;
+        };
+
+        for child in children {
+          child.collect_fetch_tasks(collection);
+        }
+      }
+      NodeKind::Image(image) => image_collect_fetch_tasks(image, collection),
+      NodeKind::Text(_) => {}
+    }
+  }
+
+  /// Collects resource URLs referenced by this node tree's styles.
+  pub fn collect_style_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
+    if let Some(preset) = self.metadata.preset.as_ref() {
       preset.collect_fetch_tasks(collection);
     }
 
-    if let Some(author_tw) = self.get_tw() {
+    if let Some(author_tw) = self.metadata.tw.as_ref() {
       author_tw.collect_fetch_tasks(Viewport::new(None, None), collection);
     }
 
-    if let Some(inline) = self.get_style() {
+    if let Some(inline) = self.metadata.style.as_ref() {
       inline.collect_fetch_tasks(collection);
     }
 
@@ -270,95 +264,11 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
     }
   }
 
-  /// Return reference to children nodes.
-  fn take_children(&mut self) -> Option<Box<[N]>> {
-    None
+  pub(crate) fn is_replaced_element(&self) -> bool {
+    matches!(self.kind, NodeKind::Image(_))
   }
 
-  /// Sets the tag name and returns the updated node.
-  fn with_tag_name(mut self, tag_name: impl Into<Box<str>>) -> Self
-  where
-    Self: Sized,
-  {
-    self.metadata_mut().tag_name = Some(tag_name.into());
-    self
-  }
-
-  /// Sets the class name and returns the updated node.
-  fn with_class_name(mut self, class_name: impl Into<Box<str>>) -> Self
-  where
-    Self: Sized,
-  {
-    self.metadata_mut().class_name = Some(class_name.into());
-    self
-  }
-
-  /// Sets the id and returns the updated node.
-  fn with_id(mut self, id: impl Into<Box<str>>) -> Self
-  where
-    Self: Sized,
-  {
-    self.metadata_mut().id = Some(id.into());
-    self
-  }
-
-  /// Sets the attributes and returns the updated node.
-  fn with_attributes(mut self, attributes: BTreeMap<Box<str>, Box<str>>) -> Self
-  where
-    Self: Sized,
-  {
-    self.metadata_mut().attributes = Some(attributes);
-    self
-  }
-
-  /// Sets the preset style and returns the updated node.
-  fn with_preset(mut self, preset: Style) -> Self
-  where
-    Self: Sized,
-  {
-    self.metadata_mut().preset = Some(preset);
-    self
-  }
-
-  /// Sets the inline style and returns the updated node.
-  fn with_style(mut self, style: Style) -> Self
-  where
-    Self: Sized,
-  {
-    self.metadata_mut().style = Some(style);
-    self
-  }
-
-  /// Sets the Tailwind values and returns the updated node.
-  fn with_tw(mut self, tw: TailwindValues) -> Self
-  where
-    Self: Sized,
-  {
-    self.metadata_mut().tw = Some(tw);
-    self
-  }
-
-  /// Takes the node's local style layers for cascade assembly.
-  fn take_style_layers(&mut self) -> NodeStyleLayers;
-
-  /// Retrieve content for inline layout.
-  fn inline_content(&self) -> Option<InlineContentKind<'_>> {
-    None
-  }
-
-  /// Measures content size of this node.
-  fn measure(
-    &self,
-    _context: &RenderContext,
-    _available_space: Size<AvailableSpace>,
-    _known_dimensions: Size<Option<f32>>,
-    _style: &taffy::Style,
-  ) -> Size<f32> {
-    Size::ZERO
-  }
-
-  /// Draws the outset box shadow of the node.
-  fn draw_outset_box_shadow(
+  pub(crate) fn draw_outset_box_shadow(
     &self,
     context: &RenderContext,
     canvas: &mut Canvas,
@@ -416,8 +326,7 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
     Ok(())
   }
 
-  /// Draws the inset box shadow of the node.
-  fn draw_inset_box_shadow(
+  pub(crate) fn draw_inset_box_shadow(
     &self,
     context: &RenderContext,
     canvas: &mut Canvas,
@@ -443,8 +352,7 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
     Ok(())
   }
 
-  /// Draws the background image(s) of the node.
-  fn draw_background(
+  pub(crate) fn draw_background(
     &self,
     context: &RenderContext,
     canvas: &mut Canvas,
@@ -541,19 +449,20 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
     Ok(())
   }
 
-  /// Draws the main content of the node.
-  fn draw_content(
+  pub(crate) fn draw_content(
     &self,
-    _context: &RenderContext,
-    _canvas: &mut Canvas,
-    _layout: Layout,
+    context: &RenderContext,
+    canvas: &mut Canvas,
+    layout: Layout,
   ) -> Result<()> {
-    // Default implementation does nothing
-    Ok(())
+    match &self.kind {
+      NodeKind::Container { .. } => Ok(()),
+      NodeKind::Image(image) => draw_image_node_content(image, context, canvas, layout),
+      NodeKind::Text(text) => draw_text_node_content(text, context, canvas, layout),
+    }
   }
 
-  /// Draws the border of the node.
-  fn draw_border(
+  pub(crate) fn draw_border(
     &self,
     context: &RenderContext,
     canvas: &mut Canvas,
@@ -586,8 +495,7 @@ pub trait Node<N: Node<N>>: Send + Sync + Clone {
     Ok(())
   }
 
-  /// Draws the outline of the node.
-  fn draw_outline(
+  pub(crate) fn draw_outline(
     &self,
     context: &RenderContext,
     canvas: &mut Canvas,
@@ -634,25 +542,6 @@ pub struct NodeStyleLayers {
   pub inline: Option<Style>,
 }
 
-/// Represents the nodes enum.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
-pub enum NodeKind {
-  /// A node that contains other nodes.
-  Container(ContainerNode<NodeKind>),
-  /// A node that displays an image.
-  Image(ImageNode),
-  /// A node that displays text.
-  Text(TextNode),
-}
-
-impl_node_enum!(
-  NodeKind,
-  Container => ContainerNode<NodeKind>,
-  Image => ImageNode,
-  Text => TextNode
-);
-
 #[cfg(test)]
 mod tests {
   use std::str::FromStr;
@@ -664,23 +553,11 @@ mod tests {
   #[test]
   fn collect_style_fetch_tasks_collects_nested_background_image_urls() {
     let background_url = "https://placehold.co/80x80/22c55e/white";
-    let node = NodeKind::Container(ContainerNode {
-      metadata: NodeMetadata::default(),
-      children: vec![
-        ContainerNode {
-          metadata: NodeMetadata {
-            style: Some(
-              Style::default().with(StyleDeclaration::background_image(Some(
-                [BackgroundImage::Url(background_url.into())].into(),
-              ))),
-            ),
-            ..NodeMetadata::default()
-          },
-          children: Vec::new(),
-        }
-        .into(),
-      ],
-    });
+    let node = Node::container([Node::container([]).with_style(Style::default().with(
+      StyleDeclaration::background_image(Some(
+        [BackgroundImage::Url(background_url.into())].into(),
+      )),
+    ))]);
 
     let mut collection = FetchTaskCollection::default();
     node.collect_style_fetch_tasks(&mut collection);
@@ -700,18 +577,13 @@ mod tests {
     let Ok(tw) = TailwindValues::from_str("bg-[url(/bg.png)]") else {
       unreachable!()
     };
-    let node = NodeKind::Container(ContainerNode {
-      metadata: NodeMetadata {
-        preset: Some(
-          Style::default().with(StyleDeclaration::background_image(Some(
-            [BackgroundImage::Url(preset_url.into())].into(),
-          ))),
-        ),
-        tw: Some(tw),
-        ..NodeMetadata::default()
-      },
-      children: Vec::new(),
-    });
+    let node = Node::container([])
+      .with_preset(
+        Style::default().with(StyleDeclaration::background_image(Some(
+          [BackgroundImage::Url(preset_url.into())].into(),
+        ))),
+      )
+      .with_tw(tw);
 
     let mut collection = FetchTaskCollection::default();
     node.collect_style_fetch_tasks(&mut collection);

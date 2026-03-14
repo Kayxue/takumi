@@ -1,5 +1,5 @@
 use takumi::layout::{
-  node::ImageNode,
+  node::Node,
   style::{
     BackgroundPosition, Length::Percentage, ObjectFit, PositionComponent, PositionKeywordX,
     PositionKeywordY, SpacePair, Style, StyleDeclaration,
@@ -8,10 +8,8 @@ use takumi::layout::{
 
 use crate::test_utils::run_fixture_test;
 
-fn image_with_style(style: Style) -> ImageNode {
-  ImageNode::default()
-    .with_src("assets/images/yeecord.png")
-    .with_style(style)
+fn image_with_style(style: Style) -> Node {
+  Node::image("assets/images/yeecord.png").with_style(style)
 }
 
 #[test]
@@ -26,7 +24,7 @@ fn test_style_object_position_contain_center() {
       ))),
   );
 
-  run_fixture_test(image.into(), "style_object_position_contain_center");
+  run_fixture_test(image, "style_object_position_contain_center");
 }
 
 #[test]
@@ -44,7 +42,7 @@ fn test_style_object_position_contain_top_left() {
       ))),
   );
 
-  run_fixture_test(image.into(), "style_object_position_contain_top_left");
+  run_fixture_test(image, "style_object_position_contain_top_left");
 }
 
 #[test]
@@ -62,7 +60,7 @@ fn test_style_object_position_contain_bottom_right() {
       ))),
   );
 
-  run_fixture_test(image.into(), "style_object_position_contain_bottom_right");
+  run_fixture_test(image, "style_object_position_contain_bottom_right");
 }
 
 #[test]
@@ -80,7 +78,7 @@ fn test_style_object_position_cover_center() {
       ))),
   );
 
-  run_fixture_test(image.into(), "style_object_position_cover_center");
+  run_fixture_test(image, "style_object_position_cover_center");
 }
 
 #[test]
@@ -98,7 +96,7 @@ fn test_style_object_position_cover_top_left() {
       ))),
   );
 
-  run_fixture_test(image.into(), "style_object_position_cover_top_left");
+  run_fixture_test(image, "style_object_position_cover_top_left");
 }
 
 #[test]
@@ -116,7 +114,7 @@ fn test_style_object_position_none_center() {
       ))),
   );
 
-  run_fixture_test(image.into(), "style_object_position_none_center");
+  run_fixture_test(image, "style_object_position_none_center");
 }
 
 #[test]
@@ -134,7 +132,7 @@ fn test_style_object_position_none_top_left() {
       ))),
   );
 
-  run_fixture_test(image.into(), "style_object_position_none_top_left");
+  run_fixture_test(image, "style_object_position_none_top_left");
 }
 
 #[test]
@@ -149,5 +147,5 @@ fn test_style_object_position_percentage_25_75() {
       ))),
   );
 
-  run_fixture_test(image.into(), "style_object_position_percentage_25_75");
+  run_fixture_test(image, "style_object_position_percentage_25_75");
 }

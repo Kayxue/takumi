@@ -1,5 +1,5 @@
 use takumi::layout::{
-  node::{ContainerNode, TextNode},
+  node::Node,
   style::{Length::*, *},
 };
 use takumi::rendering::RenderOptionsBuilder;
@@ -8,45 +8,41 @@ use crate::test_utils::{CONTEXT, create_test_viewport, run_fixture_test_with_opt
 
 #[test]
 fn test_stylesheets() {
-  let root = ContainerNode::default()
-    .with_tag_name("div")
-    .with_class_name("root")
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::display(Display::Flex))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([245, 245, 245, 255]),
-        ))),
-    )
-    .with_children([ContainerNode::default()
-      .with_tag_name("section")
-      .with_class_name("card")
-      .with_id("hero-card")
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::display(Display::Flex))
-          .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-          .with(StyleDeclaration::justify_content(JustifyContent::Center))
-          .with(StyleDeclaration::align_items(AlignItems::Center)),
-      )
-      .with_children([
-        TextNode::default()
-          .with_tag_name("h1")
-          .with_class_name("title")
-          .with_text("Stylesheets".to_string()),
-        TextNode::default()
-          .with_tag_name("p")
-          .with_class_name("subtitle")
-          .with_text("Selectors apply before inline styles".to_string()),
-      ])]);
+  let root = Node::container([Node::container([
+    Node::text("Stylesheets".to_string())
+      .with_tag_name("h1")
+      .with_class_name("title"),
+    Node::text("Selectors apply before inline styles".to_string())
+      .with_tag_name("p")
+      .with_class_name("subtitle"),
+  ])
+  .with_tag_name("section")
+  .with_class_name("card")
+  .with_id("hero-card")
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with(StyleDeclaration::align_items(AlignItems::Center)),
+  )])
+  .with_tag_name("div")
+  .with_class_name("root")
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([245, 245, 245, 255]),
+      ))),
+  );
 
   let options = RenderOptionsBuilder::default()
     .viewport(create_test_viewport())
-    .node(root.into())
+    .node(root)
     .global(&CONTEXT)
     .stylesheet(
       StyleSheet::parse(
@@ -88,35 +84,34 @@ fn test_stylesheets() {
 
 #[test]
 fn test_stylesheets_background_multiple_gradients() {
-  let root = ContainerNode::default()
-    .with_tag_name("div")
+  let root = Node::container([Node::container([])
+    .with_tag_name("section")
+    .with_class_name("multi-gradient-card")
     .with_style(
       Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::display(Display::Flex))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([22, 22, 22, 255]),
-        ))),
-    )
-    .with_children([ContainerNode::default()
-      .with_tag_name("section")
-      .with_class_name("multi-gradient-card")
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::width(Px(700.0)))
-          .with(StyleDeclaration::height(Px(360.0)))
-          .with_border_radius(Box::new(BorderRadius(Sides(
-            [SpacePair::from_single(Px(24.0)); 4],
-          )))),
-      )]);
+        .with(StyleDeclaration::width(Px(700.0)))
+        .with(StyleDeclaration::height(Px(360.0)))
+        .with_border_radius(Box::new(BorderRadius(Sides(
+          [SpacePair::from_single(Px(24.0)); 4],
+        )))),
+    )])
+  .with_tag_name("div")
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([22, 22, 22, 255]),
+      ))),
+  );
 
   let build_options = || {
     RenderOptionsBuilder::default()
       .viewport(create_test_viewport())
-      .node(root.clone().into())
+      .node(root.clone())
       .global(&CONTEXT)
       .stylesheet(StyleSheet::parse(
         r#"

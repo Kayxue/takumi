@@ -25,8 +25,8 @@ pub(crate) enum InlineLayoutStage {
   Draw,
 }
 
-pub(crate) struct InlineBoxItem<'c, 'g, N: Node<N>> {
-  pub(crate) render_node: &'c RenderNode<'g, N>,
+pub(crate) struct InlineBoxItem<'c, 'g> {
+  pub(crate) render_node: &'c RenderNode<'g>,
   pub(crate) inline_box: InlineBox,
   pub(crate) margin: Rect<f32>,
   pub(crate) padding: Rect<f32>,
@@ -34,8 +34,8 @@ pub(crate) struct InlineBoxItem<'c, 'g, N: Node<N>> {
   pub(crate) vertical_align: ResolvedVerticalAlign,
 }
 
-impl<N: Node<N>> From<&InlineBoxItem<'_, '_, N>> for Layout {
-  fn from(value: &InlineBoxItem<'_, '_, N>) -> Self {
+impl From<&InlineBoxItem<'_, '_>> for Layout {
+  fn from(value: &InlineBoxItem<'_, '_>) -> Self {
     Layout {
       size: Size {
         width: value.inline_box.width,
@@ -49,19 +49,19 @@ impl<N: Node<N>> From<&InlineBoxItem<'_, '_, N>> for Layout {
   }
 }
 
-pub(crate) enum ProcessedInlineSpan<'c, 'g, N: Node<N>> {
+pub(crate) enum ProcessedInlineSpan<'c, 'g> {
   Text {
     span_id: u64,
     byte_range: Range<usize>,
     text: String,
     style: SizedFontStyle<'c>,
   },
-  Box(InlineBoxItem<'c, 'g, N>),
+  Box(InlineBoxItem<'c, 'g>),
 }
 
-pub(crate) enum InlineItem<'c, 'g, N: Node<N>> {
+pub(crate) enum InlineItem<'c, 'g> {
   RenderNode {
-    render_node: &'c RenderNode<'g, N>,
+    render_node: &'c RenderNode<'g>,
   },
   Text {
     text: Cow<'c, str>,
@@ -69,18 +69,16 @@ pub(crate) enum InlineItem<'c, 'g, N: Node<N>> {
   },
 }
 
-pub(crate) fn collect_inline_items<'n, 'g, N: Node<N>>(
-  root: &'n RenderNode<'g, N>,
-) -> Vec<InlineItem<'n, 'g, N>> {
+pub(crate) fn collect_inline_items<'n, 'g>(root: &'n RenderNode<'g>) -> Vec<InlineItem<'n, 'g>> {
   let mut items = Vec::new();
   collect_inline_items_impl(root, 0, &mut items);
   items
 }
 
-fn collect_inline_items_impl<'n, 'g, N: Node<N>>(
-  node: &'n RenderNode<'g, N>,
+fn collect_inline_items_impl<'n, 'g>(
+  node: &'n RenderNode<'g>,
   depth: usize,
-  items: &mut Vec<InlineItem<'n, 'g, N>>,
+  items: &mut Vec<InlineItem<'n, 'g>>,
 ) {
   if depth > 0 && node.is_inline_atomic_container() {
     items.push(InlineItem::RenderNode { render_node: node });
@@ -156,7 +154,7 @@ fn text_style_with_span_id<'s>(
   text_style
 }
 
-fn refresh_text_span_ranges<N: Node<N>>(spans: &mut [ProcessedInlineSpan<'_, '_, N>]) {
+fn refresh_text_span_ranges(spans: &mut [ProcessedInlineSpan<'_, '_>]) {
   let mut byte_offset = 0;
 
   for span in spans {
@@ -171,8 +169,8 @@ fn refresh_text_span_ranges<N: Node<N>>(spans: &mut [ProcessedInlineSpan<'_, '_,
   }
 }
 
-fn tail_text_span<'a, 'c, 'g, N: Node<N>>(
-  spans: &'a [ProcessedInlineSpan<'c, 'g, N>],
+fn tail_text_span<'a, 'c, 'g>(
+  spans: &'a [ProcessedInlineSpan<'c, 'g>],
 ) -> Option<(&'a SizedFontStyle<'c>, u64)> {
   spans.iter().rev().find_map(|span| match span {
     ProcessedInlineSpan::Text { span_id, style, .. } => Some((style, *span_id)),
@@ -239,9 +237,9 @@ fn collect_truncation_checkpoints(layout: &InlineLayout) -> Vec<TruncationCheckp
   checkpoints
 }
 
-fn truncation_plan<'c, 'g, N: Node<N>>(
+fn truncation_plan<'c, 'g>(
   checkpoints: &[TruncationCheckpoint],
-  spans: &[ProcessedInlineSpan<'c, 'g, N>],
+  spans: &[ProcessedInlineSpan<'c, 'g>],
   available_w: f32,
 ) -> (Option<usize>, Option<(usize, usize)>) {
   let truncate_at = checkpoints
@@ -282,8 +280,8 @@ fn truncation_plan<'c, 'g, N: Node<N>>(
   }
 }
 
-fn text_span_style_by_id<'a, 'c, 'g, N: Node<N>>(
-  spans: &'a [ProcessedInlineSpan<'c, 'g, N>],
+fn text_span_style_by_id<'a, 'c, 'g>(
+  spans: &'a [ProcessedInlineSpan<'c, 'g>],
   span_id: u64,
 ) -> Option<&'a SizedFontStyle<'c>> {
   spans.iter().find_map(|span| match span {
@@ -296,8 +294,8 @@ fn text_span_style_by_id<'a, 'c, 'g, N: Node<N>>(
   })
 }
 
-fn truncated_tail_text_span_id<'c, 'g, N: Node<N>>(
-  spans: &[ProcessedInlineSpan<'c, 'g, N>],
+fn truncated_tail_text_span_id<'c, 'g>(
+  spans: &[ProcessedInlineSpan<'c, 'g>],
   span_cut_idx: Option<usize>,
 ) -> Option<u64> {
   span_cut_idx.and_then(|cut_idx| {
@@ -308,8 +306,8 @@ fn truncated_tail_text_span_id<'c, 'g, N: Node<N>>(
   })
 }
 
-fn apply_truncation_plan<'c, 'g, N: Node<N>>(
-  spans: &mut Vec<ProcessedInlineSpan<'c, 'g, N>>,
+fn apply_truncation_plan<'c, 'g>(
+  spans: &mut Vec<ProcessedInlineSpan<'c, 'g>>,
   plan: (Option<usize>, Option<(usize, usize)>),
 ) {
   let (span_cut_idx, text_cut) = plan;
@@ -345,16 +343,16 @@ pub(crate) fn measure_inline_layout(layout: &mut InlineLayout, max_width: f32) -
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn create_inline_layout<'c, 'g: 'c, N: Node<N> + 'c>(
-  items: impl Iterator<Item = InlineItem<'c, 'g, N>>,
+pub(crate) fn create_inline_layout<'c, 'g: 'c>(
+  items: impl Iterator<Item = InlineItem<'c, 'g>>,
   available_space: Size<AvailableSpace>,
   max_width: f32,
   max_height: Option<MaxHeight>,
   style: &'c SizedFontStyle,
   global: &'g GlobalContext,
   stage: InlineLayoutStage,
-) -> (InlineLayout, String, Vec<ProcessedInlineSpan<'c, 'g, N>>) {
-  let mut spans: Vec<ProcessedInlineSpan<'c, 'g, N>> = Vec::new();
+) -> (InlineLayout, String, Vec<ProcessedInlineSpan<'c, 'g>>) {
+  let mut spans: Vec<ProcessedInlineSpan<'c, 'g>> = Vec::new();
 
   let (mut layout, text) = global.font_context.tree_builder(style.into(), |builder| {
     let mut index_pos = 0;
@@ -576,9 +574,9 @@ pub(crate) fn break_lines(
 }
 
 /// Truncates text in the layout to fit within `max_width` and appends an ellipsis.
-fn make_ellipsis_layout<'c, 'g: 'c, N: Node<N> + 'c>(
+fn make_ellipsis_layout<'c, 'g: 'c>(
   layout: &mut InlineLayout,
-  spans: &mut Vec<ProcessedInlineSpan<'c, 'g, N>>,
+  spans: &mut Vec<ProcessedInlineSpan<'c, 'g>>,
   max_width: f32,
   max_height: Option<MaxHeight>,
   root_style: &'c SizedFontStyle,

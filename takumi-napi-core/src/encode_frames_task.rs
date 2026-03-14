@@ -7,7 +7,7 @@ use std::{
 use napi::bindgen_prelude::*;
 use rayon::prelude::*;
 use takumi::{
-  layout::{DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport, node::NodeKind},
+  layout::{DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport, node::Node},
   rendering::{
     AnimatedGifOptions, AnimatedPngOptions, AnimatedWebpOptions, AnimationFrame,
     RenderOptionsBuilder, encode_animated_gif, encode_animated_png, encode_animated_webp, render,
@@ -21,7 +21,7 @@ use crate::{
 };
 
 pub struct EncodeFramesTask {
-  pub frames: Option<Vec<(NodeKind, u32)>>,
+  pub frames: Option<Vec<(Node, u32)>>,
   pub(crate) state: Arc<RwLock<RendererState>>,
   pub viewport: Viewport,
   pub format: AnimationOutputFormat,
@@ -34,7 +34,7 @@ pub struct EncodeFramesTask {
 impl EncodeFramesTask {
   pub(crate) fn from_options(
     env: Env,
-    frames: Vec<(NodeKind, u32)>,
+    frames: Vec<(Node, u32)>,
     options: EncodeFramesOptions,
     state: Arc<RwLock<RendererState>>,
   ) -> Result<Self> {

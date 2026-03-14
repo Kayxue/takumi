@@ -3,9 +3,10 @@ use std::{borrow::Cow, mem::take};
 use std::{collections::HashMap, sync::Arc};
 
 use napi::bindgen_prelude::*;
+use takumi::layout::node::Node;
 use takumi::{
   layout::style::StyleSheet,
-  layout::{DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport, node::NodeKind},
+  layout::{DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport},
   rendering::{DitheringAlgorithm, RenderOptionsBuilder, render, write_image},
   resources::image::load_image_source_from_bytes,
 };
@@ -17,7 +18,7 @@ use crate::{
 
 pub struct RenderTask {
   pub draw_debug_border: bool,
-  pub node: Option<NodeKind>,
+  pub node: Option<Node>,
   pub(crate) state: Arc<RwLock<RendererState>>,
   pub viewport: Viewport,
   pub format: OutputFormat,
@@ -31,7 +32,7 @@ pub struct RenderTask {
 impl RenderTask {
   pub(crate) fn from_options(
     env: Env,
-    node: NodeKind,
+    node: Node,
     options: RenderOptions,
     state: Arc<RwLock<RendererState>>,
   ) -> Result<Self> {

@@ -29,18 +29,18 @@
 //! ```rust
 //! use takumi::{
 //!   layout::{
-//!     node::{ContainerNode, TextNode, NodeKind, Node},
+//!     node::Node,
 //!     Viewport,
-//!     style::Style,
+//!     style::{Length::Px, Style, StyleDeclaration},
 //!   },
 //!   rendering::{render, RenderOptionsBuilder},
 //!   GlobalContext,
 //! };
 //!
-//! // Create a node tree with `ContainerNode` and `TextNode`
-//! let mut node: NodeKind = ContainerNode::default()
-//!   .with_child(TextNode::default().with_text("Hello, world!"))
-//!   .into();
+//! // Create a node tree with `Node::container` and `Node::text`
+//! let node = Node::container([Node::text("Hello, world!").with_style(
+//!   Style::default().with(StyleDeclaration::font_size(Px(32.0).into())),
+//! )]);
 //!
 //! // Create a context for storing resources, font caches.
 //! // You should reuse the context to speed up the rendering.

@@ -1,5 +1,5 @@
 use takumi::layout::{
-  node::{ContainerNode, ImageNode, NodeKind},
+  node::Node,
   style::{Length::*, *},
 };
 
@@ -9,11 +9,8 @@ fn centered_layer_position() -> BackgroundPositions {
   BackgroundPositions::from_str("center center").unwrap()
 }
 
-fn create_container_with_mask(
-  mask_image: BackgroundImages,
-  background_color: Color,
-) -> ContainerNode<NodeKind> {
-  ContainerNode::default().with_style(
+fn create_container_with_mask(mask_image: BackgroundImages, background_color: Color) -> Node {
+  Node::container([]).with_style(
     Style::default()
       .with(StyleDeclaration::width(Percentage(100.0)))
       .with(StyleDeclaration::height(Percentage(100.0)))
@@ -32,7 +29,7 @@ fn test_style_mask_image_linear_gradient() {
 
   let container = create_container_with_mask(mask_image, Color([255, 0, 0, 255]));
 
-  run_fixture_test(container.into(), "style_mask_image_linear_gradient");
+  run_fixture_test(container, "style_mask_image_linear_gradient");
 }
 
 #[test]
@@ -42,7 +39,7 @@ fn test_style_mask_image_radial_gradient() {
 
   let container = create_container_with_mask(mask_image, Color([0, 128, 255, 255]));
 
-  run_fixture_test(container.into(), "style_mask_image_radial_gradient");
+  run_fixture_test(container, "style_mask_image_radial_gradient");
 }
 
 #[test]
@@ -54,7 +51,7 @@ fn test_style_mask_image_radial_gradient_ellipse() {
 
   let container = create_container_with_mask(mask_image, Color([34, 197, 94, 255]));
 
-  run_fixture_test(container.into(), "style_mask_image_radial_ellipse");
+  run_fixture_test(container, "style_mask_image_radial_ellipse");
 }
 
 #[test]
@@ -66,7 +63,7 @@ fn test_style_mask_image_multiple_gradients() {
 
   let container = create_container_with_mask(mask_image, Color([255, 165, 0, 255]));
 
-  run_fixture_test(container.into(), "style_mask_image_multiple_gradients");
+  run_fixture_test(container, "style_mask_image_multiple_gradients");
 }
 
 #[test]
@@ -77,7 +74,7 @@ fn test_style_mask_image_diagonal_gradient() {
 
   let container = create_container_with_mask(mask_image, Color([138, 43, 226, 255]));
 
-  run_fixture_test(container.into(), "style_mask_image_diagonal_gradient");
+  run_fixture_test(container, "style_mask_image_diagonal_gradient");
 }
 
 #[test]
@@ -88,7 +85,7 @@ fn test_style_mask_image_with_background_image() {
   let background_image =
     BackgroundImages::from_str("linear-gradient(135deg, #667eea 0%, #764ba2 100%)").unwrap();
 
-  let container = ContainerNode::default().with_style(
+  let container = Node::container([]).with_style(
     Style::default()
       .with(StyleDeclaration::width(Percentage(100.0)))
       .with(StyleDeclaration::height(Percentage(100.0)))
@@ -100,7 +97,7 @@ fn test_style_mask_image_with_background_image() {
       .with(StyleDeclaration::mask_position(centered_layer_position())),
   );
 
-  run_fixture_test(container.into(), "style_mask_image_with_background");
+  run_fixture_test(container, "style_mask_image_with_background");
 }
 
 #[test]
@@ -108,36 +105,32 @@ fn test_style_mask_image_on_image_node() {
   let mask_image =
     BackgroundImages::from_str("radial-gradient(circle, black 60%, transparent 100%)").unwrap();
 
-  let container = ContainerNode::default()
-    .with_style(
+  let container = Node::container([Node::container(vec![
+    Node::image("assets/images/yeecord.png").with_style(
       Style::default()
         .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center))
-        .with(StyleDeclaration::align_items(AlignItems::Center)),
-    )
-    .with_children([ContainerNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::width(Rem(16.0)))
-          .with(StyleDeclaration::height(Rem(16.0)))
-          .with(StyleDeclaration::mask_image(Some(mask_image)))
-          .with(StyleDeclaration::mask_position(centered_layer_position())),
-      )
-      .with_children(vec![
-        ImageNode::default()
-          .with_style(
-            Style::default()
-              .with(StyleDeclaration::width(Percentage(100.0)))
-              .with(StyleDeclaration::height(Percentage(100.0))),
-          )
-          .with_src("assets/images/yeecord.png"),
-      ])]);
+        .with(StyleDeclaration::height(Percentage(100.0))),
+    ),
+  ])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Rem(16.0)))
+      .with(StyleDeclaration::height(Rem(16.0)))
+      .with(StyleDeclaration::mask_image(Some(mask_image)))
+      .with(StyleDeclaration::mask_position(centered_layer_position())),
+  )])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with(StyleDeclaration::align_items(AlignItems::Center)),
+  );
 
-  run_fixture_test(container.into(), "style_mask_image_on_image");
+  run_fixture_test(container, "style_mask_image_on_image");
 }
 
 #[test]
@@ -149,7 +142,7 @@ fn test_style_mask_image_stripes_pattern() {
 
   let container = create_container_with_mask(mask_image, Color([255, 20, 147, 255]));
 
-  run_fixture_test(container.into(), "style_mask_image_stripes");
+  run_fixture_test(container, "style_mask_image_stripes");
 }
 
 #[test]
@@ -161,5 +154,5 @@ fn test_style_mask_image_corner_fade() {
 
   let container = create_container_with_mask(mask_image, Color([0, 200, 200, 255]));
 
-  run_fixture_test(container.into(), "style_mask_image_corner_fade");
+  run_fixture_test(container, "style_mask_image_corner_fade");
 }

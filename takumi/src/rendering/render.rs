@@ -32,13 +32,13 @@ use crate::{
 #[derive(Clone, Builder)]
 #[builder(pattern = "owned")]
 /// Options for rendering a node. Construct using [`RenderOptionsBuilder`] to avoid breaking changes.
-pub struct RenderOptions<'g, N: Node<N>> {
+pub struct RenderOptions<'g> {
   /// The viewport to render the node in.
   pub(crate) viewport: Viewport,
   /// The global context.
   pub(crate) global: &'g GlobalContext,
   /// The node to render.
-  pub(crate) node: N,
+  pub(crate) node: Node,
   /// Whether to draw debug borders.
   #[builder(default)]
   pub(crate) draw_debug_border: bool,
@@ -59,9 +59,9 @@ pub struct RenderOptions<'g, N: Node<N>> {
 #[derive(Clone, Builder)]
 #[builder(pattern = "owned")]
 /// A single scene in a sequential animation timeline.
-pub struct SequentialScene<'g, N: Node<N>> {
+pub struct SequentialScene<'g> {
   /// Render options used when this scene is active.
-  pub(crate) options: RenderOptions<'g, N>,
+  pub(crate) options: RenderOptions<'g>,
   /// Duration of this scene in milliseconds.
   pub(crate) duration_ms: u32,
 }
@@ -98,9 +98,9 @@ pub struct MeasuredNode {
   pub runs: Vec<MeasuredTextRun>,
 }
 
-fn measured_run_text<'a, N: Node<N>>(
+fn measured_run_text<'a>(
   text: &'a str,
-  spans: &[ProcessedInlineSpan<'_, '_, N>],
+  spans: &[ProcessedInlineSpan<'_, '_>],
   glyph_run: &GlyphRun<'_, InlineBrush>,
 ) -> &'a str {
   let text_range = glyph_run.run().text_range();
@@ -160,7 +160,7 @@ struct RenderExit {
 }
 
 /// Measures the layout of a node.
-pub fn measure_layout<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<MeasuredNode> {
+pub fn measure_layout<'g>(options: RenderOptions<'g>) -> Result<MeasuredNode> {
   let RenderOptions {
     viewport,
     global,
@@ -196,8 +196,8 @@ pub fn measure_layout<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<M
   )
 }
 
-fn collect_measure_result<'g, Nodes: Node<Nodes>>(
-  node: &mut RenderNode<'g, Nodes>,
+fn collect_measure_result<'g>(
+  node: &mut RenderNode<'g>,
   layout_results: &LayoutResults,
   node_id: NodeId,
   transform: Affine,
@@ -410,7 +410,7 @@ fn create_measured_node(
 }
 
 /// Renders a node to an image.
-pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage> {
+pub fn render<'g>(options: RenderOptions<'g>) -> Result<RgbaImage> {
   let RenderOptions {
     viewport,
     global,
@@ -474,17 +474,14 @@ pub fn render<'g, N: Node<N>>(options: RenderOptions<'g, N>) -> Result<RgbaImage
 }
 
 /// Renders a node at a specific time on the global animation timeline.
-pub fn render_at_time<'g, N: Node<N>>(
-  mut options: RenderOptions<'g, N>,
-  time_ms: u64,
-) -> Result<RgbaImage> {
+pub fn render_at_time<'g>(mut options: RenderOptions<'g>, time_ms: u64) -> Result<RgbaImage> {
   options.time_ms = time_ms;
   render(options)
 }
 
 /// Renders the active scene for a sequential animation timeline at `time_ms`.
-pub fn render_sequence_at_time<'g, N: Node<N>>(
-  scenes: &[SequentialScene<'g, N>],
+pub fn render_sequence_at_time<'g>(
+  scenes: &[SequentialScene<'g>],
   time_ms: u64,
 ) -> Result<RgbaImage> {
   let Some((scene, local_time_ms)) = resolve_scene_at_time(scenes, time_ms) else {
@@ -495,8 +492,8 @@ pub fn render_sequence_at_time<'g, N: Node<N>>(
 }
 
 /// Renders all frames for a sequential animation timeline at a fixed frame rate.
-pub fn render_sequence_animation<'g, N: Node<N>>(
-  scenes: &[SequentialScene<'g, N>],
+pub fn render_sequence_animation<'g>(
+  scenes: &[SequentialScene<'g>],
   fps: u32,
 ) -> Result<Vec<AnimationFrame>> {
   if scenes.is_empty() || fps == 0 {
@@ -528,17 +525,17 @@ pub fn render_sequence_animation<'g, N: Node<N>>(
   Ok(frames)
 }
 
-fn total_sequence_duration<'g, N: Node<N>>(scenes: &[SequentialScene<'g, N>]) -> u64 {
+fn total_sequence_duration<'g>(scenes: &[SequentialScene<'g>]) -> u64 {
   scenes
     .iter()
     .map(|scene| u64::from(scene.duration_ms))
     .sum::<u64>()
 }
 
-fn resolve_scene_at_time<'a, 'g, N: Node<N>>(
-  scenes: &'a [SequentialScene<'g, N>],
+fn resolve_scene_at_time<'a, 'g>(
+  scenes: &'a [SequentialScene<'g>],
   time_ms: u64,
-) -> Option<(&'a SequentialScene<'g, N>, u64)> {
+) -> Option<(&'a SequentialScene<'g>, u64)> {
   if scenes.is_empty() {
     return None;
   }
@@ -596,10 +593,10 @@ fn apply_transform(
   *transform *= local;
 }
 
-fn get_node_mut_by_path<'a, 'g, Nodes: Node<Nodes>>(
-  root: &'a mut RenderNode<'g, Nodes>,
+fn get_node_mut_by_path<'a, 'g>(
+  root: &'a mut RenderNode<'g>,
   path: &[usize],
-) -> Option<&'a mut RenderNode<'g, Nodes>> {
+) -> Option<&'a mut RenderNode<'g>> {
   let mut current = root;
   for &index in path {
     let children = current.children.as_deref_mut()?;
@@ -624,16 +621,16 @@ fn collect_child_node_ids(
   )
 }
 
-pub(crate) fn render_node<'g, Nodes: Node<Nodes>>(
-  node: &mut RenderNode<'g, Nodes>,
+pub(crate) fn render_node<'g>(
+  node: &mut RenderNode<'g>,
   layout_results: &LayoutResults,
   node_id: NodeId,
   canvas: &mut Canvas,
   transform: Affine,
   container_size: Size<Option<f32>>,
 ) -> Result<()> {
-  fn finish_node_render<'g, Nodes: Node<Nodes>>(
-    node: &mut RenderNode<'g, Nodes>,
+  fn finish_node_render<'g>(
+    node: &mut RenderNode<'g>,
     canvas: &mut Canvas,
     has_constrain: bool,
     original_canvas_image: Option<RgbaImage>,
@@ -838,7 +835,7 @@ mod tests {
     GlobalContext,
     layout::{
       Viewport,
-      node::{ContainerNode, NodeKind},
+      node::Node,
       style::{
         AnimationDurations, AnimationFillMode, AnimationFillModes, AnimationNames, AnimationTime,
         AnimationTimingFunction, AnimationTimingFunctions, KeyframeRule, KeyframesRule, Length::Px,
@@ -848,11 +845,11 @@ mod tests {
     rendering::measure_layout,
   };
 
-  fn make_scene<'g>(global: &'g GlobalContext, duration_ms: u32) -> SequentialScene<'g, NodeKind> {
+  fn make_scene<'g>(global: &'g GlobalContext, duration_ms: u32) -> SequentialScene<'g> {
     let options_result = RenderOptionsBuilder::default()
       .global(global)
       .viewport(Viewport::new(Some(10), Some(10)))
-      .node(NodeKind::Container(ContainerNode::default()))
+      .node(Node::container([]))
       .build();
     assert!(options_result.is_ok());
     let Ok(options) = options_result else {
@@ -955,25 +952,22 @@ mod tests {
   #[test]
   fn measure_layout_supports_structured_keyframes() {
     let global = GlobalContext::default();
-    let node: NodeKind = ContainerNode::default()
-      .with_tag_name("div")
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::width(Px(100.0)))
-          .with(StyleDeclaration::animation_name(AnimationNames(
-            vec!["grow".to_string()].into(),
-          )))
-          .with(StyleDeclaration::animation_duration(AnimationDurations(
-            vec![AnimationTime::from_milliseconds(1000.0)].into(),
-          )))
-          .with(StyleDeclaration::animation_timing_function(
-            AnimationTimingFunctions(vec![AnimationTimingFunction::Linear].into()),
-          ))
-          .with(StyleDeclaration::animation_fill_mode(AnimationFillModes(
-            vec![AnimationFillMode::Both].into(),
-          ))),
-      )
-      .into();
+    let node = Node::container([]).with_tag_name("div").with_style(
+      Style::default()
+        .with(StyleDeclaration::width(Px(100.0)))
+        .with(StyleDeclaration::animation_name(AnimationNames(
+          vec!["grow".to_string()].into(),
+        )))
+        .with(StyleDeclaration::animation_duration(AnimationDurations(
+          vec![AnimationTime::from_milliseconds(1000.0)].into(),
+        )))
+        .with(StyleDeclaration::animation_timing_function(
+          AnimationTimingFunctions(vec![AnimationTimingFunction::Linear].into()),
+        ))
+        .with(StyleDeclaration::animation_fill_mode(AnimationFillModes(
+          vec![AnimationFillMode::Both].into(),
+        ))),
+    );
 
     let options_result = RenderOptionsBuilder::default()
       .global(&global)

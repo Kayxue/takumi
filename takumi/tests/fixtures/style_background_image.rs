@@ -1,5 +1,5 @@
 use takumi::layout::{
-  node::{ContainerNode, NodeKind},
+  node::Node,
   style::{Length::*, *},
 };
 
@@ -9,8 +9,8 @@ fn centered_background_position() -> BackgroundPositions {
   BackgroundPositions::from_str("center center").unwrap()
 }
 
-fn create_container(background_images: BackgroundImages) -> ContainerNode<NodeKind> {
-  ContainerNode::default().with_style(
+fn create_container(background_images: BackgroundImages) -> Node {
+  Node::container([]).with_style(
     Style::default()
       .with(StyleDeclaration::width(Percentage(100.0)))
       .with(StyleDeclaration::height(Percentage(100.0)))
@@ -26,8 +26,8 @@ fn create_container_with(
   background_size: Option<BackgroundSizes>,
   background_position: Option<BackgroundPositions>,
   background_repeat: Option<BackgroundRepeats>,
-) -> ContainerNode<NodeKind> {
-  ContainerNode::default().with_style(
+) -> Node {
+  Node::container([]).with_style(
     Style::default()
       .with(StyleDeclaration::width(Percentage(100.0)))
       .with(StyleDeclaration::height(Percentage(100.0)))
@@ -66,7 +66,7 @@ fn test_style_background_image_gradient() {
       ))),
   );
 
-  run_fixture_test(container.into(), "style_background_image_gradient");
+  run_fixture_test(container, "style_background_image_gradient");
 }
 
 #[test]
@@ -76,7 +76,7 @@ fn test_style_background_image_gradient_alt() {
 
   let container = create_container(background_images);
 
-  run_fixture_test(container.into(), "style_background_image_gradient_alt");
+  run_fixture_test(container, "style_background_image_gradient_alt");
 }
 
 #[test]
@@ -86,15 +86,12 @@ fn test_style_background_image_gradient_hard_stop() {
 
   let container = create_container(background_images);
 
-  run_fixture_test(
-    container.into(),
-    "style_background_image_gradient_hard_stop",
-  );
+  run_fixture_test(container, "style_background_image_gradient_hard_stop");
 }
 
 #[test]
 fn test_style_background_image_gradient_color_space_comparison() {
-  let srgb = ContainerNode::default().with_style(
+  let srgb = Node::container([]).with_style(
     Style::default()
       .with(StyleDeclaration::width(Percentage(100.0)))
       .with(StyleDeclaration::height(Percentage(100.0 / 3.0)))
@@ -103,7 +100,7 @@ fn test_style_background_image_gradient_color_space_comparison() {
       ))),
   );
 
-  let oklab = ContainerNode::default().with_style(
+  let oklab = Node::container([]).with_style(
     Style::default()
       .with(StyleDeclaration::width(Percentage(100.0)))
       .with(StyleDeclaration::height(Percentage(33.333)))
@@ -112,7 +109,7 @@ fn test_style_background_image_gradient_color_space_comparison() {
       ))),
   );
 
-  let oklch_longer = ContainerNode::default().with_style(
+  let oklch_longer = Node::container([]).with_style(
     Style::default()
       .with(StyleDeclaration::width(Percentage(100.0)))
       .with(StyleDeclaration::height(Percentage(33.334)))
@@ -122,17 +119,15 @@ fn test_style_background_image_gradient_color_space_comparison() {
       ))),
   );
 
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column)),
-    )
-    .with_children([srgb, oklab, oklch_longer]);
+  let container = Node::container([srgb, oklab, oklch_longer]).with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column)),
+  );
 
   run_fixture_test(
-    container.into(),
+    container,
     "style_background_image_gradient_color_space_comparison",
   );
 }
@@ -143,7 +138,7 @@ fn test_style_background_image_radial_basic() {
 
   let container = create_container(background_images);
 
-  run_fixture_test(container.into(), "style_background_image_radial_basic");
+  run_fixture_test(container, "style_background_image_radial_basic");
 }
 
 #[test]
@@ -152,7 +147,7 @@ fn test_style_background_image_radial_mixed() {
 
   let container = create_container(background_images);
 
-  run_fixture_test(container.into(), "style_background_image_radial_mixed");
+  run_fixture_test(container, "style_background_image_radial_mixed");
 }
 
 #[test]
@@ -164,7 +159,7 @@ fn test_style_background_image_conic_basic() {
 
   let container = create_container(background_images);
 
-  run_fixture_test(container.into(), "style_background_image_conic_basic");
+  run_fixture_test(container, "style_background_image_conic_basic");
 }
 
 #[test]
@@ -176,10 +171,7 @@ fn test_style_background_image_linear_radial_mixed() {
 
   let container = create_container(background_images);
 
-  run_fixture_test(
-    container.into(),
-    "style_background_image_linear_radial_mixed",
-  );
+  run_fixture_test(container, "style_background_image_linear_radial_mixed");
 }
 
 #[test]
@@ -193,10 +185,7 @@ fn test_background_no_repeat_center_with_size_px() {
     Some(BackgroundRepeats::from_str("no-repeat").unwrap()),
   );
 
-  run_fixture_test(
-    container.into(),
-    "style_background_no_repeat_center_200x120",
-  );
+  run_fixture_test(container, "style_background_no_repeat_center_200x120");
 }
 
 #[test]
@@ -210,10 +199,7 @@ fn test_background_repeat_tile_from_top_left() {
     Some(BackgroundRepeats::from_str("repeat").unwrap()),
   );
 
-  run_fixture_test(
-    container.into(),
-    "style_background_repeat_tile_from_top_left",
-  );
+  run_fixture_test(container, "style_background_repeat_tile_from_top_left");
 }
 
 #[test]
@@ -229,7 +215,7 @@ fn test_background_repeat_space() {
     Some(BackgroundRepeats::from_str("space").unwrap()),
   );
 
-  run_fixture_test(container.into(), "style_background_repeat_space");
+  run_fixture_test(container, "style_background_repeat_space");
 }
 
 #[test]
@@ -244,7 +230,7 @@ fn test_background_repeat_round() {
     Some(BackgroundRepeats::from_str("round").unwrap()),
   );
 
-  run_fixture_test(container.into(), "style_background_repeat_round");
+  run_fixture_test(container, "style_background_repeat_round");
 }
 
 #[test]
@@ -259,7 +245,7 @@ fn test_background_position_percentage_with_no_repeat() {
     Some(BackgroundRepeats::from_str("no-repeat").unwrap()),
   );
 
-  run_fixture_test(container.into(), "style_background_position_percent_25_75");
+  run_fixture_test(container, "style_background_position_percent_25_75");
 }
 
 #[test]
@@ -274,7 +260,7 @@ fn test_background_size_percentage_with_repeat() {
     Some(BackgroundRepeats::from_str("repeat").unwrap()),
   );
 
-  run_fixture_test(container.into(), "style_background_size_percent_20_20");
+  run_fixture_test(container, "style_background_size_percent_20_20");
 }
 
 #[test]
@@ -309,7 +295,7 @@ fn test_background_image_grid_pattern() {
       ))),
   );
 
-  run_fixture_test(container.into(), "style_background_image_grid_pattern");
+  run_fixture_test(container, "style_background_image_grid_pattern");
 }
 
 #[test]
@@ -344,7 +330,7 @@ fn test_background_image_noise_v1_with_gradient() {
       ))),
   );
 
-  run_fixture_test(container.into(), "style_background_image_noise_v1_blend");
+  run_fixture_test(container, "style_background_image_noise_v1_blend");
 }
 
 #[test]
@@ -379,7 +365,7 @@ fn test_background_image_dotted_pattern() {
       ))),
   );
 
-  run_fixture_test(container.into(), "style_background_image_dotted_pattern");
+  run_fixture_test(container, "style_background_image_dotted_pattern");
 }
 
 #[test]
@@ -392,7 +378,7 @@ fn test_background_size_contain() {
     Some(BackgroundRepeats::from_str("no-repeat").unwrap()),
   );
 
-  run_fixture_test(container.into(), "style_background_size_contain");
+  run_fixture_test(container, "style_background_size_contain");
 }
 
 #[test]
@@ -405,5 +391,5 @@ fn test_background_size_cover() {
     Some(BackgroundRepeats::from_str("no-repeat").unwrap()),
   );
 
-  run_fixture_test(container.into(), "style_background_size_cover");
+  run_fixture_test(container, "style_background_size_cover");
 }

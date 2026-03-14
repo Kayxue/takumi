@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_json::from_str;
 use std::borrow::Cow;
 use takumi::{
-  layout::{Viewport, node::NodeKind},
+  layout::{Viewport, node::Node},
   rendering::{DitheringAlgorithm, ImageOutputFormat, RenderOptionsBuilder, render, write_image},
 };
 use tokio::task::spawn_blocking;
@@ -29,7 +29,7 @@ pub async fn generate_image_handler(
   Query(query): Query<GenerateImageQuery>,
   State(state): AxumState,
 ) -> AxumResult<Response> {
-  let root_node: NodeKind = from_str(&query.payload).map_err(|err| {
+  let root_node: Node = from_str(&query.payload).map_err(|err| {
     (
       StatusCode::BAD_REQUEST,
       format!("Failed to parse node: {err}"),

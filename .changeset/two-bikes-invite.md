@@ -2,7 +2,7 @@
 "takumi": minor
 ---
 
-**Migrate to builder pattern for constructing nodes**
+**Migrate to pure Node struct without generic support**
 
 Before:
 
@@ -24,14 +24,12 @@ let mut node = NodeKind::Container(ContainerNode {
   tw: None,
   tag_name: None,
   class_name: None,
-  id: None,
+  id: Some("root".to_string()),
 });
 ```
 
 After:
 
 ```rust
-let node: NodeKind = ContainerNode::default()
-  .with_child(TextNode::default().with_text("Hello, world!"))
-  .into();
+let node = Node::container([Node::text("Hello, world!")]).with_id("root");
 ```

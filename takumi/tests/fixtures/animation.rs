@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use parley::GenericFamily;
 use takumi::layout::{
-  node::{ContainerNode, NodeKind, TextNode},
+  node::Node,
   style::{Length::*, *},
 };
 use takumi::rendering::{
@@ -17,7 +17,7 @@ const BOUNCING_TEXT_DURATION_MS: u32 = 900;
 const KEYFRAME_INTERPOLATION_FPS: u32 = 20;
 const KEYFRAME_INTERPOLATION_DURATION_MS: u32 = 1200;
 
-fn bouncing_text_frames() -> Vec<NodeKind> {
+fn bouncing_text_frames() -> Vec<Node> {
   let frame_count = BOUNCING_TEXT_DURATION_MS * BOUNCING_TEXT_FPS / 1000;
   let denominator = frame_count.saturating_sub(1).max(1) as f32;
   (0..frame_count)
@@ -31,95 +31,76 @@ fn bouncing_text_frames() -> Vec<NodeKind> {
     .collect()
 }
 
-fn bouncing_text_node(y_offset: f32) -> NodeKind {
-  ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center)),
-    )
-    .with_children([ContainerNode::default()
-      .with_style(Style::default().with(StyleDeclaration::transform(Some(
-        [Transform::Translate(Px(0.0), Px(y_offset))].into(),
-      ))))
-      .with_children([bouncing_text_label()])])
-    .into()
+fn bouncing_text_node(y_offset: f32) -> Node {
+  Node::container([
+    Node::container([bouncing_text_label()]).with_style(Style::default().with(
+      StyleDeclaration::transform(Some([Transform::Translate(Px(0.0), Px(y_offset))].into())),
+    )),
+  ])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center)),
+  )
 }
 
-fn bouncing_text_label() -> TextNode {
-  TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::font_size(Px(56.0).into()))
-        .with(StyleDeclaration::font_family(
-          GenericFamily::Monospace.into(),
-        ))
-        .with(StyleDeclaration::font_weight(FontWeight::from(700.0)))
-        .with(StyleDeclaration::color(ColorInput::Value(Color([
-          10, 10, 10, 255,
-        ])))),
-    )
-    .with_text("Takumi Renders Animated image 🔥".to_string())
+fn bouncing_text_label() -> Node {
+  Node::text("Takumi Renders Animated image 🔥".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::font_size(Px(56.0).into()))
+      .with(StyleDeclaration::font_family(
+        GenericFamily::Monospace.into(),
+      ))
+      .with(StyleDeclaration::font_weight(FontWeight::from(700.0)))
+      .with(StyleDeclaration::color(ColorInput::Value(Color([
+        10, 10, 10, 255,
+      ])))),
+  )
 }
 
-fn keyframe_interpolation_node() -> NodeKind {
-  let stage_children: Vec<NodeKind> = vec![
-    TextNode::default()
+fn keyframe_interpolation_node() -> Node {
+  let stage_children: Vec<Node> = vec![
+    Node::text("Stylesheet keyframes".to_string())
       .with_tag_name("p")
-      .with_class_name("eyebrow")
-      .with_text("Stylesheet keyframes".to_string())
-      .into(),
-    ContainerNode::default()
-      .with_tag_name("div")
-      .with_class_name("track")
-      .with_child(
-        ContainerNode::default()
-          .with_tag_name("div")
-          .with_class_name("chip")
-          .with_child(
-            TextNode::default()
-              .with_tag_name("span")
-              .with_class_name("label")
-              .with_text("Takumi".to_string()),
-          ),
-      )
-      .into(),
+      .with_class_name("eyebrow"),
+    Node::container([Node::container([Node::text("Takumi".to_string())
+      .with_tag_name("span")
+      .with_class_name("label")])
+    .with_tag_name("div")
+    .with_class_name("chip")])
+    .with_tag_name("div")
+    .with_class_name("track"),
   ];
 
-  ContainerNode::default()
-    .with_tag_name("div")
-    .with_class_name("root")
+  Node::container([Node::container(stage_children)
+    .with_tag_name("section")
+    .with_class_name("stage")
     .with_style(
       Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
         .with(StyleDeclaration::display(Display::Flex))
+        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
         .with(StyleDeclaration::justify_content(JustifyContent::Center))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([242, 244, 247, 255]),
-        ))),
-    )
-    .with_child(
-      ContainerNode::default()
-        .with_tag_name("section")
-        .with_class_name("stage")
-        .with_style(
-          Style::default()
-            .with(StyleDeclaration::display(Display::Flex))
-            .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-            .with(StyleDeclaration::justify_content(JustifyContent::Center))
-            .with(StyleDeclaration::align_items(AlignItems::Center)),
-        )
-        .with_children(stage_children),
-    )
-    .into()
+        .with(StyleDeclaration::align_items(AlignItems::Center)),
+    )])
+  .with_tag_name("div")
+  .with_class_name("root")
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([242, 244, 247, 255]),
+      ))),
+  )
 }
 
 fn keyframe_interpolation_frames() -> Vec<AnimationFrame> {
@@ -132,7 +113,7 @@ fn keyframe_interpolation_frames() -> Vec<AnimationFrame> {
   render_sequence_animation(&[scene], KEYFRAME_INTERPOLATION_FPS).unwrap()
 }
 
-fn keyframe_interpolation_options() -> RenderOptions<'static, NodeKind> {
+fn keyframe_interpolation_options() -> RenderOptions<'static> {
   let stylesheet_result = StyleSheet::parse(keyframe_interpolation_stylesheet());
   assert!(
     stylesheet_result.is_ok(),

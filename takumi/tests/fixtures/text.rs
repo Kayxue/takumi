@@ -1,7 +1,7 @@
 use parley::FontVariation;
 use swash::tag_from_bytes;
 use takumi::layout::{
-  node::{ContainerNode, NodeKind, TextNode},
+  node::Node,
   style::{Length::*, *},
 };
 
@@ -10,53 +10,48 @@ use crate::test_utils::run_fixture_test;
 // Basic text render with defaults
 #[test]
 fn text_basic() {
-  let text = TextNode::default()
+  let text = Node::text("The quick brown fox jumps over the lazy dog 12345".to_string())
     .with_style(
       Style::default().with(StyleDeclaration::background_color(ColorInput::Value(
         Color([240, 240, 240, 255]),
       ))),
-    )
-    .with_text("The quick brown fox jumps over the lazy dog 12345".to_string());
+    );
 
-  run_fixture_test(text.into(), "text_basic");
+  run_fixture_test(text, "text_basic");
 }
 
 #[test]
 fn text_typography_regular_24px() {
-  let text = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::font_size(Px(24.0).into())),
-    )
-    .with_text("Regular 24px".to_string());
+  let text = Node::text("Regular 24px".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::font_size(Px(24.0).into())),
+  );
 
-  run_fixture_test(text.into(), "text_typography_regular_24px");
+  run_fixture_test(text, "text_typography_regular_24px");
 }
 
 #[test]
 fn text_typography_variable_width() {
   const WIDTHS: &[f32] = &[60.0, 100.0, 130.0];
 
-  let nodes: Vec<NodeKind> = WIDTHS
+  let nodes: Vec<Node> = WIDTHS
     .iter()
     .map(|width| {
-      TextNode::default()
-        .with_style(
-          Style::default().with(StyleDeclaration::font_variation_settings(Box::new([
-            FontVariation {
-              tag: tag_from_bytes(b"wdth"),
-              value: *width,
-            },
-          ]))),
-        )
-        .with_text(format!(
-          "Hello world, this is a test of the variable width font: {}%",
-          width
-        ))
-        .into()
+      Node::text(format!(
+        "Hello world, this is a test of the variable width font: {}%",
+        width
+      ))
+      .with_style(
+        Style::default().with(StyleDeclaration::font_variation_settings(Box::new([
+          FontVariation {
+            tag: tag_from_bytes(b"wdth"),
+            value: *width,
+          },
+        ]))),
+      )
     })
     .collect::<Vec<_>>();
 
@@ -64,225 +59,195 @@ fn text_typography_variable_width() {
     unreachable!()
   };
 
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::font_family(family))
-        .with(StyleDeclaration::font_size(Px(48.0).into()))
-        .with(StyleDeclaration::flex_wrap(FlexWrap::Wrap))
-        .with(StyleDeclaration::row_gap(Px(48.0)))
-        .with(StyleDeclaration::width(Percentage(100.0))),
-    )
-    .with_children(nodes.into_boxed_slice());
+  let container = Node::container(nodes.into_boxed_slice()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::font_family(family))
+      .with(StyleDeclaration::font_size(Px(48.0).into()))
+      .with(StyleDeclaration::flex_wrap(FlexWrap::Wrap))
+      .with(StyleDeclaration::row_gap(Px(48.0)))
+      .with(StyleDeclaration::width(Percentage(100.0))),
+  );
 
-  run_fixture_test(container.into(), "text_typography_variable_width");
+  run_fixture_test(container, "text_typography_variable_width");
 }
 
 #[test]
 fn text_typography_variable_weight() {
-  let nodes: Vec<NodeKind> = (400..=900)
+  let nodes: Vec<Node> = (400..=900)
     .step_by(50)
     .map(|weight| {
-      TextNode::default()
-        .with_style(
-          Style::default()
-            .with(StyleDeclaration::font_size(Px(48.0).into()))
-            .with(StyleDeclaration::font_weight(FontWeight::from(
-              weight as f32,
-            ))),
-        )
-        .with_text(weight.to_string())
-        .into()
+      Node::text(weight.to_string()).with_style(
+        Style::default()
+          .with(StyleDeclaration::font_size(Px(48.0).into()))
+          .with(StyleDeclaration::font_weight(FontWeight::from(
+            weight as f32,
+          ))),
+      )
     })
     .collect();
 
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::font_size(Px(24.0).into()))
-        .with_gap(SpacePair::from_reversed_pair(Px(0.0), Px(24.0)))
-        .with(StyleDeclaration::flex_wrap(FlexWrap::Wrap)),
-    )
-    .with_children(nodes.into_boxed_slice());
+  let container = Node::container(nodes.into_boxed_slice()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::font_size(Px(24.0).into()))
+      .with_gap(SpacePair::from_reversed_pair(Px(0.0), Px(24.0)))
+      .with(StyleDeclaration::flex_wrap(FlexWrap::Wrap)),
+  );
 
-  run_fixture_test(container.into(), "text_typography_variable_weight");
+  run_fixture_test(container, "text_typography_variable_weight");
 }
 
 #[test]
 fn text_typography_medium_weight_500() {
-  let text = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::font_size(Px(24.0).into()))
-        .with(StyleDeclaration::font_weight(FontWeight::from(500.0))),
-    )
-    .with_text("Medium 24px".to_string());
+  let text = Node::text("Medium 24px".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::font_size(Px(24.0).into()))
+      .with(StyleDeclaration::font_weight(FontWeight::from(500.0))),
+  );
 
-  run_fixture_test(text.into(), "text_typography_medium_weight_500");
+  run_fixture_test(text, "text_typography_medium_weight_500");
 }
 
 #[test]
 fn text_typography_line_height_40px() {
-  let text = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::font_size(Px(24.0).into()))
-        .with(StyleDeclaration::line_height(LineHeight::Length(Px(40.0)))),
-    )
-    .with_text("Line height 40px".to_string());
+  let text = Node::text("Line height 40px".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::font_size(Px(24.0).into()))
+      .with(StyleDeclaration::line_height(LineHeight::Length(Px(40.0)))),
+  );
 
-  run_fixture_test(text.into(), "text_typography_line_height_40px");
+  run_fixture_test(text, "text_typography_line_height_40px");
 }
 
 #[test]
 fn text_typography_letter_spacing_2px() {
-  let text = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::font_size(Px(24.0).into()))
-        .with(StyleDeclaration::letter_spacing(Px(2.0))),
-    )
-    .with_text("Letter spacing 2px".to_string());
+  let text = Node::text("Letter spacing 2px".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::font_size(Px(24.0).into()))
+      .with(StyleDeclaration::letter_spacing(Px(2.0))),
+  );
 
-  run_fixture_test(text.into(), "text_typography_letter_spacing_2px");
+  run_fixture_test(text, "text_typography_letter_spacing_2px");
 }
 
 #[test]
 fn text_align_start() {
-  let text = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::display(Display::Block))
-        .with(StyleDeclaration::font_size(Px(24.0).into()))
-        .with(StyleDeclaration::text_align(TextAlign::Start)),
-    )
-    .with_text("Start aligned".to_string());
+  let text = Node::text("Start aligned".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::display(Display::Block))
+      .with(StyleDeclaration::font_size(Px(24.0).into()))
+      .with(StyleDeclaration::text_align(TextAlign::Start)),
+  );
 
-  run_fixture_test(text.into(), "text_align_start");
+  run_fixture_test(text, "text_align_start");
 }
 
 #[test]
 fn text_align_center() {
-  let text = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::display(Display::Block))
-        .with(StyleDeclaration::font_size(Px(24.0).into()))
-        .with(StyleDeclaration::text_align(TextAlign::Center)),
-    )
-    .with_text("Center aligned".to_string());
+  let text = Node::text("Center aligned".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::display(Display::Block))
+      .with(StyleDeclaration::font_size(Px(24.0).into()))
+      .with(StyleDeclaration::text_align(TextAlign::Center)),
+  );
 
-  run_fixture_test(text.into(), "text_align_center");
+  run_fixture_test(text, "text_align_center");
 }
 
 #[test]
 fn text_align_right() {
-  let text = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::display(Display::Block))
-        .with(StyleDeclaration::font_size(Px(24.0).into()))
-        .with(StyleDeclaration::text_align(TextAlign::Right)),
-    )
-    .with_text("Right aligned".to_string());
+  let text = Node::text("Right aligned".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::display(Display::Block))
+      .with(StyleDeclaration::font_size(Px(24.0).into()))
+      .with(StyleDeclaration::text_align(TextAlign::Right)),
+  );
 
-  run_fixture_test(text.into(), "text_align_right");
+  run_fixture_test(text, "text_align_right");
 }
 
 #[test]
 fn text_ellipsis_line_clamp_2() {
   let long_text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.";
 
-  let text = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::font_size(Px(48.0).into()))
-        .with(StyleDeclaration::text_overflow(TextOverflow::Ellipsis))
-        .with(StyleDeclaration::line_clamp(Some(2.into()))),
-    )
-    .with_text(long_text.to_string());
+  let text = Node::text(long_text.to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::font_size(Px(48.0).into()))
+      .with(StyleDeclaration::text_overflow(TextOverflow::Ellipsis))
+      .with(StyleDeclaration::line_clamp(Some(2.into()))),
+  );
 
-  run_fixture_test(text.into(), "text_ellipsis_line_clamp_2");
+  run_fixture_test(text, "text_ellipsis_line_clamp_2");
 }
 
 #[test]
 fn text_transform_all() {
-  let container = ContainerNode::default()
-    .with_style(
+  let container = Node::container([
+    Node::text("None: The quick Brown Fox".to_string()).with_style(
       Style::default()
         .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        ))),
-    )
-    .with_children([
-      TextNode::default()
-        .with_style(
-          Style::default()
-            .with(StyleDeclaration::width(Percentage(100.0)))
-            .with(StyleDeclaration::font_size(Px(28.0).into()))
-            .with(StyleDeclaration::text_transform(TextTransform::None)),
-        )
-        .with_text("None: The quick Brown Fox".to_string()),
-      TextNode::default()
-        .with_style(
-          Style::default()
-            .with(StyleDeclaration::width(Percentage(100.0)))
-            .with(StyleDeclaration::font_size(Px(28.0).into()))
-            .with(StyleDeclaration::text_transform(TextTransform::Uppercase)),
-        )
-        .with_text("Uppercase: The quick Brown Fox".to_string()),
-      TextNode::default()
-        .with_style(
-          Style::default()
-            .with(StyleDeclaration::width(Percentage(100.0)))
-            .with(StyleDeclaration::font_size(Px(28.0).into()))
-            .with(StyleDeclaration::text_transform(TextTransform::Lowercase)),
-        )
-        .with_text("Lowercase: The QUICK Brown FOX".to_string()),
-      TextNode::default()
-        .with_style(
-          Style::default()
-            .with(StyleDeclaration::width(Percentage(100.0)))
-            .with(StyleDeclaration::font_size(Px(28.0).into()))
-            .with(StyleDeclaration::text_transform(TextTransform::Capitalize)),
-        )
-        .with_text("Capitalize: the quick brown fox".to_string()),
-    ]);
+        .with(StyleDeclaration::font_size(Px(28.0).into()))
+        .with(StyleDeclaration::text_transform(TextTransform::None)),
+    ),
+    Node::text("Uppercase: The quick Brown Fox".to_string()).with_style(
+      Style::default()
+        .with(StyleDeclaration::width(Percentage(100.0)))
+        .with(StyleDeclaration::font_size(Px(28.0).into()))
+        .with(StyleDeclaration::text_transform(TextTransform::Uppercase)),
+    ),
+    Node::text("Lowercase: The QUICK Brown FOX".to_string()).with_style(
+      Style::default()
+        .with(StyleDeclaration::width(Percentage(100.0)))
+        .with(StyleDeclaration::font_size(Px(28.0).into()))
+        .with(StyleDeclaration::text_transform(TextTransform::Lowercase)),
+    ),
+    Node::text("Capitalize: the quick brown fox".to_string()).with_style(
+      Style::default()
+        .with(StyleDeclaration::width(Percentage(100.0)))
+        .with(StyleDeclaration::font_size(Px(28.0).into()))
+        .with(StyleDeclaration::text_transform(TextTransform::Capitalize)),
+    ),
+  ])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      ))),
+  );
 
-  run_fixture_test(container.into(), "text_transform_all");
+  run_fixture_test(container, "text_transform_all");
 }
 
 #[test]
@@ -292,65 +257,61 @@ fn text_mask_image_gradient_and_emoji() {
   )
   .unwrap();
 
-  let container = ContainerNode::default()
+  let container = Node::container([Node::text("Gradient Mask Emoji: 🪓 🦊 💩".to_string())
     .with_style(
       Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::font_size(Px(72.0).into()))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center)),
-    )
-    .with_children([TextNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::background_image(Some(gradient_images)))
-          .with(StyleDeclaration::background_size(
-            BackgroundSizes::from_str("100% 100%").unwrap(),
-          ))
-          .with(StyleDeclaration::background_position(
-            BackgroundPositions::from_str("0 0").unwrap(),
-          ))
-          .with(StyleDeclaration::background_repeat(
-            BackgroundRepeats::from_str("no-repeat").unwrap(),
-          ))
-          .with(StyleDeclaration::background_clip(BackgroundClip::Text))
-          .with(StyleDeclaration::color(ColorInput::Value(
-            Color::transparent(),
-          ))),
-      )
-      .with_text("Gradient Mask Emoji: 🪓 🦊 💩".to_string())]);
+        .with(StyleDeclaration::background_image(Some(gradient_images)))
+        .with(StyleDeclaration::background_size(
+          BackgroundSizes::from_str("100% 100%").unwrap(),
+        ))
+        .with(StyleDeclaration::background_position(
+          BackgroundPositions::from_str("0 0").unwrap(),
+        ))
+        .with(StyleDeclaration::background_repeat(
+          BackgroundRepeats::from_str("no-repeat").unwrap(),
+        ))
+        .with(StyleDeclaration::background_clip(BackgroundClip::Text))
+        .with(StyleDeclaration::color(ColorInput::Value(
+          Color::transparent(),
+        ))),
+    )])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::font_size(Px(72.0).into()))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center)),
+  );
 
-  run_fixture_test(container.into(), "text_mask_image_gradient_emoji");
+  run_fixture_test(container, "text_mask_image_gradient_emoji");
 }
 
 #[test]
 fn text_stroke_black_red() {
-  let text = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::color(ColorInput::Value(Color([
-          0, 0, 0, 255,
-        ]))))
-        .with(StyleDeclaration::font_size(Px(96.0).into()))
-        .with(StyleDeclaration::font_weight(FontWeight::from(700.0)))
-        .with_padding(Sides([Px(24.0); 4]))
-        .with(StyleDeclaration::webkit_text_stroke_width(Some(Px(4.0))))
-        .with(StyleDeclaration::webkit_text_stroke_color(Some(
-          ColorInput::Value(Color([255, 0, 0, 255])),
-        ))),
-    )
-    .with_text("Red Stroke".to_string());
+  let text = Node::text("Red Stroke".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::color(ColorInput::Value(Color([
+        0, 0, 0, 255,
+      ]))))
+      .with(StyleDeclaration::font_size(Px(96.0).into()))
+      .with(StyleDeclaration::font_weight(FontWeight::from(700.0)))
+      .with_padding(Sides([Px(24.0); 4]))
+      .with(StyleDeclaration::webkit_text_stroke_width(Some(Px(4.0))))
+      .with(StyleDeclaration::webkit_text_stroke_color(Some(
+        ColorInput::Value(Color([255, 0, 0, 255])),
+      ))),
+  );
 
-  run_fixture_test(text.into(), "text_stroke_black_red");
+  run_fixture_test(text, "text_stroke_black_red");
 }
 
 #[test]
@@ -360,38 +321,34 @@ fn text_stroke_background_clip() {
   )
   .unwrap();
 
-  let text = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_image(Some(gradient_images)))
-        .with(StyleDeclaration::background_position(
-          BackgroundPositions::from_str("center center").unwrap(),
-        ))
-        .with(StyleDeclaration::background_clip(BackgroundClip::Text))
-        .with(StyleDeclaration::color(ColorInput::Value(Color::white())))
-        .with(StyleDeclaration::font_size(Px(96.0).into()))
-        .with(StyleDeclaration::font_weight(FontWeight::from(700.0)))
-        .with(StyleDeclaration::webkit_text_stroke_width(Some(Px(4.0))))
-        .with(StyleDeclaration::webkit_text_stroke_color(Some(
-          ColorInput::Value(Color::transparent()),
-        ))),
-    )
-    .with_text("Gradient Stroke".to_string());
+  let text = Node::text("Gradient Stroke".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_image(Some(gradient_images)))
+      .with(StyleDeclaration::background_position(
+        BackgroundPositions::from_str("center center").unwrap(),
+      ))
+      .with(StyleDeclaration::background_clip(BackgroundClip::Text))
+      .with(StyleDeclaration::color(ColorInput::Value(Color::white())))
+      .with(StyleDeclaration::font_size(Px(96.0).into()))
+      .with(StyleDeclaration::font_weight(FontWeight::from(700.0)))
+      .with(StyleDeclaration::webkit_text_stroke_width(Some(Px(4.0))))
+      .with(StyleDeclaration::webkit_text_stroke_color(Some(
+        ColorInput::Value(Color::transparent()),
+      ))),
+  );
 
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color::white(),
-        )))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center)),
-    )
-    .with_children([text]);
+  let container = Node::container([text]).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color::white(),
+      )))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center)),
+  );
 
-  run_fixture_test(container.into(), "text_stroke_background_clip");
+  run_fixture_test(container, "text_stroke_background_clip");
 }
 
 // Text shadow fixture
@@ -405,18 +362,16 @@ fn text_shadow() {
     color: ColorInput::Value(Color([255, 204, 0, 255])),
   }];
 
-  let text = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::font_size(Px(48.0).into()))
-        .with(StyleDeclaration::text_shadow(Some(shadows.into()))),
-    )
-    .with_text("Shadowed Text".to_string());
+  let text = Node::text("Shadowed Text".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::font_size(Px(48.0).into()))
+      .with(StyleDeclaration::text_shadow(Some(shadows.into()))),
+  );
 
-  run_fixture_test(text.into(), "text_shadow");
+  run_fixture_test(text, "text_shadow");
 }
 
 #[test]
@@ -429,117 +384,96 @@ fn text_shadow_no_blur_radius() {
     color: ColorInput::Value(Color([85, 138, 187, 255])),
   }];
 
-  let text = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::font_size(Px(72.0).into()))
-        .with(StyleDeclaration::text_shadow(Some(shadows.into()))),
-    )
-    .with_text("Shadowed Text".to_string());
+  let text = Node::text("Shadowed Text".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::font_size(Px(72.0).into()))
+      .with(StyleDeclaration::text_shadow(Some(shadows.into()))),
+  );
 
-  run_fixture_test(text.into(), "text_shadow_no_blur_radius");
+  run_fixture_test(text, "text_shadow_no_blur_radius");
 }
 
 #[test]
 fn text_wrap_nowrap() {
   let long_text = "This is a very long piece of text that should demonstrate text wrapping behavior when it exceeds the container width. The quick brown fox jumps over the lazy dog.";
 
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([255, 255, 255, 255]),
-        )))
-        .with(StyleDeclaration::font_size(Px(32.0).into()))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::display(Display::Flex))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-        .with_gap(SpacePair::from_single(Px(20.0)))
-        .with_padding(Sides([Px(20.0); 4])),
-    )
-    .with_children([
-      // Wrap text
-      TextNode::default()
-        .with_style(Style::default().with(StyleDeclaration::text_wrap_mode(TextWrapMode::Wrap)))
-        .with_text(format!("wrap: {}", long_text)),
-      TextNode::default()
-        .with_style(Style::default().with(StyleDeclaration::text_wrap_mode(TextWrapMode::NoWrap)))
-        .with_text(format!("nowrap: {}", long_text)),
-    ]);
+  let container = Node::container([
+    // Wrap text
+    Node::text(format!("wrap: {}", long_text))
+      .with_style(Style::default().with(StyleDeclaration::text_wrap_mode(TextWrapMode::Wrap))),
+    Node::text(format!("nowrap: {}", long_text))
+      .with_style(Style::default().with(StyleDeclaration::text_wrap_mode(TextWrapMode::NoWrap))),
+  ])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([255, 255, 255, 255]),
+      )))
+      .with(StyleDeclaration::font_size(Px(32.0).into()))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with_gap(SpacePair::from_single(Px(20.0)))
+      .with_padding(Sides([Px(20.0); 4])),
+  );
 
-  run_fixture_test(container.into(), "text_wrap_nowrap");
+  run_fixture_test(container, "text_wrap_nowrap");
 }
 
 #[test]
 fn text_whitespace_collapse() {
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([255, 255, 255, 255]),
-        )))
-        .with(StyleDeclaration::display(Display::Flex))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-        .with(StyleDeclaration::font_size(Px(32.0).into()))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with_gap(SpacePair::from_single(Px(20.0)))
-        .with_padding(Sides([Px(20.0); 4])),
-    )
-    .with_children([
-      TextNode::default()
-        .with_style(
-          Style::default().with(StyleDeclaration::white_space_collapse(
-            WhiteSpaceCollapse::Collapse,
-          )),
-        )
-        .with_text("collapse: Multiple    spaces   and\ttabs\t\tare    collapsed".to_string()),
-      TextNode::default()
-        .with_style(
-          Style::default().with(StyleDeclaration::white_space_collapse(
-            WhiteSpaceCollapse::Preserve,
-          )),
-        )
-        .with_text("preserve: Multiple    spaces   and\ttabs\t\tare    preserved".to_string()),
-      TextNode::default()
-        .with_style(
-          Style::default().with(StyleDeclaration::white_space_collapse(
-            WhiteSpaceCollapse::PreserveSpaces,
-          )),
-        )
-        .with_text(
-          "preserve-spaces: Multiple    spaces   preserved\nbut\nbreaks\nremoved".to_string(),
-        ),
-      TextNode::default()
-        .with_style(
-          Style::default().with(StyleDeclaration::white_space_collapse(
-            WhiteSpaceCollapse::PreserveBreaks,
-          )),
-        )
-        .with_text(
-          "preserve-breaks: Spaces    collapsed\n but\nline\nbreaks\npreserved".to_string(),
-        ),
-    ]);
+  let container = Node::container([
+    Node::text("collapse: Multiple    spaces   and\ttabs\t\tare    collapsed".to_string())
+      .with_style(
+        Style::default().with(StyleDeclaration::white_space_collapse(
+          WhiteSpaceCollapse::Collapse,
+        )),
+      ),
+    Node::text("preserve: Multiple    spaces   and\ttabs\t\tare    preserved".to_string())
+      .with_style(
+        Style::default().with(StyleDeclaration::white_space_collapse(
+          WhiteSpaceCollapse::Preserve,
+        )),
+      ),
+    Node::text("preserve-spaces: Multiple    spaces   preserved\nbut\nbreaks\nremoved".to_string())
+      .with_style(
+        Style::default().with(StyleDeclaration::white_space_collapse(
+          WhiteSpaceCollapse::PreserveSpaces,
+        )),
+      ),
+    Node::text("preserve-breaks: Spaces    collapsed\n but\nline\nbreaks\npreserved".to_string())
+      .with_style(
+        Style::default().with(StyleDeclaration::white_space_collapse(
+          WhiteSpaceCollapse::PreserveBreaks,
+        )),
+      ),
+  ])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([255, 255, 255, 255]),
+      )))
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with(StyleDeclaration::font_size(Px(32.0).into()))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with_gap(SpacePair::from_single(Px(20.0)))
+      .with_padding(Sides([Px(20.0); 4])),
+  );
 
-  run_fixture_test(container.into(), "text_whitespace_collapse");
+  run_fixture_test(container, "text_whitespace_collapse");
 }
 
 /// Handles special case where nowrap + ellipsis is used.
 #[test]
 fn text_ellipsis_text_nowrap() {
-  let container = ContainerNode::default()
-  .with_style(Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(Color([240, 240, 240, 255]))))
-        .with(StyleDeclaration::font_size(Px(48.0).into()))
-        .with_padding(Sides([Px(20.0); 4]))
-        .with_overflow(SpacePair::from_single(Overflow::Hidden))
-        .with(StyleDeclaration::width(Percentage(100.0))),)
-  .with_children([
-      TextNode::default()
+  let container = Node::container([
+      Node::text("This is a very long piece of text that should demonstrate text wrapping behavior when it exceeds the container width. The quick brown fox jumps over the lazy dog.".to_string())
   .with_style(Style::default()
             .with(StyleDeclaration::text_overflow(TextOverflow::Ellipsis))
             .with(StyleDeclaration::text_wrap_mode(TextWrapMode::NoWrap))
@@ -548,47 +482,44 @@ fn text_ellipsis_text_nowrap() {
             .with(StyleDeclaration::border_color(ColorInput::Value(Color([255, 0, 0, 255]))))
             .with(StyleDeclaration::word_break(WordBreak::BreakAll))
             .with(StyleDeclaration::width(Percentage(100.0))),)
-  .with_text("This is a very long piece of text that should demonstrate text wrapping behavior when it exceeds the container width. The quick brown fox jumps over the lazy dog.".to_string())
 
-    ]);
+    ])
+  .with_style(Style::default()
+        .with(StyleDeclaration::background_color(ColorInput::Value(Color([240, 240, 240, 255]))))
+        .with(StyleDeclaration::font_size(Px(48.0).into()))
+        .with_padding(Sides([Px(20.0); 4]))
+        .with_overflow(SpacePair::from_single(Overflow::Hidden))
+        .with(StyleDeclaration::width(Percentage(100.0))),);
 
-  run_fixture_test(container.into(), "text_ellipsis_text_nowrap");
+  run_fixture_test(container, "text_ellipsis_text_nowrap");
 }
 
 #[test]
 fn text_wrap_style_all() {
-  let children: Vec<NodeKind> = vec![
-    TextNode::default()
-      .with_style(Style::default().with(StyleDeclaration::text_wrap_style(TextWrapStyle::Auto)))
-      .with_text("Auto: The quick brown fox jumps over the lazy dog.".to_string())
-      .into(),
-    TextNode::default()
-      .with_style(Style::default().with(StyleDeclaration::text_wrap_style(TextWrapStyle::Balance)))
-      .with_text("Balance: The quick brown fox jumps over the lazy dog.".to_string())
-      .into(),
-    TextNode::default()
-      .with_style(Style::default().with(StyleDeclaration::text_wrap_style(TextWrapStyle::Pretty)))
-      .with_text("Pretty: The quick brown fox jumps over the lazy dog and catches it.".to_string())
-      .into(),
+  let children: Vec<Node> = vec![
+    Node::text("Auto: The quick brown fox jumps over the lazy dog.".to_string())
+      .with_style(Style::default().with(StyleDeclaration::text_wrap_style(TextWrapStyle::Auto))),
+    Node::text("Balance: The quick brown fox jumps over the lazy dog.".to_string())
+      .with_style(Style::default().with(StyleDeclaration::text_wrap_style(TextWrapStyle::Balance))),
+    Node::text("Pretty: The quick brown fox jumps over the lazy dog and catches it.".to_string())
+      .with_style(Style::default().with(StyleDeclaration::text_wrap_style(TextWrapStyle::Pretty))),
   ];
 
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([255, 255, 255, 255]),
-        )))
-        .with(StyleDeclaration::font_size(Px(48.0).into()))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::display(Display::Flex))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-        .with_gap(SpacePair::from_single(Px(40.0)))
-        .with_padding(Sides([Px(20.0); 4])),
-    )
-    .with_children(children);
+  let container = Node::container(children).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([255, 255, 255, 255]),
+      )))
+      .with(StyleDeclaration::font_size(Px(48.0).into()))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with_gap(SpacePair::from_single(Px(40.0)))
+      .with_padding(Sides([Px(20.0); 4])),
+  );
 
-  run_fixture_test(container.into(), "text_wrap_style_all");
+  run_fixture_test(container, "text_wrap_style_all");
 }
 
 #[test]
@@ -598,40 +529,36 @@ fn text_super_bold_stroke_background_clip() {
   )
   .unwrap();
 
-  let text = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_image(Some(gradient_images)))
-        .with(StyleDeclaration::background_position(
-          BackgroundPositions::from_str("center center").unwrap(),
-        ))
-        .with(StyleDeclaration::background_clip(BackgroundClip::Text))
-        .with(StyleDeclaration::display(Display::Block))
-        .with(StyleDeclaration::color(ColorInput::Value(Color::white())))
-        .with(StyleDeclaration::font_size(Px(120.0).into()))
-        .with(StyleDeclaration::font_weight(FontWeight::from(900.0)))
-        .with(StyleDeclaration::webkit_text_stroke_width(Some(Px(20.0))))
-        .with(StyleDeclaration::webkit_text_stroke_color(Some(
-          ColorInput::Value(Color::transparent()),
-        )))
-        .with_padding(Sides([Px(60.0); 4])),
-    )
-    .with_text("Super Bold".to_string());
+  let text = Node::text("Super Bold".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_image(Some(gradient_images)))
+      .with(StyleDeclaration::background_position(
+        BackgroundPositions::from_str("center center").unwrap(),
+      ))
+      .with(StyleDeclaration::background_clip(BackgroundClip::Text))
+      .with(StyleDeclaration::display(Display::Block))
+      .with(StyleDeclaration::color(ColorInput::Value(Color::white())))
+      .with(StyleDeclaration::font_size(Px(120.0).into()))
+      .with(StyleDeclaration::font_weight(FontWeight::from(900.0)))
+      .with(StyleDeclaration::webkit_text_stroke_width(Some(Px(20.0))))
+      .with(StyleDeclaration::webkit_text_stroke_color(Some(
+        ColorInput::Value(Color::transparent()),
+      )))
+      .with_padding(Sides([Px(60.0); 4])),
+  );
 
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color::white(),
-        )))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center)),
-    )
-    .with_children([text]);
+  let container = Node::container([text]).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color::white(),
+      )))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center)),
+  );
 
-  run_fixture_test(container.into(), "text_super_bold_stroke_background_clip");
+  run_fixture_test(container, "text_super_bold_stroke_background_clip");
 }
 
 #[test]
@@ -658,17 +585,14 @@ fn text_font_stretch() {
     ),
   ];
 
-  let nodes: Vec<NodeKind> = stretches
+  let nodes: Vec<Node> = stretches
     .iter()
     .map(|(label, stretch)| {
-      TextNode::default()
-        .with_style(
-          Style::default()
-            .with(StyleDeclaration::font_size(Px(36.0).into()))
-            .with(StyleDeclaration::font_stretch(*stretch)),
-        )
-        .with_text(format!("font-stretch: {}", label))
-        .into()
+      Node::text(format!("font-stretch: {}", label)).with_style(
+        Style::default()
+          .with(StyleDeclaration::font_size(Px(36.0).into()))
+          .with(StyleDeclaration::font_stretch(*stretch)),
+      )
     })
     .collect::<Vec<_>>();
 
@@ -676,43 +600,38 @@ fn text_font_stretch() {
     unreachable!()
   };
 
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::font_family(family))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-        .with_padding(Sides([Px(20.0); 4]))
-        .with_gap(SpacePair::from_single(Px(12.0))),
-    )
-    .with_children(nodes.into_boxed_slice());
+  let container = Node::container(nodes.into_boxed_slice()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::font_family(family))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with_padding(Sides([Px(20.0); 4]))
+      .with_gap(SpacePair::from_single(Px(12.0))),
+  );
 
-  run_fixture_test(container.into(), "text_font_stretch");
+  run_fixture_test(container, "text_font_stretch");
 }
 
 #[test]
 fn text_flex_centered_text_node_vs_nested_container() {
-  let first_box_text: NodeKind = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Px(300.0)))
-        .with(StyleDeclaration::height(Px(200.0)))
-        .with_margin(Sides([Px(0.0), Px(0.0), Px(30.0), Px(0.0)]))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color::from_str("#3b82f6").unwrap(),
-        )))
-        .with(StyleDeclaration::display(Display::Flex))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center))
-        .with(StyleDeclaration::font_size(Px(30.0).into())),
-    )
-    .with_text("centered...?".to_string())
-    .into();
+  let first_box_text: Node = Node::text("centered...?".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Px(300.0)))
+      .with(StyleDeclaration::height(Px(200.0)))
+      .with_margin(Sides([Px(0.0), Px(0.0), Px(30.0), Px(0.0)]))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color::from_str("#3b82f6").unwrap(),
+      )))
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with(StyleDeclaration::font_size(Px(30.0).into())),
+  );
 
-  let second_box_nested_text: NodeKind = ContainerNode::default()
+  let second_box_nested_text: Node = Node::container([Node::text("centered".to_string())])
     .with_style(
       Style::default()
         .with(StyleDeclaration::width(Px(300.0)))
@@ -724,38 +643,29 @@ fn text_flex_centered_text_node_vs_nested_container() {
         .with(StyleDeclaration::align_items(AlignItems::Center))
         .with(StyleDeclaration::justify_content(JustifyContent::Center))
         .with(StyleDeclaration::font_size(Px(30.0).into())),
-    )
-    .with_children([TextNode::default().with_text("centered".to_string())])
-    .into();
-
-  let root = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color::black(),
-        )))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center)),
-    )
-    .with_child(
-      ContainerNode::default()
-        .with_style(
-          Style::default()
-            .with(StyleDeclaration::display(Display::Flex))
-            .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-            .with(StyleDeclaration::align_items(AlignItems::Center))
-            .with(StyleDeclaration::justify_content(JustifyContent::Center))
-            .with(StyleDeclaration::color(ColorInput::Value(Color::white()))),
-        )
-        .with_children([first_box_text, second_box_nested_text]),
     );
 
-  run_fixture_test(
-    root.into(),
-    "text_flex_centered_text_node_vs_nested_container",
+  let root = Node::container([Node::container([first_box_text, second_box_nested_text])
+    .with_style(
+      Style::default()
+        .with(StyleDeclaration::display(Display::Flex))
+        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+        .with(StyleDeclaration::align_items(AlignItems::Center))
+        .with(StyleDeclaration::justify_content(JustifyContent::Center))
+        .with(StyleDeclaration::color(ColorInput::Value(Color::white()))),
+    )])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color::black(),
+      )))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center)),
   );
+
+  run_fixture_test(root, "text_flex_centered_text_node_vs_nested_container");
 }
 
 #[test]
@@ -764,36 +674,31 @@ fn text_font_synthesis_weight_auto_none() {
     unreachable!()
   };
 
-  let nodes: Vec<NodeKind> = [("auto", FontSynthesic::Auto), ("none", FontSynthesic::None)]
+  let nodes: Vec<Node> = [("auto", FontSynthesic::Auto), ("none", FontSynthesic::None)]
     .iter()
     .map(|(label, synthesis_weight)| {
-      TextNode::default()
-        .with_style(
-          Style::default()
-            .with(StyleDeclaration::font_size(Px(72.0).into()))
-            .with(StyleDeclaration::font_family(family.clone()))
-            .with(StyleDeclaration::font_weight(FontWeight::from(900.0)))
-            .with(StyleDeclaration::font_synthesis_weight(*synthesis_weight)),
-        )
-        .with_text(format!("font-synthesis-weight: {} - السلام عليكم", label))
-        .into()
+      Node::text(format!("font-synthesis-weight: {} - السلام عليكم", label)).with_style(
+        Style::default()
+          .with(StyleDeclaration::font_size(Px(72.0).into()))
+          .with(StyleDeclaration::font_family(family.clone()))
+          .with(StyleDeclaration::font_weight(FontWeight::from(900.0)))
+          .with(StyleDeclaration::font_synthesis_weight(*synthesis_weight)),
+      )
     })
     .collect::<Vec<_>>();
 
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-        .with_padding(Sides([Px(20.0); 4]))
-        .with_gap(SpacePair::from_single(Px(12.0))),
-    )
-    .with_children(nodes.into_boxed_slice());
+  let container = Node::container(nodes.into_boxed_slice()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with_padding(Sides([Px(20.0); 4]))
+      .with_gap(SpacePair::from_single(Px(12.0))),
+  );
 
-  run_fixture_test(container.into(), "text_font_synthesis_weight_auto_none");
+  run_fixture_test(container, "text_font_synthesis_weight_auto_none");
 }
 
 #[test]
@@ -802,36 +707,31 @@ fn text_font_synthesis_style_auto_none() {
     unreachable!()
   };
 
-  let nodes: Vec<NodeKind> = [("auto", FontSynthesic::Auto), ("none", FontSynthesic::None)]
+  let nodes: Vec<Node> = [("auto", FontSynthesic::Auto), ("none", FontSynthesic::None)]
     .iter()
     .map(|(label, synthesis_style)| {
-      TextNode::default()
-        .with_style(
-          Style::default()
-            .with(StyleDeclaration::font_size(Px(72.0).into()))
-            .with(StyleDeclaration::font_family(family.clone()))
-            .with(StyleDeclaration::font_style(FontStyle::italic()))
-            .with(StyleDeclaration::font_synthesis_style(*synthesis_style)),
-        )
-        .with_text(format!("font-synthesis-style: {} - السلام عليكم", label))
-        .into()
+      Node::text(format!("font-synthesis-style: {} - السلام عليكم", label)).with_style(
+        Style::default()
+          .with(StyleDeclaration::font_size(Px(72.0).into()))
+          .with(StyleDeclaration::font_family(family.clone()))
+          .with(StyleDeclaration::font_style(FontStyle::italic()))
+          .with(StyleDeclaration::font_synthesis_style(*synthesis_style)),
+      )
     })
     .collect::<Vec<_>>();
 
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-        .with_padding(Sides([Px(20.0); 4]))
-        .with_gap(SpacePair::from_single(Px(12.0))),
-    )
-    .with_children(nodes.into_boxed_slice());
+  let container = Node::container(nodes.into_boxed_slice()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with_padding(Sides([Px(20.0); 4]))
+      .with_gap(SpacePair::from_single(Px(12.0))),
+  );
 
-  run_fixture_test(container.into(), "text_font_synthesis_style_auto_none");
+  run_fixture_test(container, "text_font_synthesis_style_auto_none");
 }
 
 #[test]
@@ -840,7 +740,7 @@ fn text_font_synthesis_weight_emoji() {
     unreachable!()
   };
 
-  let nodes: Vec<NodeKind> = [
+  let nodes: Vec<Node> = [
     (
       "auto",
       FontSynthesis {
@@ -858,34 +758,29 @@ fn text_font_synthesis_weight_emoji() {
   ]
   .iter()
   .map(|(label, synthesis)| {
-    TextNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::font_size(Px(72.0).into()))
-          .with(StyleDeclaration::font_family(family.clone()))
-          .with(StyleDeclaration::font_weight(FontWeight::from(900.0)))
-          .with(StyleDeclaration::font_style(FontStyle::italic()))
-          .with_font_synthesis(*synthesis),
-      )
-      .with_text(format!("font-synthesis: {} - Takumi 😀 😺 🧪", label))
-      .into()
+    Node::text(format!("font-synthesis: {} - Takumi 😀 😺 🧪", label)).with_style(
+      Style::default()
+        .with(StyleDeclaration::font_size(Px(72.0).into()))
+        .with(StyleDeclaration::font_family(family.clone()))
+        .with(StyleDeclaration::font_weight(FontWeight::from(900.0)))
+        .with(StyleDeclaration::font_style(FontStyle::italic()))
+        .with_font_synthesis(*synthesis),
+    )
   })
   .collect::<Vec<_>>();
 
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-        .with_padding(Sides([Px(20.0); 4]))
-        .with_gap(SpacePair::from_single(Px(12.0))),
-    )
-    .with_children(nodes.into_boxed_slice());
+  let container = Node::container(nodes.into_boxed_slice()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with_padding(Sides([Px(20.0); 4]))
+      .with_gap(SpacePair::from_single(Px(12.0))),
+  );
 
-  run_fixture_test(container.into(), "text_font_synthesis_weight_emoji");
+  run_fixture_test(container, "text_font_synthesis_weight_emoji");
 }
 
 #[test]
@@ -896,71 +791,65 @@ fn text_chinese_ellipsis() {
     unreachable!()
   };
 
-  let node = TextNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::font_size(Px(64.0).into()))
-        .with_padding(Sides::from(Px(24.0)))
-        .with(StyleDeclaration::font_family(family))
-        .with(StyleDeclaration::text_overflow(TextOverflow::Ellipsis)),
-    )
-    .with_text(text.to_string());
+  let node = Node::text(text.to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::font_size(Px(64.0).into()))
+      .with_padding(Sides::from(Px(24.0)))
+      .with(StyleDeclaration::font_family(family))
+      .with(StyleDeclaration::text_overflow(TextOverflow::Ellipsis)),
+  );
 
-  run_fixture_test(node.into(), "text_chinese_ellipsis");
+  run_fixture_test(node, "text_chinese_ellipsis");
 }
 
 #[test]
 fn text_devanagari_noto_sans() {
-  fn create_node(weight: f32, font_family: &str) -> TextNode {
+  fn create_node(weight: f32, font_family: &str) -> Node {
     let text = "नमस्ते दुनिया, यह देवनागरी लिपि का एक परीक्षण है।";
 
     let Ok(family) = FontFamily::from_str(font_family) else {
       unreachable!()
     };
 
-    TextNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::width(Percentage(100.0)))
-          .with(StyleDeclaration::height(Percentage(100.0)))
-          .with(StyleDeclaration::background_color(ColorInput::Value(
-            Color([240, 240, 240, 255]),
-          )))
-          .with(StyleDeclaration::font_size(Px(48.0).into()))
-          .with_padding(Sides::from(Px(24.0)))
-          .with(StyleDeclaration::font_family(family))
-          .with(StyleDeclaration::font_weight(FontWeight::from(weight))),
-      )
-      .with_text(text)
+    Node::text(text).with_style(
+      Style::default()
+        .with(StyleDeclaration::width(Percentage(100.0)))
+        .with(StyleDeclaration::height(Percentage(100.0)))
+        .with(StyleDeclaration::background_color(ColorInput::Value(
+          Color([240, 240, 240, 255]),
+        )))
+        .with(StyleDeclaration::font_size(Px(48.0).into()))
+        .with_padding(Sides::from(Px(24.0)))
+        .with(StyleDeclaration::font_family(family))
+        .with(StyleDeclaration::font_weight(FontWeight::from(weight))),
+    )
   }
 
-  let nodes: Vec<NodeKind> = [
+  let nodes: Vec<Node> = [
     (400.0, "Noto Sans Devanagari"),
     (700.0, "Noto Sans Devanagari"),
     (400.0, "Poppins"),
     (700.0, "Poppins Bold"),
   ]
   .iter()
-  .map(|(weight, font_family)| create_node(*weight, font_family).into())
+  .map(|(weight, font_family)| create_node(*weight, font_family))
   .collect::<Vec<_>>();
 
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-        .with_padding(Sides([Px(20.0); 4]))
-        .with_gap(SpacePair::from_single(Px(12.0))),
-    )
-    .with_children(nodes.into_boxed_slice());
+  let container = Node::container(nodes.into_boxed_slice()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with_padding(Sides([Px(20.0); 4]))
+      .with_gap(SpacePair::from_single(Px(12.0))),
+  );
 
-  run_fixture_test(container.into(), "text_devanagari_noto_sans");
+  run_fixture_test(container, "text_devanagari_noto_sans");
 }

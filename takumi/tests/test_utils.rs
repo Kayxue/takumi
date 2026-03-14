@@ -11,7 +11,7 @@ use parley::{GenericFamily, fontique::FontInfoOverride};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use takumi::{
   GlobalContext,
-  layout::{DEFAULT_FONT_SIZE, Viewport, node::NodeKind},
+  layout::{DEFAULT_FONT_SIZE, Viewport, node::Node},
   rendering::{
     AnimatedGifOptions, AnimatedPngOptions, AnimatedWebpOptions, AnimationFrame, ImageOutputFormat,
     RenderOptions, RenderOptionsBuilder, encode_animated_gif, encode_animated_png,
@@ -160,7 +160,7 @@ pub fn create_test_viewport() -> Viewport {
 pub static CONTEXT: LazyLock<GlobalContext> = LazyLock::new(create_test_context);
 
 #[allow(dead_code)]
-pub fn run_fixture_test(node: NodeKind, fixture_name: &str) {
+pub fn run_fixture_test(node: Node, fixture_name: &str) {
   let viewport = create_test_viewport();
   let options = RenderOptionsBuilder::default()
     .viewport(viewport)
@@ -173,7 +173,7 @@ pub fn run_fixture_test(node: NodeKind, fixture_name: &str) {
 }
 
 #[allow(dead_code)]
-pub fn run_fixture_test_with_options(options: RenderOptions<'_, NodeKind>, fixture_name: &str) {
+pub fn run_fixture_test_with_options(options: RenderOptions<'_>, fixture_name: &str) {
   let image = render(options).unwrap();
 
   save_image(
@@ -264,7 +264,7 @@ impl IntoAnimationFixtureFrames<'_> for Vec<AnimationFrame> {
   }
 }
 
-impl IntoAnimationFixtureFrames<'_> for Vec<NodeKind> {
+impl IntoAnimationFixtureFrames<'_> for Vec<Node> {
   fn into_frames(self, frame_duration_ms: u32) -> Vec<AnimationFrame> {
     let viewport = create_test_viewport();
 
@@ -291,7 +291,7 @@ impl IntoAnimationFixtureFrames<'_> for Vec<NodeKind> {
   }
 }
 
-impl<'g> IntoAnimationFixtureFrames<'g> for Vec<RenderOptions<'g, NodeKind>> {
+impl<'g> IntoAnimationFixtureFrames<'g> for Vec<RenderOptions<'g>> {
   fn into_frames(self, frame_duration_ms: u32) -> Vec<AnimationFrame> {
     build_animation_frames(
       self
@@ -302,7 +302,7 @@ impl<'g> IntoAnimationFixtureFrames<'g> for Vec<RenderOptions<'g, NodeKind>> {
   }
 }
 
-fn build_animation_frames(options: Vec<(RenderOptions<'_, NodeKind>, u32)>) -> Vec<AnimationFrame> {
+fn build_animation_frames(options: Vec<(RenderOptions<'_>, u32)>) -> Vec<AnimationFrame> {
   options
     .into_par_iter()
     .map(|(options, duration_ms)| AnimationFrame::new(render(options).unwrap(), duration_ms))

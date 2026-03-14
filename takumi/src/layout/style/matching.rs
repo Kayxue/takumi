@@ -13,17 +13,43 @@ use selectors::{
 
 use crate::layout::{
   Viewport,
-  node::Node,
+  node::{Node, NodeMetadata},
   style::{
     StyleDeclarationBlock,
     selector::{CssRule, StyleSheet, TakumiIdent, TakumiSelectorImpl},
   },
 };
 
-pub(crate) struct StyleArena<'a, N: Node<N>> {
+pub(crate) trait MatchNode: Sized + Clone {
+  fn metadata(&self) -> &NodeMetadata;
+  fn children_ref(&self) -> Option<&[Self]> {
+    None
+  }
+  fn tag_name(&self) -> Option<&str> {
+    self.metadata().tag_name.as_deref()
+  }
+  fn class_name(&self) -> Option<&str> {
+    self.metadata().class_name.as_deref()
+  }
+  fn id(&self) -> Option<&str> {
+    self.metadata().id.as_deref()
+  }
+}
+
+impl MatchNode for Node {
+  fn metadata(&self) -> &NodeMetadata {
+    &self.metadata
+  }
+
+  fn children_ref(&self) -> Option<&[Self]> {
+    self.children_ref()
+  }
+}
+
+pub(crate) struct StyleArena<'a, N: MatchNode> {
   pub nodes: Vec<StyleNode<'a, N>>,
 }
-pub(crate) struct StyleNode<'a, N: Node<N>> {
+pub(crate) struct StyleNode<'a, N: MatchNode> {
   pub node: &'a N,
   pub parent: Option<usize>,
   pub prev_sibling: Option<usize>,
@@ -31,12 +57,12 @@ pub(crate) struct StyleNode<'a, N: Node<N>> {
   pub first_child: Option<usize>,
 }
 #[derive(Clone, Copy)]
-pub(crate) struct ArenaElement<'a, N: Node<N>> {
+pub(crate) struct ArenaElement<'a, N: MatchNode> {
   pub tree: &'a StyleArena<'a, N>,
   pub index: usize,
 }
 
-impl<N: Node<N>> fmt::Debug for ArenaElement<'_, N> {
+impl<N: MatchNode> fmt::Debug for ArenaElement<'_, N> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.debug_struct("ArenaElement")
       .field("index", &self.index)
@@ -44,7 +70,7 @@ impl<N: Node<N>> fmt::Debug for ArenaElement<'_, N> {
   }
 }
 
-impl<'a, N: Node<N>> StyleArena<'a, N> {
+impl<'a, N: MatchNode> StyleArena<'a, N> {
   pub fn new(root: &'a N) -> Self {
     let mut arena = StyleArena { nodes: Vec::new() };
     arena.add_node(root, None, None);
@@ -52,7 +78,7 @@ impl<'a, N: Node<N>> StyleArena<'a, N> {
   }
 
   fn add_node(&mut self, node: &'a N, parent: Option<usize>, prev_sibling: Option<usize>) -> usize {
-    struct ChildFrame<'a, N: Node<N>> {
+    struct ChildFrame<'a, N: MatchNode> {
       parent_index: usize,
       children: &'a [N],
       next_child: usize,
@@ -132,7 +158,7 @@ fn hash_ascii_case_insensitive(value: &str) -> u32 {
   hash
 }
 
-fn add_node_unique_hashes_to_filter<N: Node<N>>(node: &N, filter: &mut BloomFilter) -> bool {
+fn add_node_unique_hashes_to_filter<N: MatchNode>(node: &N, filter: &mut BloomFilter) -> bool {
   let mut added = false;
 
   if let Some(tag) = node.tag_name() {
@@ -155,7 +181,7 @@ fn add_node_unique_hashes_to_filter<N: Node<N>>(node: &N, filter: &mut BloomFilt
   added
 }
 
-impl<'a, N: Node<N>> Element for ArenaElement<'a, N> {
+impl<'a, N: MatchNode> Element for ArenaElement<'a, N> {
   type Impl = TakumiSelectorImpl;
 
   fn opaque(&self) -> OpaqueElement {
@@ -318,7 +344,7 @@ struct MatchedRule<'a> {
   declarations: &'a StyleDeclarationBlock,
 }
 
-pub(crate) fn match_stylesheets<N: Node<N>>(
+pub(crate) fn match_stylesheets<N: MatchNode>(
   root: &N,
   stylesheet: &StyleSheet,
   viewport: Viewport,
@@ -438,7 +464,7 @@ mod tests {
   use crate::layout::style::StyleSheet;
   use crate::layout::{
     Viewport,
-    node::{Node, NodeMetadata, NodeStyleLayers},
+    node::NodeMetadata,
     style::{ComputedStyle, Length, Style},
   };
 
@@ -449,27 +475,24 @@ mod tests {
   }
 
   impl TestNode {
+    fn with_class_name(mut self, class_name: impl Into<Box<str>>) -> Self {
+      self.metadata.class_name = Some(class_name.into());
+      self
+    }
+
     fn with_children(mut self, children: Vec<TestNode>) -> Self {
       self.children = children;
       self
     }
   }
 
-  impl Node<TestNode> for TestNode {
+  impl super::MatchNode for TestNode {
     fn metadata(&self) -> &NodeMetadata {
       &self.metadata
     }
 
-    fn metadata_mut(&mut self) -> &mut NodeMetadata {
-      &mut self.metadata
-    }
-
     fn children_ref(&self) -> Option<&[TestNode]> {
       Some(&self.children)
-    }
-
-    fn take_style_layers(&mut self) -> NodeStyleLayers {
-      NodeStyleLayers::default()
     }
   }
 

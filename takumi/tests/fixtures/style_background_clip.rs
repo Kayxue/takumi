@@ -1,5 +1,5 @@
 use takumi::layout::{
-  node::{ContainerNode, NodeKind, TextNode},
+  node::Node,
   style::{Length::*, *},
 };
 
@@ -10,36 +10,35 @@ fn create_container_with_background_clip(
   background_color: Color,
   padding: f32,
   border_width: f32,
-) -> ContainerNode<NodeKind> {
-  ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([200, 200, 200, 255]),
-        )))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center))
-        .with(StyleDeclaration::align_items(AlignItems::Center)),
-    )
-    .with_children([ContainerNode::default().with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Rem(16.0)))
-        .with(StyleDeclaration::height(Rem(10.0)))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          background_color,
-        )))
-        .with(StyleDeclaration::background_clip(background_clip))
-        .with_padding(Sides([Px(padding); 4]))
-        .with_border_width(Sides([Px(border_width); 4]))
-        .with(StyleDeclaration::border_style(BorderStyle::Solid))
-        .with(StyleDeclaration::border_color(ColorInput::Value(Color([
-          0, 0, 0, 255,
-        ]))))
-        .with_border_radius(Box::new(BorderRadius(Sides(
-          [SpacePair::from_single(Px(8.0)); 4],
-        )))),
-    )])
+) -> Node {
+  Node::container([Node::container([]).with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Rem(16.0)))
+      .with(StyleDeclaration::height(Rem(10.0)))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        background_color,
+      )))
+      .with(StyleDeclaration::background_clip(background_clip))
+      .with_padding(Sides([Px(padding); 4]))
+      .with_border_width(Sides([Px(border_width); 4]))
+      .with(StyleDeclaration::border_style(BorderStyle::Solid))
+      .with(StyleDeclaration::border_color(ColorInput::Value(Color([
+        0, 0, 0, 255,
+      ]))))
+      .with_border_radius(Box::new(BorderRadius(Sides(
+        [SpacePair::from_single(Px(8.0)); 4],
+      )))),
+  )])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([200, 200, 200, 255]),
+      )))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with(StyleDeclaration::align_items(AlignItems::Center)),
+  )
 }
 
 #[test]
@@ -51,7 +50,7 @@ fn test_style_background_clip_border_box() {
     10.0,
   );
 
-  run_fixture_test(container.into(), "style_background_clip_border_box");
+  run_fixture_test(container, "style_background_clip_border_box");
 }
 
 #[test]
@@ -63,7 +62,7 @@ fn test_style_background_clip_padding_box() {
     10.0,
   );
 
-  run_fixture_test(container.into(), "style_background_clip_padding_box");
+  run_fixture_test(container, "style_background_clip_padding_box");
 }
 
 #[test]
@@ -75,7 +74,7 @@ fn test_style_background_clip_content_box() {
     10.0,
   );
 
-  run_fixture_test(container.into(), "style_background_clip_content_box");
+  run_fixture_test(container, "style_background_clip_content_box");
 }
 
 #[test]
@@ -85,39 +84,36 @@ fn test_style_background_clip_text_gradient() {
   )
   .unwrap();
 
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
-        )))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::font_size(Px(72.0).into()))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center)),
-    )
-    .with_children([TextNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::background_image(Some(gradient_images)))
-          .with(StyleDeclaration::background_size(
-            BackgroundSizes::from_str("100% 100%").unwrap(),
-          ))
-          .with(StyleDeclaration::background_position(
-            BackgroundPositions::from_str("0 0").unwrap(),
-          ))
-          .with(StyleDeclaration::background_repeat(
-            BackgroundRepeats::from_str("no-repeat").unwrap(),
-          ))
-          .with(StyleDeclaration::background_clip(BackgroundClip::Text))
-          .with(StyleDeclaration::color(ColorInput::Value(
-            Color::transparent(),
-          ))),
-      )
-      .with_text("Gradient Text".to_string())]);
+  let container = Node::container([Node::text("Gradient Text".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_image(Some(gradient_images)))
+      .with(StyleDeclaration::background_size(
+        BackgroundSizes::from_str("100% 100%").unwrap(),
+      ))
+      .with(StyleDeclaration::background_position(
+        BackgroundPositions::from_str("0 0").unwrap(),
+      ))
+      .with(StyleDeclaration::background_repeat(
+        BackgroundRepeats::from_str("no-repeat").unwrap(),
+      ))
+      .with(StyleDeclaration::background_clip(BackgroundClip::Text))
+      .with(StyleDeclaration::color(ColorInput::Value(
+        Color::transparent(),
+      ))),
+  )])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::font_size(Px(72.0).into()))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center)),
+  );
 
-  run_fixture_test(container.into(), "style_background_clip_text_gradient");
+  run_fixture_test(container, "style_background_clip_text_gradient");
 }
 
 #[test]
@@ -125,74 +121,70 @@ fn test_style_background_clip_text_radial_gradient() {
   let gradient_images =
     BackgroundImages::from_str("radial-gradient(circle, #ff0080, #7928ca, #0070f3)").unwrap();
 
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([255, 255, 255, 255]),
-        )))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::font_size(Px(64.0).into()))
-        .with(StyleDeclaration::font_weight(FontWeight::from(700.0)))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center)),
-    )
-    .with_children([TextNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::background_image(Some(gradient_images)))
-          .with(StyleDeclaration::background_size(
-            BackgroundSizes::from_str("100% 100%").unwrap(),
-          ))
-          .with(StyleDeclaration::background_position(
-            BackgroundPositions::from_str("center center").unwrap(),
-          ))
-          .with(StyleDeclaration::background_clip(BackgroundClip::Text))
-          .with(StyleDeclaration::color(ColorInput::Value(
-            Color::transparent(),
-          ))),
-      )
-      .with_text("Radial Gradient".to_string())]);
+  let container = Node::container([Node::text("Radial Gradient".to_string()).with_style(
+    Style::default()
+      .with(StyleDeclaration::background_image(Some(gradient_images)))
+      .with(StyleDeclaration::background_size(
+        BackgroundSizes::from_str("100% 100%").unwrap(),
+      ))
+      .with(StyleDeclaration::background_position(
+        BackgroundPositions::from_str("center center").unwrap(),
+      ))
+      .with(StyleDeclaration::background_clip(BackgroundClip::Text))
+      .with(StyleDeclaration::color(ColorInput::Value(
+        Color::transparent(),
+      ))),
+  )])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([255, 255, 255, 255]),
+      )))
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::font_size(Px(64.0).into()))
+      .with(StyleDeclaration::font_weight(FontWeight::from(700.0)))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center)),
+  );
 
-  run_fixture_test(container.into(), "style_background_clip_text_radial");
+  run_fixture_test(container, "style_background_clip_text_radial");
 }
 
 #[test]
 fn test_style_background_clip_border_area() {
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([200, 200, 200, 255]),
-        )))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center))
-        .with(StyleDeclaration::align_items(AlignItems::Center)),
-    )
-    .with_children([ContainerNode::default().with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Rem(16.0)))
-        .with(StyleDeclaration::height(Rem(10.0)))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([255, 165, 0, 255]),
-        )))
-        .with(StyleDeclaration::background_clip(
-          BackgroundClip::BorderArea,
-        ))
-        .with_padding(Sides([Px(20.0); 4]))
-        .with_border_width(Sides([Px(10.0); 4]))
-        .with(StyleDeclaration::border_style(BorderStyle::Solid))
-        .with(StyleDeclaration::border_color(ColorInput::Value(Color([
-          0, 0, 0, 128,
-        ]))))
-        .with_border_radius(Box::new(BorderRadius(Sides(
-          [SpacePair::from_single(Px(8.0)); 4],
-        )))),
-    )]);
+  let container = Node::container([Node::container([]).with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Rem(16.0)))
+      .with(StyleDeclaration::height(Rem(10.0)))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([255, 165, 0, 255]),
+      )))
+      .with(StyleDeclaration::background_clip(
+        BackgroundClip::BorderArea,
+      ))
+      .with_padding(Sides([Px(20.0); 4]))
+      .with_border_width(Sides([Px(10.0); 4]))
+      .with(StyleDeclaration::border_style(BorderStyle::Solid))
+      .with(StyleDeclaration::border_color(ColorInput::Value(Color([
+        0, 0, 0, 128,
+      ]))))
+      .with_border_radius(Box::new(BorderRadius(Sides(
+        [SpacePair::from_single(Px(8.0)); 4],
+      )))),
+  )])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([200, 200, 200, 255]),
+      )))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with(StyleDeclaration::align_items(AlignItems::Center)),
+  );
 
-  run_fixture_test(container.into(), "style_background_clip_border_area");
+  run_fixture_test(container, "style_background_clip_border_area");
 }
 
 #[test]
@@ -200,37 +192,36 @@ fn test_style_background_clip_with_gradient_background() {
   let gradient_images =
     BackgroundImages::from_str("linear-gradient(135deg, #667eea 0%, #764ba2 100%)").unwrap();
 
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([200, 200, 200, 255]),
-        )))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center))
-        .with(StyleDeclaration::align_items(AlignItems::Center)),
-    )
-    .with_children([ContainerNode::default().with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Rem(16.0)))
-        .with(StyleDeclaration::height(Rem(10.0)))
-        .with(StyleDeclaration::background_image(Some(gradient_images)))
-        .with(StyleDeclaration::background_position(
-          BackgroundPositions::from_str("center center").unwrap(),
-        ))
-        .with(StyleDeclaration::background_clip(
-          BackgroundClip::PaddingBox,
-        ))
-        .with_padding(Sides([Px(30.0); 4]))
-        .with_border_width(Sides([Px(15.0); 4]))
-        .with(StyleDeclaration::border_style(BorderStyle::Solid))
-        .with(StyleDeclaration::border_color(ColorInput::Value(Color([
-          255, 255, 255, 255,
-        ])))),
-    )]);
+  let container = Node::container([Node::container([]).with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Rem(16.0)))
+      .with(StyleDeclaration::height(Rem(10.0)))
+      .with(StyleDeclaration::background_image(Some(gradient_images)))
+      .with(StyleDeclaration::background_position(
+        BackgroundPositions::from_str("center center").unwrap(),
+      ))
+      .with(StyleDeclaration::background_clip(
+        BackgroundClip::PaddingBox,
+      ))
+      .with_padding(Sides([Px(30.0); 4]))
+      .with_border_width(Sides([Px(15.0); 4]))
+      .with(StyleDeclaration::border_style(BorderStyle::Solid))
+      .with(StyleDeclaration::border_color(ColorInput::Value(Color([
+        255, 255, 255, 255,
+      ])))),
+  )])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([200, 200, 200, 255]),
+      )))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with(StyleDeclaration::align_items(AlignItems::Center)),
+  );
 
-  run_fixture_test(container.into(), "style_background_clip_gradient_padding");
+  run_fixture_test(container, "style_background_clip_gradient_padding");
 }
 
 #[test]
@@ -238,16 +229,8 @@ fn test_style_background_clip_text_multiline() {
   let gradient_images =
     BackgroundImages::from_str("linear-gradient(45deg, #12c2e9, #c471ed, #f64f59)").unwrap();
 
-  let container = ContainerNode::default()
-  .with_style(Style::default()
-        .with(StyleDeclaration::background_color(ColorInput::Value(Color([255, 255, 255, 255]))))
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::font_size(Px(48.0).into()))
-        .with(StyleDeclaration::font_weight(FontWeight::from(800.0)))
-        .with_padding(Sides([Px(40.0); 4])),)
-  .with_children([
-      TextNode::default()
+  let container = Node::container([
+      Node::text("This is a multiline text with a beautiful gradient background clipped to the text shape. It demonstrates how background-clip: text works with longer content.".to_string())
   .with_style(Style::default()
             .with(StyleDeclaration::background_image(Some(gradient_images)))
             .with(StyleDeclaration::background_size(BackgroundSizes::from_str("100% 100%").unwrap()))
@@ -257,112 +240,102 @@ fn test_style_background_clip_text_multiline() {
             .with(StyleDeclaration::background_clip(BackgroundClip::Text))
             .with(StyleDeclaration::color(ColorInput::Value(Color::transparent())))
             .with(StyleDeclaration::width(Percentage(100.0))),)
-  .with_text("This is a multiline text with a beautiful gradient background clipped to the text shape. It demonstrates how background-clip: text works with longer content.".to_string())
 
-    ]);
+    ])
+  .with_style(Style::default()
+        .with(StyleDeclaration::background_color(ColorInput::Value(Color([255, 255, 255, 255]))))
+        .with(StyleDeclaration::width(Percentage(100.0)))
+        .with(StyleDeclaration::height(Percentage(100.0)))
+        .with(StyleDeclaration::font_size(Px(48.0).into()))
+        .with(StyleDeclaration::font_weight(FontWeight::from(800.0)))
+        .with_padding(Sides([Px(40.0); 4])),);
 
-  run_fixture_test(container.into(), "style_background_clip_text_multiline");
+  run_fixture_test(container, "style_background_clip_text_multiline");
 }
 
 #[test]
 fn test_style_background_clip_comparison() {
-  let container = ContainerNode::default()
+  let container = Node::container([
+    // Border Box
+    Node::container([Node::text("border-box".to_string()).with_style(
+      Style::default()
+        .with(StyleDeclaration::font_size(Px(20.0).into()))
+        .with(StyleDeclaration::color(ColorInput::Value(Color::white()))),
+    )])
     .with_style(
       Style::default()
         .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
+        .with(StyleDeclaration::height(Px(80.0)))
         .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([240, 240, 240, 255]),
+          Color([255, 0, 0, 255]),
         )))
-        .with(StyleDeclaration::display(Display::Flex))
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-        .with_gap(SpacePair::from_single(Px(20.0)))
-        .with_padding(Sides([Px(20.0); 4])),
-    )
-    .with_children([
-      // Border Box
-      ContainerNode::default()
-        .with_style(
-          Style::default()
-            .with(StyleDeclaration::width(Percentage(100.0)))
-            .with(StyleDeclaration::height(Px(80.0)))
-            .with(StyleDeclaration::background_color(ColorInput::Value(
-              Color([255, 0, 0, 255]),
-            )))
-            .with(StyleDeclaration::background_clip(BackgroundClip::BorderBox))
-            .with_padding(Sides([Px(15.0); 4]))
-            .with_border_width(Sides([Px(8.0); 4]))
-            .with(StyleDeclaration::border_style(BorderStyle::Solid))
-            .with(StyleDeclaration::border_color(ColorInput::Value(Color([
-              0, 0, 0, 128,
-            ])))),
-        )
-        .with_child(
-          TextNode::default()
-            .with_style(
-              Style::default()
-                .with(StyleDeclaration::font_size(Px(20.0).into()))
-                .with(StyleDeclaration::color(ColorInput::Value(Color::white()))),
-            )
-            .with_text("border-box".to_string()),
-        ),
-      // Padding Box
-      ContainerNode::default()
-        .with_style(
-          Style::default()
-            .with(StyleDeclaration::width(Percentage(100.0)))
-            .with(StyleDeclaration::height(Px(80.0)))
-            .with(StyleDeclaration::background_color(ColorInput::Value(
-              Color([0, 128, 255, 255]),
-            )))
-            .with(StyleDeclaration::background_clip(
-              BackgroundClip::PaddingBox,
-            ))
-            .with_padding(Sides([Px(15.0); 4]))
-            .with_border_width(Sides([Px(8.0); 4]))
-            .with(StyleDeclaration::border_style(BorderStyle::Solid))
-            .with(StyleDeclaration::border_color(ColorInput::Value(Color([
-              0, 0, 0, 128,
-            ])))),
-        )
-        .with_child(
-          TextNode::default()
-            .with_style(
-              Style::default()
-                .with(StyleDeclaration::font_size(Px(20.0).into()))
-                .with(StyleDeclaration::color(ColorInput::Value(Color::white()))),
-            )
-            .with_text("padding-box".to_string()),
-        ),
-      // Content Box
-      ContainerNode::default()
-        .with_style(
-          Style::default()
-            .with(StyleDeclaration::width(Percentage(100.0)))
-            .with(StyleDeclaration::height(Px(80.0)))
-            .with(StyleDeclaration::background_color(ColorInput::Value(
-              Color([34, 197, 94, 255]),
-            )))
-            .with(StyleDeclaration::background_clip(
-              BackgroundClip::ContentBox,
-            ))
-            .with_padding(Sides([Px(15.0); 4]))
-            .with_border_width(Sides([Px(8.0); 4]))
-            .with(StyleDeclaration::border_style(BorderStyle::Solid))
-            .with(StyleDeclaration::border_color(ColorInput::Value(Color([
-              0, 0, 0, 128,
-            ])))),
-        )
-        .with_child(
-          TextNode::default()
-            .with_style(
-              Style::default()
-                .with(StyleDeclaration::font_size(Px(20.0).into()))
-                .with(StyleDeclaration::color(ColorInput::Value(Color::white()))),
-            )
-            .with_text("content-box".to_string()),
-        ),
-    ]);
+        .with(StyleDeclaration::background_clip(BackgroundClip::BorderBox))
+        .with_padding(Sides([Px(15.0); 4]))
+        .with_border_width(Sides([Px(8.0); 4]))
+        .with(StyleDeclaration::border_style(BorderStyle::Solid))
+        .with(StyleDeclaration::border_color(ColorInput::Value(Color([
+          0, 0, 0, 128,
+        ])))),
+    ),
+    // Padding Box
+    Node::container([Node::text("padding-box".to_string()).with_style(
+      Style::default()
+        .with(StyleDeclaration::font_size(Px(20.0).into()))
+        .with(StyleDeclaration::color(ColorInput::Value(Color::white()))),
+    )])
+    .with_style(
+      Style::default()
+        .with(StyleDeclaration::width(Percentage(100.0)))
+        .with(StyleDeclaration::height(Px(80.0)))
+        .with(StyleDeclaration::background_color(ColorInput::Value(
+          Color([0, 128, 255, 255]),
+        )))
+        .with(StyleDeclaration::background_clip(
+          BackgroundClip::PaddingBox,
+        ))
+        .with_padding(Sides([Px(15.0); 4]))
+        .with_border_width(Sides([Px(8.0); 4]))
+        .with(StyleDeclaration::border_style(BorderStyle::Solid))
+        .with(StyleDeclaration::border_color(ColorInput::Value(Color([
+          0, 0, 0, 128,
+        ])))),
+    ),
+    // Content Box
+    Node::container([Node::text("content-box".to_string()).with_style(
+      Style::default()
+        .with(StyleDeclaration::font_size(Px(20.0).into()))
+        .with(StyleDeclaration::color(ColorInput::Value(Color::white()))),
+    )])
+    .with_style(
+      Style::default()
+        .with(StyleDeclaration::width(Percentage(100.0)))
+        .with(StyleDeclaration::height(Px(80.0)))
+        .with(StyleDeclaration::background_color(ColorInput::Value(
+          Color([34, 197, 94, 255]),
+        )))
+        .with(StyleDeclaration::background_clip(
+          BackgroundClip::ContentBox,
+        ))
+        .with_padding(Sides([Px(15.0); 4]))
+        .with_border_width(Sides([Px(8.0); 4]))
+        .with(StyleDeclaration::border_style(BorderStyle::Solid))
+        .with(StyleDeclaration::border_color(ColorInput::Value(Color([
+          0, 0, 0, 128,
+        ])))),
+    ),
+  ])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([240, 240, 240, 255]),
+      )))
+      .with(StyleDeclaration::display(Display::Flex))
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with_gap(SpacePair::from_single(Px(20.0)))
+      .with_padding(Sides([Px(20.0); 4])),
+  );
 
-  run_fixture_test(container.into(), "style_background_clip_comparison");
+  run_fixture_test(container, "style_background_clip_comparison");
 }

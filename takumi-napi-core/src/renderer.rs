@@ -8,7 +8,7 @@ use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use takumi::{
   GlobalContext,
-  layout::{node::NodeKind, style::KeyframesRule as CoreKeyframesRule},
+  layout::{node::Node, style::KeyframesRule as CoreKeyframesRule},
   parley::{FontWeight, GenericFamily, fontique::FontInfoOverride},
   rendering::{DitheringAlgorithm as CoreDitheringAlgorithm, ImageOutputFormat},
   resources::image::load_image_source_from_bytes,
@@ -553,7 +553,7 @@ impl Renderer {
     options: Option<RenderOptions>,
     signal: Option<AbortSignal>,
   ) -> Result<AsyncTask<RenderTask>> {
-    let node: NodeKind = deserialize_with_tracing(source)?;
+    let node: Node = deserialize_with_tracing(source)?;
 
     Ok(AsyncTask::with_optional_signal(
       RenderTask::from_options(
@@ -593,7 +593,7 @@ impl Renderer {
     options: Option<RenderOptions>,
     signal: Option<AbortSignal>,
   ) -> Result<AsyncTask<MeasureTask>> {
-    let node: NodeKind = deserialize_with_tracing(source)?;
+    let node: Node = deserialize_with_tracing(source)?;
 
     Ok(AsyncTask::with_optional_signal(
       MeasureTask::from_options(

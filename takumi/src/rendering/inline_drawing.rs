@@ -10,7 +10,6 @@ use crate::{
   Result,
   layout::{
     inline::{InlineBoxItem, InlineBrush, InlineLayout, ProcessedInlineSpan},
-    node::Node,
     style::{
       Affine, BackgroundClip, BlendMode, BorderStyle, Color, ImageScalingAlgorithm, SizedFontStyle,
       SizedTextDecorationThickness, TextDecorationLines, TextDecorationSkipInk,
@@ -469,10 +468,10 @@ fn expand_outline_rect(outline_rect: InlineOutlineRect, amount: f32) -> Option<I
   })
 }
 
-fn draw_outline_island<N: Node<N>>(
+fn draw_outline_island(
   outline_rects: &[InlineOutlineRect],
   canvas: &mut Canvas,
-  spans: &[ProcessedInlineSpan<'_, '_, N>],
+  spans: &[ProcessedInlineSpan<'_, '_>],
   transform: Affine,
 ) {
   let Some(first_rect) = outline_rects.first().copied() else {
@@ -529,10 +528,10 @@ fn draw_outline_island<N: Node<N>>(
   canvas.buffer_pool.release(mask);
 }
 
-fn draw_merged_outline_rects<N: Node<N>>(
+fn draw_merged_outline_rects(
   mut outline_rects: Vec<InlineOutlineRect>,
   canvas: &mut Canvas,
-  spans: &[ProcessedInlineSpan<'_, '_, N>],
+  spans: &[ProcessedInlineSpan<'_, '_>],
   transform: Affine,
 ) {
   outline_rects.sort_by(|left, right| {
@@ -764,9 +763,9 @@ pub(crate) fn get_parent_x_height(
   Some(metrics.x_height * scale)
 }
 
-pub(crate) fn draw_inline_box<N: Node<N>>(
+pub(crate) fn draw_inline_box(
   inline_box: &PositionedInlineBox,
-  item: &InlineBoxItem<'_, '_, N>,
+  item: &InlineBoxItem<'_, '_>,
   canvas: &mut Canvas,
   transform: Affine,
 ) -> Result<()> {
@@ -828,13 +827,13 @@ pub(crate) fn draw_inline_box<N: Node<N>>(
   Ok(())
 }
 
-pub(crate) fn draw_inline_layout<N: Node<N>>(
+pub(crate) fn draw_inline_layout(
   context: &RenderContext,
   canvas: &mut Canvas,
   layout: Layout,
   inline_layout: InlineLayout,
   font_style: &SizedFontStyle,
-  spans: &[ProcessedInlineSpan<'_, '_, N>],
+  spans: &[ProcessedInlineSpan<'_, '_>],
 ) -> Result<Vec<PositionedInlineBox>> {
   let resolved_glyph_runs = resolve_inline_layout_glyphs(context, &inline_layout)?;
   let clip_image = if context.style.background_clip == BackgroundClip::Text {

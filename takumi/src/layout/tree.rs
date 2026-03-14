@@ -63,9 +63,9 @@ impl LayoutResults {
   }
 }
 
-pub(crate) struct LayoutTree<'r, 'g, N: Node<N>> {
+pub(crate) struct LayoutTree<'r, 'g> {
   nodes: Vec<LayoutNodeState>,
-  render_nodes: Vec<&'r RenderNode<'g, N>>,
+  render_nodes: Vec<&'r RenderNode<'g>>,
 }
 
 struct LayoutNodeState {
@@ -78,10 +78,10 @@ struct LayoutNodeState {
 }
 
 #[derive(Clone)]
-pub(crate) struct RenderNode<'g, N: Node<N>> {
+pub(crate) struct RenderNode<'g> {
   pub(crate) context: RenderContext<'g>,
-  pub(crate) node: Option<N>,
-  pub(crate) children: Option<Box<[RenderNode<'g, N>]>>,
+  pub(crate) node: Option<Node>,
+  pub(crate) children: Option<Box<[RenderNode<'g>]>>,
   pub(crate) layout_style_override: Option<Style>,
   pub(crate) anonymous_text_content: Option<String>,
   pub(crate) force_inline_layout: bool,
@@ -205,23 +205,23 @@ fn build_inherited_style(
   style.inherit(&inherited_parent)
 }
 
-fn push_layout_node<'r, 'g, N: Node<N>>(
+fn push_layout_node<'r, 'g>(
   nodes: &mut Vec<LayoutNodeState>,
-  render_nodes: &mut Vec<&'r RenderNode<'g, N>>,
-  render_root: &'r RenderNode<'g, N>,
+  render_nodes: &mut Vec<&'r RenderNode<'g>>,
+  render_root: &'r RenderNode<'g>,
 ) -> NodeId {
-  struct PendingNode<'r, 'g, N: Node<N>> {
+  struct PendingNode<'r, 'g> {
     node_id: NodeId,
     next_child_index: usize,
-    children: Option<&'r [RenderNode<'g, N>]>,
+    children: Option<&'r [RenderNode<'g>]>,
     child_ids: Vec<NodeId>,
   }
 
-  fn push_node_state<'r, 'g, N: Node<N>>(
+  fn push_node_state<'r, 'g>(
     nodes: &mut Vec<LayoutNodeState>,
-    render_nodes: &mut Vec<&'r RenderNode<'g, N>>,
-    render_node: &'r RenderNode<'g, N>,
-  ) -> PendingNode<'r, 'g, N> {
+    render_nodes: &mut Vec<&'r RenderNode<'g>>,
+    render_node: &'r RenderNode<'g>,
+  ) -> PendingNode<'r, 'g> {
     let node_index = nodes.len();
     let node_id = NodeId::from(node_index);
     let is_inline_children = render_node.should_create_inline_layout();
@@ -254,7 +254,7 @@ fn push_layout_node<'r, 'g, N: Node<N>>(
       node_id,
       next_child_index: 0,
       children,
-      child_ids: Vec::with_capacity(children.map_or(0, <[RenderNode<'g, N>]>::len)),
+      child_ids: Vec::with_capacity(children.map_or(0, <[RenderNode<'g>]>::len)),
     }
   }
 
@@ -293,8 +293,8 @@ fn push_layout_node<'r, 'g, N: Node<N>>(
   root_id
 }
 
-impl<'r, 'g, N: Node<N>> LayoutTree<'r, 'g, N> {
-  pub(crate) fn from_render_node(render_root: &'r RenderNode<'g, N>) -> Self {
+impl<'r, 'g> LayoutTree<'r, 'g> {
+  pub(crate) fn from_render_node(render_root: &'r RenderNode<'g>) -> Self {
     let mut nodes = Vec::with_capacity(1);
     let mut render_nodes = Vec::with_capacity(1);
     let root_id = push_layout_node(&mut nodes, &mut render_nodes, render_root);
@@ -387,8 +387,8 @@ impl<'r, 'g, N: Node<N>> LayoutTree<'r, 'g, N> {
 // during intrinsic single-axis sizing (`ComputeSize` with `InherentSize` or `ContentSize`). For replaced
 // elements, letting that value participate in aspect-ratio transfer can
 // incorrectly inflate the measured main-size. Strip that hint at the leaf boundary.
-fn should_strip_flex_intrinsic_stretch_known_dimension<N: Node<N>>(
-  render_node: &RenderNode<'_, N>,
+fn should_strip_flex_intrinsic_stretch_known_dimension(
+  render_node: &RenderNode<'_>,
   inputs: LayoutInput,
   known_dimensions: Size<Option<f32>>,
 ) -> bool {
@@ -427,7 +427,7 @@ fn should_strip_flex_intrinsic_stretch_known_dimension<N: Node<N>>(
   }
 }
 
-impl<N: Node<N>> TraversePartialTree for LayoutTree<'_, '_, N> {
+impl TraversePartialTree for LayoutTree<'_, '_> {
   type ChildIter<'a>
     = Copied<Iter<'a, NodeId>>
   where
@@ -458,9 +458,9 @@ impl<N: Node<N>> TraversePartialTree for LayoutTree<'_, '_, N> {
   }
 }
 
-impl<N: Node<N>> TraverseTree for LayoutTree<'_, '_, N> {}
+impl TraverseTree for LayoutTree<'_, '_> {}
 
-impl<N: Node<N>> LayoutPartialTree for LayoutTree<'_, '_, N> {
+impl LayoutPartialTree for LayoutTree<'_, '_> {
   type CoreContainerStyle<'a>
     = &'a Style
   where
@@ -559,7 +559,7 @@ impl<N: Node<N>> LayoutPartialTree for LayoutTree<'_, '_, N> {
   }
 }
 
-impl<N: Node<N>> CacheTree for LayoutTree<'_, '_, N> {
+impl CacheTree for LayoutTree<'_, '_> {
   fn cache_get(
     &self,
     node_id: NodeId,
@@ -600,7 +600,7 @@ impl<N: Node<N>> CacheTree for LayoutTree<'_, '_, N> {
   }
 }
 
-impl<N: Node<N>> LayoutBlockContainer for LayoutTree<'_, '_, N> {
+impl LayoutBlockContainer for LayoutTree<'_, '_> {
   type BlockContainerStyle<'a>
     = &'a Style
   where
@@ -619,7 +619,7 @@ impl<N: Node<N>> LayoutBlockContainer for LayoutTree<'_, '_, N> {
   }
 }
 
-impl<N: Node<N>> LayoutFlexboxContainer for LayoutTree<'_, '_, N> {
+impl LayoutFlexboxContainer for LayoutTree<'_, '_> {
   type FlexboxContainerStyle<'a>
     = &'a Style
   where
@@ -638,7 +638,7 @@ impl<N: Node<N>> LayoutFlexboxContainer for LayoutTree<'_, '_, N> {
   }
 }
 
-impl<N: Node<N>> LayoutGridContainer for LayoutTree<'_, '_, N> {
+impl LayoutGridContainer for LayoutTree<'_, '_> {
   type GridContainerStyle<'a>
     = &'a Style
   where
@@ -657,7 +657,7 @@ impl<N: Node<N>> LayoutGridContainer for LayoutTree<'_, '_, N> {
   }
 }
 
-impl<N: Node<N>> RoundTree for LayoutTree<'_, '_, N> {
+impl RoundTree for LayoutTree<'_, '_> {
   fn get_unrounded_layout(&self, node_id: NodeId) -> Layout {
     let Some(node) = self.get_layout_node_ref(node_id) else {
       unreachable!()
@@ -675,7 +675,7 @@ impl<N: Node<N>> RoundTree for LayoutTree<'_, '_, N> {
   }
 }
 
-impl<'g, N: Node<N>> RenderNode<'g, N> {
+impl<'g> RenderNode<'g> {
   fn anonymous_box_context(parent_context: &RenderContext<'g>) -> RenderContext<'g> {
     let mut context = parent_context.clone();
     context.style.display = Display::Block;
@@ -714,7 +714,7 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
 
   fn anonymous_block_container(
     parent_context: &RenderContext<'g>,
-    children: Vec<RenderNode<'g, N>>,
+    children: Vec<RenderNode<'g>>,
   ) -> Self {
     Self {
       context: Self::anonymous_box_context(parent_context),
@@ -839,7 +839,7 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
       }))
   }
 
-  pub fn from_node(parent_context: &RenderContext<'g>, node: N) -> Self {
+  pub fn from_node(parent_context: &RenderContext<'g>, node: Node) -> Self {
     let matched_styles = match_stylesheets(
       &node,
       &parent_context.stylesheet,
@@ -856,15 +856,15 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
 
   fn from_node_iterative(
     parent_context: &RenderContext<'g>,
-    root: N,
+    root: Node,
     matched_declarations: &[MatchedDeclarations],
   ) -> Self {
-    struct PendingRenderNode<'g, N: Node<N>> {
+    struct PendingRenderNode<'g> {
       context: RenderContext<'g>,
-      node: N,
+      node: Node,
       children_is_some: bool,
-      pending_children: IntoIter<N>,
-      rendered_children: Vec<RenderNode<'g, N>>,
+      pending_children: IntoIter<Node>,
+      rendered_children: Vec<RenderNode<'g>>,
     }
 
     fn next_preorder_index(preorder_cursor: &mut usize) -> usize {
@@ -873,10 +873,10 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
       node_index
     }
 
-    fn take_children_vec<N: Node<N>>(node: &mut N) -> (bool, Vec<N>) {
+    fn take_children_vec(node: &mut Node) -> (bool, Vec<Node>) {
       let children = node.take_children();
       let children_is_some = children.is_some();
-      let children = children.map_or_else(Vec::new, <[N]>::into_vec);
+      let children = children.map_or_else(Vec::new, <[Node]>::into_vec);
       (children_is_some, children)
     }
 
@@ -899,9 +899,9 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
       }
     }
 
-    fn resolve_computed_style<'g, N: Node<N>>(
+    fn resolve_computed_style<'g>(
       parent_context: &RenderContext<'g>,
-      node: &mut N,
+      node: &mut Node,
       node_index: usize,
       matched_declarations: &[MatchedDeclarations],
     ) -> (ComputedStyle, Sizing, Color) {
@@ -948,12 +948,12 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
       (style, sizing, current_color)
     }
 
-    fn build_pending_node<'g, N: Node<N>>(
+    fn build_pending_node<'g>(
       parent_context: &RenderContext<'g>,
-      mut node: N,
+      mut node: Node,
       matched_declarations: &[MatchedDeclarations],
       preorder_cursor: &mut usize,
-    ) -> PendingRenderNode<'g, N> {
+    ) -> PendingRenderNode<'g> {
       let node_index = next_preorder_index(preorder_cursor);
       let (style, sizing, current_color) =
         resolve_computed_style(parent_context, &mut node, node_index, matched_declarations);
@@ -1212,9 +1212,9 @@ impl<'g, N: Node<N>> RenderNode<'g, N> {
   }
 }
 
-fn flush_inline_group<'g, N: Node<N>>(
-  inline_group: &mut Vec<RenderNode<'g, N>>,
-  final_children: &mut Vec<RenderNode<'g, N>>,
+fn flush_inline_group<'g>(
+  inline_group: &mut Vec<RenderNode<'g>>,
+  final_children: &mut Vec<RenderNode<'g>>,
   parent_render_context: &RenderContext<'g>,
 ) {
   if inline_group.is_empty() {

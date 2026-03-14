@@ -1,16 +1,13 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
-use takumi::{
-  layout::node::{Node, NodeKind},
-  resources::task::FetchTaskCollection,
-};
+use takumi::{layout::node::Node, resources::task::FetchTaskCollection};
 
 use crate::deserialize_with_tracing;
 
 /// Collects the fetch task urls from the node.
 #[napi(ts_args_type = "node: AnyNode")]
 pub fn extract_resource_urls(node: Object) -> Result<Vec<String>> {
-  let node: NodeKind = deserialize_with_tracing(node)?;
+  let node: Node = deserialize_with_tracing(node)?;
 
   let mut collection = FetchTaskCollection::default();
 

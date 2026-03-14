@@ -1,5 +1,5 @@
 use takumi::layout::{
-  node::{ContainerNode, ImageNode},
+  node::Node,
   style::{Length::*, *},
 };
 
@@ -9,27 +9,27 @@ use crate::test_utils::run_fixture_test;
 // This test is to ensure that never happens again.
 #[test]
 fn test_color_artifacts() {
-  let container = ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color([147, 197, 253, 255]),
-        )))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center))
-        .with_padding(Sides([Rem(4.0); 4])),
-    )
-    .with_children([ImageNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::width(Percentage(100.0)))
-          .with(StyleDeclaration::height(Percentage(100.0)))
-          .with(StyleDeclaration::object_fit(ObjectFit::Contain))
-          .with_border_radius(Box::new(BorderRadius::from_str("10px").unwrap())),
-      )
-      .with_src("assets/images/luma-cover-0dfbf65d-0f58-4941-947c-d84a5b131dc0.jpeg")]);
+  let container = Node::container([Node::image(
+    "assets/images/luma-cover-0dfbf65d-0f58-4941-947c-d84a5b131dc0.jpeg",
+  )
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::object_fit(ObjectFit::Contain))
+      .with_border_radius(Box::new(BorderRadius::from_str("10px").unwrap())),
+  )])
+  .with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color([147, 197, 253, 255]),
+      )))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with_padding(Sides([Rem(4.0); 4])),
+  );
 
-  run_fixture_test(container.into(), "color_artifacts");
+  run_fixture_test(container, "color_artifacts");
 }

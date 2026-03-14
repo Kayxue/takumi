@@ -3,10 +3,7 @@
 use crate::model::AnyNode;
 use serde_wasm_bindgen::from_value;
 use std::fmt::Display;
-use takumi::{
-  layout::node::{Node, NodeKind},
-  resources::task::FetchTaskCollection,
-};
+use takumi::{layout::node::Node, resources::task::FetchTaskCollection};
 use wasm_bindgen::prelude::*;
 
 /// Maps any error to a JavaScript Error object.
@@ -20,7 +17,7 @@ pub type JsResult<T> = Result<T, js_sys::Error>;
 /// Collects the fetch task urls from the node.
 #[wasm_bindgen(js_name = extractResourceUrls)]
 pub fn extract_resource_urls(node: AnyNode) -> JsResult<Vec<String>> {
-  let node: NodeKind = from_value(node.into()).map_err(map_error)?;
+  let node: Node = from_value(node.into()).map_err(map_error)?;
 
   let mut collection = FetchTaskCollection::default();
 

@@ -12,7 +12,7 @@ use takumi::{
   GlobalContext,
   layout::{
     DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport,
-    node::NodeKind,
+    node::Node,
     style::{KeyframesRule, StyleSheet},
   },
   parley::{FontWeight, fontique::FontInfoOverride},
@@ -217,7 +217,7 @@ impl Renderer {
     node: AnyNode,
     options: Option<RenderOptionsType>,
   ) -> Result<Vec<u8>, JsValue> {
-    let node: NodeKind = from_value(node.into()).map_err(map_error)?;
+    let node: Node = from_value(node.into()).map_err(map_error)?;
     let options: RenderOptions = options
       .map(|options| from_value(options.into()).map_err(map_error))
       .transpose()?
@@ -226,7 +226,7 @@ impl Renderer {
     self.render_internal(node, options)
   }
 
-  fn render_internal(&self, node: NodeKind, options: RenderOptions) -> Result<Vec<u8>, JsValue> {
+  fn render_internal(&self, node: Node, options: RenderOptions) -> Result<Vec<u8>, JsValue> {
     let fetched_resources = self.fetch_resources_map(options.fetched_resources.as_deref())?;
     let dithering = options.dithering.unwrap_or_default();
     let stylesheet =
@@ -279,7 +279,7 @@ impl Renderer {
     node: AnyNode,
     options: Option<RenderOptionsType>,
   ) -> Result<MeasuredNodeType, JsValue> {
-    let node: NodeKind = from_value(node.into()).map_err(map_error)?;
+    let node: Node = from_value(node.into()).map_err(map_error)?;
     let options: RenderOptions = options
       .map(|options| from_value(options.into()).map_err(map_error))
       .transpose()?
@@ -321,7 +321,7 @@ impl Renderer {
     node: AnyNode,
     options: RenderOptionsType,
   ) -> Result<String, js_sys::Error> {
-    let node: NodeKind = from_value(node.into()).map_err(map_error)?;
+    let node: Node = from_value(node.into()).map_err(map_error)?;
     let options: RenderOptions = from_value(options.into()).map_err(map_error)?;
 
     let format = options.format.unwrap_or(OutputFormat::Png);

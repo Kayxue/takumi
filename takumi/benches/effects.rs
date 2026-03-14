@@ -2,22 +2,17 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use std::hint::black_box;
 use takumi::{
   GlobalContext,
-  layout::{
-    Viewport,
-    node::{ContainerNode, NodeKind},
-  },
+  layout::{Viewport, node::Node},
   rendering::{RenderOptionsBuilder, render},
 };
 
 fn run_effect_render(global: &GlobalContext, effect_tw: &str) {
   // We set a reasonable size and background so the effect is actually computed
-  let node: NodeKind = ContainerNode::default()
-    .with_tw(
-      format!("w-[256px] h-[256px] bg-white {effect_tw}")
-        .parse()
-        .unwrap(),
-    )
-    .into();
+  let node = Node::container([]).with_tw(
+    format!("w-[256px] h-[256px] bg-white {effect_tw}")
+      .parse()
+      .unwrap(),
+  );
 
   let viewport = Viewport::new(Some(512), Some(512));
 

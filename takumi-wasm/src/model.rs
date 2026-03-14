@@ -4,7 +4,7 @@ use serde::Deserialize;
 use serde_bytes::ByteBuf;
 use std::sync::Arc;
 use takumi::{
-  keyframes::deserialize_optional_keyframes, layout::node::NodeKind, layout::style::KeyframesRule,
+  keyframes::deserialize_optional_keyframes, layout::node::Node, layout::style::KeyframesRule,
   rendering::DitheringAlgorithm,
 };
 use wasm_bindgen::prelude::*;
@@ -415,7 +415,7 @@ impl From<FontStyle> for takumi::parley::FontStyle {
 #[serde(rename_all = "camelCase")]
 pub struct AnimationFrameSource {
   /// The node tree to render for this frame.
-  pub node: NodeKind,
+  pub node: Node,
   /// The duration of this frame in milliseconds.
   pub duration_ms: u32,
 }
@@ -425,7 +425,7 @@ pub struct AnimationFrameSource {
 #[serde(rename_all = "camelCase")]
 pub struct AnimationSceneSource {
   /// The node tree to render for this scene.
-  pub node: NodeKind,
+  pub node: Node,
   /// The duration of this scene in milliseconds.
   pub duration_ms: u32,
 }

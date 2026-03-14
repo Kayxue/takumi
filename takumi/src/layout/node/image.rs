@@ -1,7 +1,6 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 
 use data_url::DataUrl;
-use serde::Deserialize;
 use taffy::{AvailableSpace, Layout, Size};
 
 use crate::resources::image::{ImageResult, load_image_source_from_bytes};
@@ -9,8 +8,8 @@ use crate::{
   Result,
   layout::{
     inline::InlineContentKind,
-    node::{Node, NodeMetadata, NodeStyleLayers},
-    style::{Length, Style, StyleDeclaration, tw::TailwindValues},
+    node::{ImageData, Node, NodeKind, NodeStyleLayers},
+    style::{Length, Style, StyleDeclaration},
   },
   rendering::{Canvas, RenderContext, draw_image},
   resources::{
@@ -19,250 +18,153 @@ use crate::{
   },
 };
 
-/// A node that renders image content.
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct ImageNode {
-  /// Shared node metadata.
-  #[serde(flatten)]
-  pub(crate) metadata: NodeMetadata,
-  /// The source URL or path to the image
-  pub(crate) src: Arc<str>,
-  /// The width of the image
-  pub(crate) width: Option<f32>,
-  /// The height of the image
-  pub(crate) height: Option<f32>,
-}
-
-impl ImageNode {
-  /// Set the tag name and return the updated image node.
-  pub fn with_tag_name(mut self, tag_name: impl Into<Box<str>>) -> Self {
-    self.metadata.tag_name = Some(tag_name.into());
-    self
-  }
-
-  /// Set the class name and return the updated image node.
-  pub fn with_class_name(mut self, class_name: impl Into<Box<str>>) -> Self {
-    self.metadata.class_name = Some(class_name.into());
-    self
-  }
-
-  /// Set the id and return the updated image node.
-  pub fn with_id(mut self, id: impl Into<Box<str>>) -> Self {
-    self.metadata.id = Some(id.into());
-    self
-  }
-
-  /// Set the attributes and return the updated image node.
-  pub fn with_attributes(mut self, attributes: BTreeMap<Box<str>, Box<str>>) -> Self {
-    self.metadata.attributes = Some(attributes);
-    self
-  }
-
-  /// Set the preset style and return the updated image node.
-  pub fn with_preset(mut self, preset: Style) -> Self {
-    self.metadata.preset = Some(preset);
-    self
-  }
-
-  /// Set the inline style and return the updated image node.
-  pub fn with_style(mut self, style: Style) -> Self {
-    self.metadata.style = Some(style);
-    self
-  }
-
-  /// Set the Tailwind values and return the updated image node.
-  pub fn with_tw(mut self, tw: TailwindValues) -> Self {
-    self.metadata.tw = Some(tw);
-    self
-  }
-
-  /// Set the source URL or path to the image.
-  pub fn with_src(mut self, src: impl Into<Arc<str>>) -> Self {
-    self.src = src.into();
-    self
-  }
-
-  /// Set the width of the image.
-  pub fn with_width(mut self, width: f32) -> Self {
-    self.width = Some(width);
-    self
-  }
-
-  /// Set the height of the image.
-  pub fn with_height(mut self, height: f32) -> Self {
-    self.height = Some(height);
-    self
+pub(crate) fn image_collect_fetch_tasks(image: &ImageData, collection: &mut FetchTaskCollection) {
+  if image.src.starts_with("https://") || image.src.starts_with("http://") {
+    collection.insert(image.src.clone());
   }
 }
 
-impl<Nodes: Node<Nodes>> Node<Nodes> for ImageNode {
-  fn metadata(&self) -> &NodeMetadata {
-    &self.metadata
-  }
-
-  fn metadata_mut(&mut self) -> &mut NodeMetadata {
-    &mut self.metadata
-  }
-
-  fn collect_fetch_tasks(&self, collection: &mut FetchTaskCollection) {
-    if self.src.starts_with("https://") || self.src.starts_with("http://") {
-      collection.insert(self.src.clone());
+pub(crate) fn take_image_style_layers(
+  node: &mut Node,
+  width: Option<f32>,
+  height: Option<f32>,
+) -> NodeStyleLayers {
+  let mut preset = node.metadata.preset.take();
+  if width.is_some() || height.is_some() {
+    let preset_style = preset.get_or_insert_with(Style::default);
+    if let Some(width) = width {
+      preset_style.push(StyleDeclaration::width(Length::Px(width)), false);
+    }
+    if let Some(height) = height {
+      preset_style.push(StyleDeclaration::height(Length::Px(height)), false);
     }
   }
 
-  fn get_preset(&self) -> Option<&Style> {
-    self.metadata.preset.as_ref()
+  NodeStyleLayers {
+    preset,
+    author_tw: node.metadata.tw.take(),
+    inline: node.metadata.style.take(),
   }
+}
 
-  fn get_style(&self) -> Option<&Style> {
-    self.metadata.style.as_ref()
+pub(crate) fn image_inline_content(kind: &NodeKind) -> Option<InlineContentKind<'_>> {
+  matches!(kind, NodeKind::Image(_)).then_some(InlineContentKind::Box)
+}
+
+pub(crate) fn measure_image_node(
+  image: &ImageData,
+  context: &RenderContext,
+  available_space: Size<AvailableSpace>,
+  known_dimensions: Size<Option<f32>>,
+  style: &taffy::Style,
+) -> Size<f32> {
+  let Ok(image_source) = resolve_image(&image.src, context) else {
+    return Size::zero();
+  };
+
+  let intrinsic_size = match &*image_source {
+    #[cfg(feature = "svg")]
+    ImageSource::Svg { tree, .. } => Size {
+      width: tree.size().width(),
+      height: tree.size().height(),
+    },
+    ImageSource::Bitmap(bitmap) => Size {
+      width: bitmap.width() as f32,
+      height: bitmap.height() as f32,
+    },
+  };
+
+  let intrinsic_aspect_ratio =
+    (intrinsic_size.height != 0.0).then_some(intrinsic_size.width / intrinsic_size.height);
+  let preferred_size = match (image.width, image.height) {
+    (Some(width), Some(height)) => Size { width, height },
+    (Some(width), None) => Size {
+      width,
+      height: intrinsic_aspect_ratio
+        .map(|ratio| width / ratio)
+        .unwrap_or(intrinsic_size.height),
+    },
+    (None, Some(height)) => Size {
+      width: intrinsic_aspect_ratio
+        .map(|ratio| height * ratio)
+        .unwrap_or(intrinsic_size.width),
+      height,
+    },
+    (None, None) => intrinsic_size,
   }
+  .map(|value| value * context.sizing.viewport.device_pixel_ratio);
 
-  fn take_style_layers(&mut self) -> NodeStyleLayers {
-    let mut preset = self.metadata.preset.take();
-    if self.width.is_some() || self.height.is_some() {
-      let preset_style = preset.get_or_insert_with(Style::default);
-      if let Some(width) = self.width {
-        preset_style.push(StyleDeclaration::width(Length::Px(width)), false);
-      }
-      if let Some(height) = self.height {
-        preset_style.push(StyleDeclaration::height(Length::Px(height)), false);
-      }
-    }
-
-    NodeStyleLayers {
-      preset,
-      author_tw: self.metadata.tw.take(),
-      inline: self.metadata.style.take(),
-    }
-  }
-
-  fn inline_content(&self) -> Option<InlineContentKind<'_>> {
-    Some(InlineContentKind::Box)
-  }
-
-  fn measure(
-    &self,
-    context: &RenderContext,
-    available_space: Size<AvailableSpace>,
-    known_dimensions: Size<Option<f32>>,
-    style: &taffy::Style,
-  ) -> Size<f32> {
-    let Ok(image) = resolve_image(&self.src, context) else {
-      return Size::zero();
-    };
-
-    let intrinsic_size = match &*image {
-      #[cfg(feature = "svg")]
-      ImageSource::Svg { tree, .. } => Size {
-        width: tree.size().width(),
-        height: tree.size().height(),
-      },
-      ImageSource::Bitmap(bitmap) => Size {
-        width: bitmap.width() as f32,
-        height: bitmap.height() as f32,
-      },
-    };
-
-    let intrinsic_aspect_ratio =
-      (intrinsic_size.height != 0.0).then_some(intrinsic_size.width / intrinsic_size.height);
-    let preferred_size = match (self.width, self.height) {
-      (Some(width), Some(height)) => Size { width, height },
-      (Some(width), None) => Size {
-        width,
-        height: intrinsic_aspect_ratio
-          .map(|ratio| width / ratio)
-          .unwrap_or(intrinsic_size.height),
-      },
-      (None, Some(height)) => Size {
-        width: intrinsic_aspect_ratio
-          .map(|ratio| height * ratio)
-          .unwrap_or(intrinsic_size.width),
-        height,
-      },
-      (None, None) => intrinsic_size,
-    }
-    .map(|value| value * context.sizing.viewport.device_pixel_ratio);
-
-    let style_known_dimensions = Size {
-      width: if style.size.width.is_auto() {
-        None
-      } else {
-        match available_space.width {
-          AvailableSpace::Definite(width) => Some(width),
-          _ => None,
-        }
-      },
-      height: if style.size.height.is_auto() {
-        None
-      } else {
-        match available_space.height {
-          AvailableSpace::Definite(height) => Some(height),
-          _ => None,
-        }
-      },
-    };
-
-    let known_dimensions = Size {
-      width: known_dimensions.width.or(style_known_dimensions.width),
-      height: known_dimensions.height.or(style_known_dimensions.height),
-    };
-
-    let known_dimensions = if should_skip_intrinsic_probe_cross_axis_ratio_transfer(
-      self,
-      available_space,
-      known_dimensions,
-      style,
-    ) {
-      // During flex min/max-content probing, a stretched cross-size should not
-      // determine this replaced element's intrinsic main-size.
-      known_dimensions
+  let style_known_dimensions = Size {
+    width: if style.size.width.is_auto() {
+      None
     } else {
-      let aspect_ratio = style.aspect_ratio.or_else(|| {
-        (preferred_size.height != 0.0).then_some(preferred_size.width / preferred_size.height)
-      });
-      known_dimensions.maybe_apply_aspect_ratio(aspect_ratio)
-    };
+      match available_space.width {
+        AvailableSpace::Definite(width) => Some(width),
+        _ => None,
+      }
+    },
+    height: if style.size.height.is_auto() {
+      None
+    } else {
+      match available_space.height {
+        AvailableSpace::Definite(height) => Some(height),
+        _ => None,
+      }
+    },
+  };
 
-    if let Size {
-      width: Some(width),
-      height: Some(height),
-    } = known_dimensions
-    {
-      return Size { width, height };
-    }
+  let known_dimensions = Size {
+    width: known_dimensions.width.or(style_known_dimensions.width),
+    height: known_dimensions.height.or(style_known_dimensions.height),
+  };
 
-    preferred_size
+  let known_dimensions = if should_skip_intrinsic_probe_cross_axis_ratio_transfer(
+    image,
+    available_space,
+    known_dimensions,
+    style,
+  ) {
+    known_dimensions
+  } else {
+    let aspect_ratio = style.aspect_ratio.or_else(|| {
+      (preferred_size.height != 0.0).then_some(preferred_size.width / preferred_size.height)
+    });
+    known_dimensions.maybe_apply_aspect_ratio(aspect_ratio)
+  };
+
+  if let Size {
+    width: Some(width),
+    height: Some(height),
+  } = known_dimensions
+  {
+    return Size { width, height };
   }
 
-  fn draw_content(
-    &self,
-    context: &RenderContext,
-    canvas: &mut Canvas,
-    layout: Layout,
-  ) -> Result<()> {
-    let Ok(image) = resolve_image(&self.src, context) else {
-      return Ok(());
-    };
+  preferred_size
+}
 
-    draw_image(&image, context, canvas, layout)?;
-    Ok(())
-  }
+pub(crate) fn draw_image_node_content(
+  image: &ImageData,
+  context: &RenderContext,
+  canvas: &mut Canvas,
+  layout: Layout,
+) -> Result<()> {
+  let Ok(image_source) = resolve_image(&image.src, context) else {
+    return Ok(());
+  };
 
-  fn is_replaced_element(&self) -> bool {
-    true
-  }
+  draw_image(&image_source, context, canvas, layout)?;
+  Ok(())
 }
 
 fn should_skip_intrinsic_probe_cross_axis_ratio_transfer(
-  node: &ImageNode,
+  image: &ImageData,
   available_space: Size<AvailableSpace>,
   known_dimensions: Size<Option<f32>>,
   style: &taffy::Style,
 ) -> bool {
-  node.width.is_none()
-    && node.height.is_none()
+  image.width.is_none()
+    && image.height.is_none()
     && style.size.width.is_auto()
     && style.size.height.is_auto()
     && ((matches!(
@@ -309,4 +211,130 @@ pub(crate) fn resolve_image(src: &str, context: &RenderContext) -> ImageResult {
   }
 
   Err(ImageResourceError::Unknown)
+}
+
+impl Default for ImageData {
+  fn default() -> Self {
+    Self {
+      src: Arc::<str>::from(""),
+      width: None,
+      height: None,
+    }
+  }
+}
+
+impl From<&str> for ImageData {
+  fn from(src: &str) -> Self {
+    Self {
+      src: src.into(),
+      width: None,
+      height: None,
+    }
+  }
+}
+
+impl From<String> for ImageData {
+  fn from(src: String) -> Self {
+    Self {
+      src: src.into(),
+      width: None,
+      height: None,
+    }
+  }
+}
+
+impl From<Arc<str>> for ImageData {
+  fn from(src: Arc<str>) -> Self {
+    Self {
+      src,
+      width: None,
+      height: None,
+    }
+  }
+}
+
+impl From<(&str, u32, u32)> for ImageData {
+  fn from((src, width, height): (&str, u32, u32)) -> Self {
+    Self {
+      src: src.into(),
+      width: Some(width as f32),
+      height: Some(height as f32),
+    }
+  }
+}
+
+impl From<(String, u32, u32)> for ImageData {
+  fn from((src, width, height): (String, u32, u32)) -> Self {
+    Self {
+      src: src.into(),
+      width: Some(width as f32),
+      height: Some(height as f32),
+    }
+  }
+}
+
+impl From<(Arc<str>, u32, u32)> for ImageData {
+  fn from((src, width, height): (Arc<str>, u32, u32)) -> Self {
+    Self {
+      src,
+      width: Some(width as f32),
+      height: Some(height as f32),
+    }
+  }
+}
+
+impl From<(&str, f32, f32)> for ImageData {
+  fn from((src, width, height): (&str, f32, f32)) -> Self {
+    Self {
+      src: src.into(),
+      width: Some(width),
+      height: Some(height),
+    }
+  }
+}
+
+impl From<(String, f32, f32)> for ImageData {
+  fn from((src, width, height): (String, f32, f32)) -> Self {
+    Self {
+      src: src.into(),
+      width: Some(width),
+      height: Some(height),
+    }
+  }
+}
+
+impl From<(Arc<str>, f32, f32)> for ImageData {
+  fn from((src, width, height): (Arc<str>, f32, f32)) -> Self {
+    Self {
+      src,
+      width: Some(width),
+      height: Some(height),
+    }
+  }
+}
+
+impl From<(&str, Option<f32>, Option<f32>)> for ImageData {
+  fn from((src, width, height): (&str, Option<f32>, Option<f32>)) -> Self {
+    Self {
+      src: src.into(),
+      width,
+      height,
+    }
+  }
+}
+
+impl From<(String, Option<f32>, Option<f32>)> for ImageData {
+  fn from((src, width, height): (String, Option<f32>, Option<f32>)) -> Self {
+    Self {
+      src: src.into(),
+      width,
+      height,
+    }
+  }
+}
+
+impl From<(Arc<str>, Option<f32>, Option<f32>)> for ImageData {
+  fn from((src, width, height): (Arc<str>, Option<f32>, Option<f32>)) -> Self {
+    Self { src, width, height }
+  }
 }

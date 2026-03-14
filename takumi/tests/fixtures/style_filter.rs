@@ -1,5 +1,5 @@
 use takumi::layout::{
-  node::{ContainerNode, ImageNode, NodeKind, TextNode},
+  node::Node,
   style::{Length::*, *},
 };
 
@@ -12,60 +12,49 @@ fn create_filter_test_container(
   gap_px: f32,
   image_size_px: f32,
   label_font_size_px: f32,
-) -> NodeKind {
-  let children: Vec<NodeKind> = filter_values
+) -> Node {
+  let children: Vec<Node> = filter_values
     .iter()
     .map(|filter| create_filter_card(filter, image_size_px, label_font_size_px))
     .collect();
 
-  ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::width(Percentage(100.0)))
-        .with(StyleDeclaration::height(Percentage(100.0)))
-        .with(StyleDeclaration::display(Display::Grid))
-        .with(StyleDeclaration::grid_template_columns(
-          GridTemplateComponents::from_str("repeat(5, 1fr)").ok(),
-        ))
-        .with_gap(SpacePair::from_single(Px(gap_px)))
-        .with(StyleDeclaration::justify_content(JustifyContent::Center))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with(StyleDeclaration::background_color(ColorInput::Value(
-          Color::white(),
-        ))),
-    )
-    .with_children(children)
-    .into()
+  Node::container(children).with_style(
+    Style::default()
+      .with(StyleDeclaration::width(Percentage(100.0)))
+      .with(StyleDeclaration::height(Percentage(100.0)))
+      .with(StyleDeclaration::display(Display::Grid))
+      .with(StyleDeclaration::grid_template_columns(
+        GridTemplateComponents::from_str("repeat(5, 1fr)").ok(),
+      ))
+      .with_gap(SpacePair::from_single(Px(gap_px)))
+      .with(StyleDeclaration::justify_content(JustifyContent::Center))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with(StyleDeclaration::background_color(ColorInput::Value(
+        Color::white(),
+      ))),
+  )
 }
 
 /// Creates a single card with an image and label for filter testing.
-fn create_filter_card(filter: &str, image_size_px: f32, label_font_size_px: f32) -> NodeKind {
-  let children: Vec<NodeKind> = vec![
-    ImageNode::default()
-      .with_style(
-        Style::default()
-          .with(StyleDeclaration::width(Px(image_size_px)))
-          .with(StyleDeclaration::height(Px(image_size_px)))
-          .with(StyleDeclaration::filter(Filters::from_str(filter).unwrap())),
-      )
-      .with_src("assets/images/yeecord.png")
-      .into(),
-    TextNode::default()
-      .with_style(Style::default().with(StyleDeclaration::display(Display::Block)))
-      .with_text(filter.to_string())
-      .into(),
+fn create_filter_card(filter: &str, image_size_px: f32, label_font_size_px: f32) -> Node {
+  let children: Vec<Node> = vec![
+    Node::image("assets/images/yeecord.png").with_style(
+      Style::default()
+        .with(StyleDeclaration::width(Px(image_size_px)))
+        .with(StyleDeclaration::height(Px(image_size_px)))
+        .with(StyleDeclaration::filter(Filters::from_str(filter).unwrap())),
+    ),
+    Node::text(filter.to_string())
+      .with_style(Style::default().with(StyleDeclaration::display(Display::Block))),
   ];
 
-  ContainerNode::default()
-    .with_style(
-      Style::default()
-        .with(StyleDeclaration::flex_direction(FlexDirection::Column))
-        .with(StyleDeclaration::align_items(AlignItems::Center))
-        .with_gap(SpacePair::from_single(Px(16.0)))
-        .with(StyleDeclaration::font_size(Px(label_font_size_px).into())),
-    )
-    .with_children(children)
-    .into()
+  Node::container(children).with_style(
+    Style::default()
+      .with(StyleDeclaration::flex_direction(FlexDirection::Column))
+      .with(StyleDeclaration::align_items(AlignItems::Center))
+      .with_gap(SpacePair::from_single(Px(16.0)))
+      .with(StyleDeclaration::font_size(Px(label_font_size_px).into())),
+  )
 }
 
 #[test]

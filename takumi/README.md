@@ -11,7 +11,7 @@ Checkout the [Quick Start](https://takumi.kane.tw/docs) if you are looking for n
 ```rust
 use takumi::{
   layout::{
-    node::{ContainerNode, TextNode, NodeKind, Node},
+    node::Node,
     Viewport,
     style::Style,
   },
@@ -19,10 +19,8 @@ use takumi::{
   GlobalContext,
 };
 
-// Create a node tree with `ContainerNode` and `TextNode`
-let mut node: NodeKind = ContainerNode::default()
-  .with_child(TextNode::default().with_text("Hello, world!"))
-  .into();
+// Create a node tree with `Node`
+let node = Node::container([Node::text("Hello, world!")]).with_style(Style::default());
 
 // Create a context for storing resources, font caches.
 // You should reuse the context to speed up the rendering.

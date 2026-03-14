@@ -7,7 +7,7 @@ use std::{
 
 use napi::bindgen_prelude::*;
 use takumi::{
-  layout::{DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport, node::NodeKind},
+  layout::{DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport, node::Node},
   rendering::{
     AnimatedGifOptions, AnimatedPngOptions, AnimatedWebpOptions, RenderOptionsBuilder,
     SequentialSceneBuilder, encode_animated_gif, encode_animated_png, encode_animated_webp,
@@ -23,7 +23,7 @@ use crate::{
 };
 
 pub struct RenderAnimationTask {
-  pub scenes: Option<Vec<(NodeKind, u32)>>,
+  pub scenes: Option<Vec<(Node, u32)>>,
   pub(crate) state: Arc<RwLock<RendererState>>,
   pub viewport: Viewport,
   pub format: AnimationOutputFormat,
@@ -55,7 +55,7 @@ impl RenderAnimationTask {
     let scenes = scenes
       .into_iter()
       .map(|scene| Ok((deserialize_with_tracing(scene.node)?, scene.duration_ms)))
-      .collect::<Result<Vec<(NodeKind, u32)>>>()?;
+      .collect::<Result<Vec<(Node, u32)>>>()?;
 
     if scenes.is_empty() {
       return Err(Error::new(
