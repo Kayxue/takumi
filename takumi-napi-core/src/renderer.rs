@@ -11,7 +11,7 @@ use takumi::{
   layout::{node::Node, style::KeyframesRule as CoreKeyframesRule},
   parley::{FontWeight, GenericFamily, fontique::FontInfoOverride},
   rendering::{DitheringAlgorithm as CoreDitheringAlgorithm, ImageOutputFormat},
-  resources::image::load_image_source_from_bytes,
+  resources::image::ImageSource as LoadedImageSource,
 };
 use xxhash_rust::xxh3::Xxh3DefaultBuilder;
 
@@ -357,7 +357,7 @@ impl Renderer {
         .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
       for image in images {
         let buffer = buffer_slice_from_object(env, image.data)?;
-        let image_source = load_image_source_from_bytes(&buffer).map_err(map_error)?;
+        let image_source = LoadedImageSource::from_bytes(&buffer).map_err(map_error)?;
 
         state
           .global

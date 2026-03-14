@@ -7,7 +7,7 @@ use takumi::{
   layout::style::StyleSheet,
   layout::{DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport, node::Node},
   rendering::{RenderOptionsBuilder, measure_layout},
-  resources::image::load_image_source_from_bytes,
+  resources::image::ImageSource as LoadedImageSource,
 };
 
 use crate::{
@@ -73,7 +73,7 @@ impl Task for MeasureTask {
       .map(|(k, v)| {
         Ok((
           k.clone(),
-          load_image_source_from_bytes(v).map_err(map_error)?,
+          LoadedImageSource::from_bytes(v).map_err(map_error)?,
         ))
       })
       .collect::<Result<HashMap<_, _>, _>>()?;

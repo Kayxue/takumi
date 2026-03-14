@@ -12,7 +12,7 @@ use takumi::{
     AnimatedGifOptions, AnimatedPngOptions, AnimatedWebpOptions, AnimationFrame,
     RenderOptionsBuilder, encode_animated_gif, encode_animated_png, encode_animated_webp, render,
   },
-  resources::image::load_image_source_from_bytes,
+  resources::image::ImageSource as LoadedImageSource,
 };
 
 use crate::{
@@ -84,7 +84,7 @@ impl Task for EncodeFramesTask {
       .map(|(key, value)| {
         Ok((
           key.clone(),
-          load_image_source_from_bytes(value).map_err(map_error)?,
+          LoadedImageSource::from_bytes(value).map_err(map_error)?,
         ))
       })
       .collect::<Result<HashMap<_, _>, _>>()?;

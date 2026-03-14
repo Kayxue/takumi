@@ -21,7 +21,7 @@ use takumi::{
     RenderOptionsBuilder, SequentialSceneBuilder, encode_animated_gif, encode_animated_png,
     encode_animated_webp, measure_layout, render, render_sequence_animation, write_image,
   },
-  resources::image::{ImageSource as LoadedImageSource, load_image_source_from_bytes},
+  resources::image::ImageSource as LoadedImageSource,
 };
 use wasm_bindgen::prelude::*;
 use xxhash_rust::xxh3::{Xxh3DefaultBuilder, xxh3_64};
@@ -56,7 +56,7 @@ impl Renderer {
         resources
           .iter()
           .map(|source| {
-            let image = load_image_source_from_bytes(&source.data).map_err(map_error)?;
+            let image = LoadedImageSource::from_bytes(&source.data).map_err(map_error)?;
             Ok((source.src.clone(), image))
           })
           .collect::<Result<_, js_sys::Error>>()
@@ -188,7 +188,7 @@ impl Renderer {
 
     self.persistent_image_cache.insert(key);
 
-    let image = load_image_source_from_bytes(&data.data).map_err(map_error)?;
+    let image = LoadedImageSource::from_bytes(&data.data).map_err(map_error)?;
     self
       .context
       .persistent_image_store

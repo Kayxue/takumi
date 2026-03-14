@@ -3,7 +3,7 @@ use std::sync::Arc;
 use data_url::DataUrl;
 use taffy::{AvailableSpace, Layout, Size};
 
-use crate::resources::image::{ImageResult, load_image_source_from_bytes};
+use crate::resources::image::{ImageResult, ImageSource};
 use crate::{
   Result,
   layout::{
@@ -13,7 +13,7 @@ use crate::{
   },
   rendering::{Canvas, RenderContext, draw_image},
   resources::{
-    image::{ImageResourceError, ImageSource, is_svg_like},
+    image::{ImageResourceError, is_svg_like},
     task::FetchTaskCollection,
   },
 };
@@ -187,7 +187,7 @@ fn parse_data_uri_image(src: &str) -> ImageResult {
     .decode_to_vec()
     .map_err(|_| ImageResourceError::InvalidDataUriFormat)?;
 
-  load_image_source_from_bytes(&data)
+  ImageSource::from_bytes(&data)
 }
 
 pub(crate) fn resolve_image(src: &str, context: &RenderContext) -> ImageResult {

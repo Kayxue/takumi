@@ -12,6 +12,7 @@ use std::{cell::RefCell, collections::HashMap};
 use dashmap::DashMap;
 use image::RgbaImage;
 
+use super::image_decoder;
 use crate::{
   layout::style::{Color, ImageScalingAlgorithm},
   rendering::{fast_resize, unpremultiply_alpha},
@@ -93,6 +94,27 @@ impl From<RgbaImage> for ImageSource {
 }
 
 impl ImageSource {
+  /// Load an image source from raw bytes.
+  ///
+  /// - When the `svg` feature is enabled and the bytes look like SVG XML, they
+  ///   are parsed as an SVG using `resvg::usvg`.
+  /// - Otherwise, the bytes are decoded as a raster image.
+  pub fn from_bytes(bytes: &[u8]) -> ImageResult {
+    #[cfg(feature = "svg")]
+    {
+      use std::str::from_utf8;
+
+      if let Ok(text) = from_utf8(bytes)
+        && is_svg_like(text)
+      {
+        return parse_svg_str(text);
+      }
+    }
+
+    let img = image_decoder::decode_image(bytes).map_err(ImageResourceError::DecodeError)?;
+    Ok(Arc::new(img.into()))
+  }
+
   /// Get the size of the image source.
   pub fn size(&self) -> (f32, f32) {
     match self {
@@ -166,25 +188,10 @@ impl ImageSource {
   }
 }
 
-/// Try to load an image source from raw bytes.
-///
-/// - When the `svg` feature is enabled and the bytes look like SVG XML, they
-///   are parsed as an SVG using `resvg::usvg`.
-/// - Otherwise, the bytes are decoded as a raster image using the `image` crate.
+/// Deprecated compatibility wrapper for [`ImageSource::from_bytes`].
+#[deprecated(note = "use `ImageSource::from_bytes` instead")]
 pub fn load_image_source_from_bytes(bytes: &[u8]) -> ImageResult {
-  #[cfg(feature = "svg")]
-  {
-    use std::str::from_utf8;
-
-    if let Ok(text) = from_utf8(bytes)
-      && is_svg_like(text)
-    {
-      return parse_svg_str(text);
-    }
-  }
-
-  let img = image::load_from_memory(bytes).map_err(ImageResourceError::DecodeError)?;
-  Ok(Arc::new(img.into_rgba8().into()))
+  ImageSource::from_bytes(bytes)
 }
 
 /// Check if the string looks like an SVG image.

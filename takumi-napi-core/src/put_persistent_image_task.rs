@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock};
 
 use napi::bindgen_prelude::*;
-use takumi::resources::image::load_image_source_from_bytes;
+use takumi::resources::image::ImageSource as LoadedImageSource;
 use xxhash_rust::xxh3::xxh3_64;
 
 use crate::{
@@ -37,7 +37,7 @@ impl Task for PutPersistentImageTask {
       return Ok(());
     }
     state.persistent_image_cache.insert(cache_key);
-    let image = load_image_source_from_bytes(&self.buffer).map_err(map_error)?;
+    let image = LoadedImageSource::from_bytes(&self.buffer).map_err(map_error)?;
     state.global.persistent_image_store.insert(src, image);
 
     Ok(())

@@ -3,10 +3,10 @@ use std::{
   fs::File,
   io::Read,
   path::{Path, PathBuf},
-  sync::{Arc, LazyLock},
+  sync::LazyLock,
 };
 
-use image::{RgbaImage, load_from_memory};
+use image::RgbaImage;
 use parley::{GenericFamily, fontique::FontInfoOverride};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use takumi::{
@@ -94,9 +94,7 @@ fn create_test_context() -> GlobalContext {
 
   context.persistent_image_store.insert(
     "assets/images/yeecord.png".to_string(),
-    Arc::new(ImageSource::Bitmap(
-      load_from_memory(&yeecord_image_data).unwrap().into_rgba8(),
-    )),
+    ImageSource::from_bytes(&yeecord_image_data).unwrap(),
   );
 
   let mut luma_cover_image_data = Vec::new();
@@ -114,11 +112,7 @@ fn create_test_context() -> GlobalContext {
 
   context.persistent_image_store.insert(
     "assets/images/luma-cover-0dfbf65d-0f58-4941-947c-d84a5b131dc0.jpeg".to_string(),
-    Arc::new(ImageSource::Bitmap(
-      load_from_memory(&luma_cover_image_data)
-        .unwrap()
-        .into_rgba8(),
-    )),
+    ImageSource::from_bytes(&luma_cover_image_data).unwrap(),
   );
 
   for (font, name, generic) in TEST_FONTS {

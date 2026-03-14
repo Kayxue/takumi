@@ -331,6 +331,7 @@ pub enum TakumiError {
 
   /// Error encoding a WebP image.
   #[error("WebP encoding error: {0}")]
+  #[cfg(target_arch = "wasm32")]
   WebPEncodingError(#[from] image_webp::EncodingError),
 
   /// Structured errors from WebP encoding and RIFF container assembly.
