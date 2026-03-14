@@ -263,13 +263,19 @@ pub(crate) fn resolve_length_to_position_component(
   }
 }
 
+fn calculate_available_space(area_size: u32, tile_size: u32) -> i32 {
+  i32::try_from(area_size)
+    .unwrap_or(i32::MAX)
+    .saturating_sub_unsigned(tile_size)
+}
+
 pub(crate) fn resolve_position_component_x(
   comp: BackgroundPosition,
   tile_w: u32,
   area_w: u32,
   sizing: &Sizing,
 ) -> i32 {
-  let available = area_w.saturating_sub(tile_w) as i32;
+  let available = calculate_available_space(area_w, tile_w);
   match comp.0.x {
     PositionComponent::KeywordX(PositionKeywordX::Left) => 0,
     PositionComponent::KeywordX(PositionKeywordX::Center) => available / 2,
@@ -287,7 +293,7 @@ pub(crate) fn resolve_position_component_y(
   area_h: u32,
   sizing: &Sizing,
 ) -> i32 {
-  let available = area_h.saturating_sub(tile_h) as i32;
+  let available = calculate_available_space(area_h, tile_h);
   match comp.0.y {
     PositionComponent::KeywordY(PositionKeywordY::Top) => 0,
     PositionComponent::KeywordY(PositionKeywordY::Center) => available / 2,
@@ -668,4 +674,69 @@ pub(crate) fn collect_background_layers(
   }
 
   Ok(layers)
+}
+
+#[cfg(test)]
+mod tests {
+  use std::rc::Rc;
+
+  use taffy::Size;
+
+  use super::{resolve_position_component_x, resolve_position_component_y};
+  use crate::{
+    layout::{
+      Viewport,
+      style::{
+        BackgroundPosition, CalcArena, Length, PositionComponent, PositionKeywordX,
+        PositionKeywordY, SpacePair,
+      },
+    },
+    rendering::Sizing,
+  };
+
+  fn test_sizing() -> Sizing {
+    let viewport = Viewport::new(Some(100), Some(100));
+    Sizing {
+      viewport,
+      container_size: Size::NONE,
+      font_size: viewport.font_size,
+      calc_arena: Rc::new(CalcArena::default()),
+    }
+  }
+
+  #[test]
+  fn oversized_background_keywords_resolve_to_negative_offsets() {
+    let sizing = test_sizing();
+    let position = BackgroundPosition(SpacePair::from_pair(
+      PositionComponent::KeywordX(PositionKeywordX::Right),
+      PositionComponent::KeywordY(PositionKeywordY::Bottom),
+    ));
+
+    assert_eq!(
+      resolve_position_component_x(position, 150, 100, &sizing),
+      -50
+    );
+    assert_eq!(
+      resolve_position_component_y(position, 150, 100, &sizing),
+      -50
+    );
+  }
+
+  #[test]
+  fn oversized_background_percentages_use_signed_available_space() {
+    let sizing = test_sizing();
+    let position = BackgroundPosition(SpacePair::from_pair(
+      PositionComponent::Length(Length::Percentage(25.0)),
+      PositionComponent::Length(Length::Percentage(75.0)),
+    ));
+
+    assert_eq!(
+      resolve_position_component_x(position, 140, 100, &sizing),
+      -10
+    );
+    assert_eq!(
+      resolve_position_component_y(position, 140, 100, &sizing),
+      -30
+    );
+  }
 }
