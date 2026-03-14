@@ -4,6 +4,7 @@ export type BaseNode = {
   tagName?: string;
   className?: string;
   id?: string;
+  attributes?: Record<string, string>;
   tw?: string;
   style?: CSSProperties;
   preset?: CSSProperties;

@@ -59,6 +59,12 @@ interface FromJsxTraversalResult {
   stylesheets: string[];
 }
 
+type HtmlProps = {
+  className?: string;
+  id?: string;
+  [key: string]: unknown;
+};
+
 export async function fromJsx(
   element: ReactNode | ReactElementLike,
   options?: FromJsxOptions,
@@ -120,6 +126,57 @@ async function fromJsxInternal(
     ],
     stylesheets: [],
   };
+}
+
+function extractAttributes(
+  props: HtmlProps,
+  tailwindClassesProperty: string,
+): Record<string, string> | undefined {
+  const collectedAttributes: Record<string, string> = {};
+
+  for (const [attributeName, attributeValue] of Object.entries(props)) {
+    if (
+      attributeName === "children" ||
+      attributeName === "className" ||
+      attributeName === "id" ||
+      attributeName === "style" ||
+      attributeName === tailwindClassesProperty ||
+      attributeName === "ref" ||
+      attributeName === "key" ||
+      attributeName === "dangerouslySetInnerHTML" ||
+      attributeName === "suppressHydrationWarning"
+    ) {
+      continue;
+    }
+
+    if (
+      attributeValue === undefined ||
+      attributeValue === null ||
+      attributeValue === false
+    ) {
+      continue;
+    }
+
+    if (
+      typeof attributeValue === "function" ||
+      typeof attributeValue === "symbol"
+    ) {
+      continue;
+    }
+
+    if (typeof attributeValue === "object") {
+      continue;
+    }
+
+    collectedAttributes[attributeName] =
+      attributeValue === true ? "" : String(attributeValue);
+  }
+
+  if (Object.keys(collectedAttributes).length === 0) {
+    return;
+  }
+
+  return collectedAttributes;
 }
 
 function getPresets(
@@ -298,7 +355,11 @@ async function processReactElement(
   if (typeof element.type !== "string" || isHtmlVoidElement(element)) {
     return { nodes: [], stylesheets: [] };
   }
-  const htmlProps = element.props as { className?: string; id?: string };
+  const htmlProps = element.props as HtmlProps;
+  const attributes = extractAttributes(
+    htmlProps,
+    options.tailwindClassesProperty,
+  );
 
   if (isHtmlElement(element, "br")) {
     return {
@@ -309,6 +370,7 @@ async function processReactElement(
           tagName: "br",
           className: element.props.className,
           id: element.props.id,
+          attributes,
         }),
       ],
       stylesheets: [],
@@ -343,6 +405,7 @@ async function processReactElement(
           tw,
           className: htmlProps.className,
           id: htmlProps.id,
+          attributes,
           tagName: element.type,
         }),
       ],
@@ -362,6 +425,7 @@ async function processReactElement(
         tagName: element.type,
         className: htmlProps.className,
         id: htmlProps.id,
+        attributes,
       }),
     ],
     stylesheets: children.stylesheets,
@@ -395,6 +459,10 @@ function createImageElement(
     tw,
     className: element.props.className,
     id: element.props.id,
+    attributes: extractAttributes(
+      element.props as HtmlProps,
+      options.tailwindClassesProperty,
+    ),
     tagName: "img",
   });
 }
@@ -423,6 +491,10 @@ function createSvgElement(
     tw,
     className: element.props.className,
     id: element.props.id,
+    attributes: extractAttributes(
+      element.props as HtmlProps,
+      options.tailwindClassesProperty,
+    ),
     tagName: "svg",
   });
 }

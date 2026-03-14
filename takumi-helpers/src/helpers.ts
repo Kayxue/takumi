@@ -25,6 +25,10 @@ function applyMetadata(node: AnyNode, props: Partial<AnyNode>) {
   if (props.id !== undefined) {
     node.id = props.id;
   }
+
+  if (props.attributes !== undefined) {
+    node.attributes = props.attributes;
+  }
 }
 
 export function container(props: Omit<ContainerNode, "type">): ContainerNode {

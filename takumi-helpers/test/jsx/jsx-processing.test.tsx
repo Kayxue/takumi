@@ -600,6 +600,43 @@ describe("fromJsx", () => {
     } satisfies TextNode);
   });
 
+  test("collects JSX attributes into node metadata", async () => {
+    const { node } = await fromJsx(
+      <button
+        type="button"
+        data-kind="hero"
+        aria-label="Promo"
+        draggable
+        hidden={false}
+      >
+        <img src="https://example.com/a.png" alt="Preview" draggable />
+      </button>,
+    );
+
+    expect(node).toMatchObject({
+      type: "container",
+      tagName: "button",
+      attributes: {
+        type: "button",
+        "data-kind": "hero",
+        "aria-label": "Promo",
+        draggable: "",
+      },
+      children: [
+        {
+          type: "image",
+          src: "https://example.com/a.png",
+          tagName: "img",
+          attributes: {
+            alt: "Preview",
+            draggable: "",
+            src: "https://example.com/a.png",
+          },
+        },
+      ],
+    } satisfies ContainerNode);
+  });
+
   test("extracts style tag contents into stylesheets", async () => {
     const { node, stylesheets } = await fromJsx(
       <div>
