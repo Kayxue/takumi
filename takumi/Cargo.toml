@@ -19,7 +19,6 @@ paste = "1.0"
 png = "0.18"
 gif = "0.14"
 data-url = "0.3"
-dashmap = "6.1"
 color = "0.3"
 thiserror = "2.0"
 wide = "1.1"
@@ -27,6 +26,7 @@ libm = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 libwebp-sys = "0.14"
+dashmap = "6.1"
 
 [dependencies.bytemuck]
 version = "1.25"
@@ -110,13 +110,7 @@ version = "0.21.1"
 optional = true
 
 [features]
-default = [
-  "woff2",
-  "woff",
-  "svg",
-  "rayon",
-  "detailed_css_error",
-]
+default = ["woff2", "woff", "svg", "rayon", "detailed_css_error"]
 svg = ["dep:resvg", "dep:roxmltree"]
 woff2 = ["dep:wuff", "wuff/brotli"]
 woff = ["dep:wuff", "wuff/z"]

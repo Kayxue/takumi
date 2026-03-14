@@ -207,7 +207,7 @@ pub(crate) fn resolve_image(src: &str, context: &RenderContext) -> ImageResult {
   }
 
   if let Some(img) = context.global.persistent_image_store.get(src) {
-    return Ok(img.clone());
+    return Ok(img);
   }
 
   Err(ImageResourceError::Unknown)

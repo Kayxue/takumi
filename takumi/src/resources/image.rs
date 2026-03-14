@@ -5,6 +5,10 @@
 
 use std::{borrow::Cow, sync::Arc};
 
+#[cfg(target_arch = "wasm32")]
+use std::{cell::RefCell, collections::HashMap};
+
+#[cfg(not(target_arch = "wasm32"))]
 use dashmap::DashMap;
 use image::RgbaImage;
 
@@ -33,7 +37,54 @@ pub enum ImageSource {
 }
 
 /// Represents a persistent image store.
-pub type PersistentImageStore = DashMap<String, Arc<ImageSource>>;
+#[derive(Debug, Default)]
+pub struct PersistentImageStore {
+  #[cfg(target_arch = "wasm32")]
+  map: RefCell<HashMap<String, Arc<ImageSource>>>,
+  #[cfg(not(target_arch = "wasm32"))]
+  map: DashMap<String, Arc<ImageSource>>,
+}
+
+impl PersistentImageStore {
+  /// Returns the stored image for the provided source, if present.
+  pub fn get(&self, src: &str) -> Option<Arc<ImageSource>> {
+    #[cfg(target_arch = "wasm32")]
+    {
+      self.map.borrow().get(src).cloned()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+      self.map.get(src).map(|image| image.clone())
+    }
+  }
+
+  /// Stores or replaces a persistent image for the provided source.
+  pub fn insert(&self, src: String, image: Arc<ImageSource>) {
+    #[cfg(target_arch = "wasm32")]
+    {
+      self.map.borrow_mut().insert(src, image);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+      self.map.insert(src, image);
+    }
+  }
+
+  /// Removes all stored persistent images.
+  pub fn clear(&self) {
+    #[cfg(target_arch = "wasm32")]
+    {
+      self.map.borrow_mut().clear();
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+      self.map.clear();
+    }
+  }
+}
 
 impl From<RgbaImage> for ImageSource {
   fn from(bitmap: RgbaImage) -> Self {
