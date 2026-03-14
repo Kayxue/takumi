@@ -1,4 +1,4 @@
-import { type AnyNode, Renderer } from "@takumi-rs/core";
+import { type Node, Renderer } from "@takumi-rs/core";
 import { container, text } from "@takumi-rs/helpers";
 import { spawn } from "bun";
 
@@ -105,7 +105,7 @@ const { width: textWidth, height: textHeight } = await getTextMeasurement(
   Date.now(),
 );
 
-function createFrame(time = Date.now()): AnyNode {
+function createFrame(time = Date.now()): Node {
   // Update position
   posX += velocityX;
   posY += velocityY;

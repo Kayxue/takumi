@@ -1,18 +1,15 @@
 import type { CSSProperties } from "react";
 
-export type BaseNode = {
+export type NodeAttributes = Record<string, string>;
+
+export type NodeMetadata = {
   tagName?: string;
   className?: string;
   id?: string;
-  attributes?: Record<string, string>;
+  attributes?: NodeAttributes;
   tw?: string;
   style?: CSSProperties;
   preset?: CSSProperties;
-};
-
-export type AnyNode = BaseNode & {
-  type: string;
-  [key: string]: unknown;
 };
 
 /**
@@ -20,19 +17,19 @@ export type AnyNode = BaseNode & {
  */
 export type PartialStyle = CSSProperties;
 
-export type Node = ContainerNode | TextNode | ImageNode | AnyNode;
+export type Node = ContainerNode | TextNode | ImageNode;
 
-export type ContainerNode = BaseNode & {
+export type ContainerNode = NodeMetadata & {
   type: "container";
   children?: Node[];
 };
 
-export type TextNode = BaseNode & {
+export type TextNode = NodeMetadata & {
   type: "text";
   text: string;
 };
 
-export type ImageNode = BaseNode & {
+export type ImageNode = NodeMetadata & {
   type: "image";
   src: string;
   width?: number;

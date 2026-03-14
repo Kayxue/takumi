@@ -214,7 +214,7 @@ impl Renderer {
   #[wasm_bindgen]
   pub fn render(
     &self,
-    node: AnyNode,
+    node: NodeType,
     options: Option<RenderOptionsType>,
   ) -> Result<Vec<u8>, JsValue> {
     let node: Node = from_value(node.into()).map_err(map_error)?;
@@ -276,7 +276,7 @@ impl Renderer {
   #[wasm_bindgen(js_name = measure)]
   pub fn measure(
     &self,
-    node: AnyNode,
+    node: NodeType,
     options: Option<RenderOptionsType>,
   ) -> Result<MeasuredNodeType, JsValue> {
     let node: Node = from_value(node.into()).map_err(map_error)?;
@@ -318,7 +318,7 @@ impl Renderer {
   #[wasm_bindgen(js_name = "renderAsDataUrl")]
   pub fn render_as_data_url(
     &self,
-    node: AnyNode,
+    node: NodeType,
     options: RenderOptionsType,
   ) -> Result<String, js_sys::Error> {
     let node: Node = from_value(node.into()).map_err(map_error)?;

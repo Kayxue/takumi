@@ -10,6 +10,7 @@ test("report deserialize error for justifyContent with wrong type", () => {
         type: "container",
         children: [],
         style: {
+          // @ts-expect-error: invalid type test
           justifyContent: 123,
         },
       },
@@ -50,6 +51,7 @@ test("report deserialize error for color property with invalid type", () => {
         type: "container",
         children: [],
         style: {
+          // @ts-expect-error: invalid type test
           color: 123,
         },
       },
@@ -90,6 +92,7 @@ test("report deserialize error for width property with invalid type", () => {
         type: "container",
         children: [],
         style: {
+          // @ts-expect-error: invalid type test
           width: true,
         },
       },
@@ -130,6 +133,7 @@ test("report deserialize error for alignItems property with invalid type", () =>
         type: "container",
         children: [],
         style: {
+          // @ts-expect-error: invalid type test
           alignItems: [],
         },
       },
@@ -170,6 +174,7 @@ test("report deserialize error for borderRadius property with invalid type", () 
         type: "container",
         children: [],
         style: {
+          // @ts-expect-error: invalid type test
           borderRadius: true,
         },
       },
@@ -230,6 +235,7 @@ test("report deserialize error for padding (Sides) with invalid type", () => {
         type: "container",
         children: [],
         style: {
+          // @ts-expect-error: invalid type test
           padding: { top: null },
         },
       },
@@ -270,6 +276,7 @@ test("report deserialize error for gap (SpacePair) with invalid type", () => {
         type: "container",
         children: [],
         style: {
+          // @ts-expect-error: invalid type test
           gap: true,
         },
       },
@@ -311,6 +318,7 @@ test("report deserialize error for textDecorationLine with invalid type", () => 
         type: "container",
         children: [],
         style: {
+          // @ts-expect-error: invalid type test
           textDecorationLine: 123,
         },
       },

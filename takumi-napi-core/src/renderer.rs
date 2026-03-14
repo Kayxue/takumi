@@ -161,7 +161,7 @@ impl From<DitheringAlgorithm> for CoreDitheringAlgorithm {
 #[napi(object)]
 pub struct AnimationFrameSource<'ctx> {
   /// The node tree to render for this frame.
-  #[napi(ts_type = "AnyNode")]
+  #[napi(ts_type = "Node")]
   pub node: Object<'ctx>,
   /// The duration of this frame in milliseconds.
   pub duration_ms: u32,
@@ -171,7 +171,7 @@ pub struct AnimationFrameSource<'ctx> {
 #[napi(object)]
 pub struct AnimationSceneSource<'ctx> {
   /// The node tree to render for this scene.
-  #[napi(ts_type = "AnyNode")]
+  #[napi(ts_type = "Node")]
   pub node: Object<'ctx>,
   /// The duration of this scene in milliseconds.
   pub duration_ms: u32,
@@ -543,7 +543,7 @@ impl Renderer {
 
   /// Renders a node tree into an image buffer asynchronously.
   #[napi(
-    ts_args_type = "source: AnyNode, options?: RenderOptions, signal?: AbortSignal",
+    ts_args_type = "source: Node, options?: RenderOptions, signal?: AbortSignal",
     ts_return_type = "Promise<Buffer>"
   )]
   pub fn render(
@@ -568,7 +568,7 @@ impl Renderer {
 
   /// @deprecated Use `render` instead (to align with the naming convention for sync/async functions).
   #[napi(
-    ts_args_type = "source: AnyNode, options?: RenderOptions, signal?: AbortSignal",
+    ts_args_type = "source: Node, options?: RenderOptions, signal?: AbortSignal",
     ts_return_type = "Promise<Buffer>"
   )]
   pub fn render_async(
@@ -583,7 +583,7 @@ impl Renderer {
 
   /// Measures a node tree and returns layout information asynchronously.
   #[napi(
-    ts_args_type = "source: AnyNode, options?: RenderOptions, signal?: AbortSignal",
+    ts_args_type = "source: Node, options?: RenderOptions, signal?: AbortSignal",
     ts_return_type = "Promise<MeasuredNode>"
   )]
   pub fn measure(

@@ -11,7 +11,8 @@
   ],
   "scripts": {
     "build": "wasm-pack build --no-pack --release --out-dir pkg --target web && bun build pkg/takumi_wasm.js --define import.meta.url=undefined --format cjs --outfile pkg/takumi_wasm.cjs",
-    "build:debug": "wasm-pack build --no-pack --dev --out-dir pkg --target web && bun build pkg/takumi_wasm.js --define import.meta.url=undefined --format cjs --outfile pkg/takumi_wasm.cjs"
+    "build:debug": "wasm-pack build --no-pack --dev --out-dir pkg --target web && bun build pkg/takumi_wasm.js --define import.meta.url=undefined --format cjs --outfile pkg/takumi_wasm.cjs",
+    "prepublishOnly": "jq '.dependencies[\"@takumi-rs/helpers\"] = .version' package.json > tmp.json && mv tmp.json package.json"
   },
   "author": {
     "email": "me@kane.tw",
@@ -21,10 +22,12 @@
   "repository": {
     "url": "git+https://github.com/kane50613/takumi.git"
   },
+  "dependencies": {
+    "@takumi-rs/helpers": "workspace:*"
+  },
   "readme": "README.md",
   "license": "(MIT OR Apache-2.0)",
   "devDependencies": {
-    "@takumi-rs/helpers": "workspace:*",
     "@types/bun": "catalog:",
     "typescript": "catalog:"
   },

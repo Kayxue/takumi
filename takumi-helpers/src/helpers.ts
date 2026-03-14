@@ -1,19 +1,25 @@
 import type { CSSProperties } from "react";
-import type { AnyNode, ContainerNode, ImageNode, TextNode } from "./types";
+import type {
+  ContainerNode,
+  ImageNode,
+  Node,
+  NodeMetadata,
+  TextNode,
+} from "./types";
 
-function applyStyle(node: AnyNode, style?: CSSProperties) {
+function applyStyle(node: Node, style?: CSSProperties) {
   if (style && Object.keys(style).length > 0) {
     node.style = style;
   }
 }
 
-function applyPreset(node: AnyNode, preset?: CSSProperties) {
+function applyPreset(node: Node, preset?: CSSProperties) {
   if (preset && Object.keys(preset).length > 0) {
     node.preset = preset;
   }
 }
 
-function applyMetadata(node: AnyNode, props: Partial<AnyNode>) {
+function applyMetadata(node: Node, props: Partial<NodeMetadata>) {
   if (props.tagName !== undefined) {
     node.tagName = props.tagName;
   }

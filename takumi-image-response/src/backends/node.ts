@@ -1,7 +1,7 @@
 import {
-  type AnyNode,
   type ConstructRendererOptions,
   extractResourceUrls,
+  type Node,
   Renderer,
   type RenderOptions,
 } from "@takumi-rs/core";
@@ -76,10 +76,7 @@ async function getRenderer(options?: ImageResponseOptions) {
   return currentRenderer;
 }
 
-function extractFetchedResources(
-  node: AnyNode,
-  options?: ImageResponseOptions,
-) {
+function extractFetchedResources(node: Node, options?: ImageResponseOptions) {
   if (options?.fetchedResources) {
     return options.fetchedResources;
   }

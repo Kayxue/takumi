@@ -1,19 +1,19 @@
 import { describe, expect, it } from "bun:test";
+import { container, text } from "@takumi-rs/helpers";
 import { Renderer } from "../bundlers/node";
 
 describe("Renderer.measure", () => {
   const renderer = new Renderer();
 
   it("should measure a simple container", () => {
-    const node = {
-      type: "container",
+    const node = container({
       style: {
         width: 100,
         height: 100,
         backgroundColor: "red",
       },
       children: [],
-    };
+    });
 
     const result = renderer.measure(node);
 
@@ -27,8 +27,7 @@ describe("Renderer.measure", () => {
   });
 
   it("should measure nested children with layout", () => {
-    const node = {
-      type: "container",
+    const node = container({
       style: {
         display: "flex",
         width: 200,
@@ -36,23 +35,21 @@ describe("Renderer.measure", () => {
         padding: 10,
       },
       children: [
-        {
-          type: "text",
+        text({
           text: "Hello",
           style: {
             width: 50,
             height: 50,
           },
-        },
-        {
-          type: "container",
+        }),
+        container({
           style: {
             flex: 1,
             height: 50,
           },
-        },
+        }),
       ],
-    };
+    });
 
     const result = renderer.measure(node);
 

@@ -1,6 +1,6 @@
 //! Helper functions and utilities for the WebAssembly bindings.
 
-use crate::model::AnyNode;
+use crate::model::NodeType;
 use serde_wasm_bindgen::from_value;
 use std::fmt::Display;
 use takumi::{layout::node::Node, resources::task::FetchTaskCollection};
@@ -16,7 +16,7 @@ pub type JsResult<T> = Result<T, js_sys::Error>;
 
 /// Collects the fetch task urls from the node.
 #[wasm_bindgen(js_name = extractResourceUrls)]
-pub fn extract_resource_urls(node: AnyNode) -> JsResult<Vec<String>> {
+pub fn extract_resource_urls(node: NodeType) -> JsResult<Vec<String>> {
   let node: Node = from_value(node.into()).map_err(map_error)?;
 
   let mut collection = FetchTaskCollection::default();
@@ -36,6 +36,6 @@ pub fn extract_resource_urls(node: AnyNode) -> JsResult<Vec<String>> {
 /// Collects the fetch task urls from the node.
 /// @deprecated Use `extractResourceUrls` instead.
 #[wasm_bindgen(js_name = collectNodeFetchTasks)]
-pub fn collect_node_fetch_tasks(node: AnyNode) -> JsResult<Vec<String>> {
+pub fn collect_node_fetch_tasks(node: NodeType) -> JsResult<Vec<String>> {
   extract_resource_urls(node)
 }

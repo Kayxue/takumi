@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { container, image } from "@takumi-rs/helpers";
 import { Renderer } from "../index";
 
 const fontArrayBuffer = await Bun.file(
@@ -14,21 +15,19 @@ const fontUint8Array = new Uint8Array(fontArrayBuffer.slice(0));
 const imageBuffer = Buffer.from(imageArrayBuffer);
 const imageUint8Array = new Uint8Array(imageArrayBuffer.slice(0));
 
-const imageNode = {
-  type: "container",
+const imageNode = container({
   style: {
     width: 64,
     height: 64,
   },
   children: [
-    {
-      type: "image",
+    image({
       src: "test://binary-input-image",
       width: 64,
       height: 64,
-    },
+    }),
   ],
-};
+});
 
 describe("binary inputs", () => {
   test("constructor accepts ArrayBuffer and Uint8Array", () => {

@@ -11,7 +11,20 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(typescript_custom_section)]
 const TS_APPEND_CONTENT: &'static str = r#"
-export type AnyNode = { type: string; [key: string]: any };
+import type {
+  ContainerNode,
+  ImageNode,
+  Node,
+  NodeMetadata,
+  TextNode,
+} from "@takumi-rs/helpers";
+
+export type { ContainerNode, ImageNode, Node, NodeMetadata, TextNode };
+
+/**
+ * @deprecated Use `Node` instead.
+ */
+export type AnyNode = Node;
 
 export type ByteBuf = Uint8Array | ArrayBuffer | Buffer;
 
@@ -172,12 +185,12 @@ export type MeasuredNode = {
 };
 
 export type AnimationFrameSource = {
-  node: AnyNode,
+  node: Node,
   durationMs: number,
 };
 
 export type AnimationSceneSource = {
-  node: AnyNode,
+  node: Node,
   durationMs: number,
 };
 "#;
@@ -185,9 +198,9 @@ export type AnimationSceneSource = {
 #[wasm_bindgen]
 extern "C" {
   /// JavaScript object representing a layout node.
-  #[wasm_bindgen(typescript_type = "AnyNode")]
+  #[wasm_bindgen(typescript_type = "Node")]
   #[derive(Debug)]
-  pub type AnyNode;
+  pub type NodeType;
 
   /// JavaScript object representing render options.
   #[wasm_bindgen(typescript_type = "RenderOptions")]
