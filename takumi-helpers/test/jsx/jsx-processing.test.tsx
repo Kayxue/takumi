@@ -284,6 +284,10 @@ describe("fromJsx", () => {
       width: undefined,
       height: undefined,
       preset: defaultStylePresets.img,
+      attributes: {
+        src: "https://example.com/image.jpg",
+        alt: "Test",
+      },
       tagName: "img",
     } satisfies ImageNode);
   });
@@ -304,6 +308,10 @@ describe("fromJsx", () => {
       width: undefined,
       height: undefined,
       preset: defaultStylePresets.img,
+      attributes: {
+        src: "https://example.com/image.jpg",
+        alt: "Test",
+      },
       tagName: "img",
       id: "hero-image",
       className: "rounded",
@@ -325,6 +333,12 @@ describe("fromJsx", () => {
       width: 100,
       height: 100,
       preset: defaultStylePresets.img,
+      attributes: {
+        src: "https://example.com/image.jpg",
+        width: "100",
+        height: "100",
+        alt: "Test",
+      },
       tagName: "img",
     } satisfies ImageNode);
   });
@@ -512,6 +526,10 @@ describe("fromJsx", () => {
               width: undefined,
               height: undefined,
               preset: defaultStylePresets.img,
+              attributes: {
+                src: "https://example.com/logo.png",
+                alt: "Logo",
+              },
               tagName: "img",
             },
           ],
@@ -556,6 +574,13 @@ describe("fromJsx", () => {
       width: 60,
       height: 60,
       preset: defaultStylePresets.svg,
+      attributes: {
+        width: "60",
+        height: "60",
+        viewBox: "0 0 180 180",
+        filter: "url(#logo-shadow)",
+        xmlns: "http://www.w3.org/2000/svg",
+      },
       tagName: "svg",
     });
   });
@@ -581,6 +606,11 @@ describe("fromJsx", () => {
       width: 10,
       height: 12,
       preset: defaultStylePresets.svg,
+      attributes: {
+        width: "10",
+        height: "12",
+        xmlns: "http://www.w3.org/2000/svg",
+      },
       tagName: "svg",
       id: "logo",
       className: "icon",
