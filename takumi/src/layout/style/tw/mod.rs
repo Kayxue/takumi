@@ -906,18 +906,19 @@ impl TailwindProperty {
   }
 
   fn parse_prefix_suffix(token: &str) -> Option<TailwindProperty> {
-    let dash_positions = token.match_indices('-').map(|(i, _)| i);
+    let bytes = token.as_bytes();
 
-    // Try different prefix lengths (longest first)
-    for dash_pos in dash_positions.rev() {
+    for dash_pos in (0..bytes.len()).rev() {
+      if bytes[dash_pos] != b'-' {
+        continue;
+      }
+
       let prefix = &token[..dash_pos];
-
       let Some(parsers) = PREFIX_PARSERS.get(prefix) else {
         continue;
       };
 
       let suffix = &token[dash_pos + 1..];
-
       for parser in *parsers {
         if let Some(property) = parser.parse(suffix) {
           return Some(property);
