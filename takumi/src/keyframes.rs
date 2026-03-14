@@ -1,17 +1,112 @@
 //! Shared keyframe input parsing used by external bindings.
 
-use std::collections::BTreeMap;
-
 use cssparser::{ParseError, ParseErrorKind, Parser, ParserInput, Token};
-use serde::{Deserialize, Deserializer, de};
+use serde::{
+  Deserialize, Deserializer,
+  de::{self, MapAccess, SeqAccess, Visitor},
+};
 
 use crate::layout::style::{KeyframeRule, KeyframesRule, StyleDeclarationBlock};
 
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum RawKeyframesInput {
-  Rules(Vec<KeyframesRule>),
-  Shorthand(BTreeMap<String, BTreeMap<String, StyleDeclarationBlock>>),
+struct StageMap(Vec<(String, StyleDeclarationBlock)>);
+
+impl<'de> Deserialize<'de> for StageMap {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: Deserializer<'de>,
+  {
+    struct StageMapVisitor;
+
+    impl<'de> Visitor<'de> for StageMapVisitor {
+      type Value = StageMap;
+
+      fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("a map from keyframe selector to declaration block")
+      }
+
+      fn visit_map<A>(self, mut access: A) -> Result<Self::Value, A::Error>
+      where
+        A: MapAccess<'de>,
+      {
+        let mut stages = Vec::with_capacity(access.size_hint().unwrap_or(0));
+        while let Some((selector, declarations)) =
+          access.next_entry::<String, StyleDeclarationBlock>()?
+        {
+          stages.push((selector, declarations));
+        }
+        stages.sort_unstable_by(|(left, _), (right, _)| left.cmp(right));
+        Ok(StageMap(stages))
+      }
+    }
+
+    deserializer.deserialize_map(StageMapVisitor)
+  }
+}
+
+struct KeyframesVec(Vec<KeyframesRule>);
+
+impl<'de> Deserialize<'de> for KeyframesVec {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: Deserializer<'de>,
+  {
+    struct KeyframesVecVisitor;
+
+    impl<'de> Visitor<'de> for KeyframesVecVisitor {
+      type Value = KeyframesVec;
+
+      fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("keyframes rules array or shorthand keyframes object")
+      }
+
+      fn visit_seq<A>(self, mut access: A) -> Result<Self::Value, A::Error>
+      where
+        A: SeqAccess<'de>,
+      {
+        let mut rules = Vec::with_capacity(access.size_hint().unwrap_or(0));
+        while let Some(rule) = access.next_element::<KeyframesRule>()? {
+          rules.push(rule);
+        }
+        Ok(KeyframesVec(rules))
+      }
+
+      fn visit_map<A>(self, mut access: A) -> Result<Self::Value, A::Error>
+      where
+        A: MapAccess<'de>,
+      {
+        let mut shorthand = Vec::with_capacity(access.size_hint().unwrap_or(0));
+        while let Some((name, stages)) = access.next_entry::<String, StageMap>()? {
+          shorthand.push((name, stages));
+        }
+        shorthand.sort_unstable_by(|(left, _), (right, _)| left.cmp(right));
+
+        let rules = shorthand
+          .into_iter()
+          .map(|(name, StageMap(stages))| {
+            let keyframes = stages
+              .into_iter()
+              .map(|(selector, declarations)| {
+                Ok(KeyframeRule {
+                  offsets: parse_keyframe_offsets(&selector).map_err(de::Error::custom)?,
+                  declarations,
+                })
+              })
+              .collect::<Result<Vec<_>, _>>()?;
+
+            Ok(KeyframesRule {
+              name,
+              keyframes,
+              media_queries: Vec::new(),
+            })
+          })
+          .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(KeyframesVec(rules))
+      }
+    }
+
+    deserializer.deserialize_any(KeyframesVecVisitor)
+  }
 }
 
 /// Deserializes either structured keyframes or shorthand keyframe maps.
@@ -19,10 +114,7 @@ pub fn deserialize_keyframes<'de, D>(deserializer: D) -> Result<Vec<KeyframesRul
 where
   D: Deserializer<'de>,
 {
-  match RawKeyframesInput::deserialize(deserializer)? {
-    RawKeyframesInput::Rules(rules) => Ok(rules),
-    RawKeyframesInput::Shorthand(shorthand) => raw_keyframes_to_rules(shorthand),
-  }
+  Ok(KeyframesVec::deserialize(deserializer)?.0)
 }
 
 /// Deserializes optional keyframes while preserving missing-field behavior.
@@ -32,40 +124,7 @@ pub fn deserialize_optional_keyframes<'de, D>(
 where
   D: Deserializer<'de>,
 {
-  Option::<RawKeyframesInput>::deserialize(deserializer)?
-    .map(|raw| match raw {
-      RawKeyframesInput::Rules(rules) => Ok(rules),
-      RawKeyframesInput::Shorthand(shorthand) => raw_keyframes_to_rules(shorthand),
-    })
-    .transpose()
-}
-
-fn raw_keyframes_to_rules<E>(
-  shorthand: BTreeMap<String, BTreeMap<String, StyleDeclarationBlock>>,
-) -> Result<Vec<KeyframesRule>, E>
-where
-  E: de::Error,
-{
-  shorthand
-    .into_iter()
-    .map(|(name, stages)| {
-      let keyframes = stages
-        .into_iter()
-        .map(|(selector, declarations)| {
-          Ok(KeyframeRule {
-            offsets: parse_keyframe_offsets(&selector).map_err(E::custom)?,
-            declarations,
-          })
-        })
-        .collect::<Result<Vec<_>, E>>()?;
-
-      Ok(KeyframesRule {
-        name,
-        keyframes,
-        media_queries: Vec::new(),
-      })
-    })
-    .collect::<Result<Vec<_>, E>>()
+  Ok(Option::<KeyframesVec>::deserialize(deserializer)?.map(|keyframes| keyframes.0))
 }
 
 fn parse_keyframe_offsets(selector: &str) -> Result<Vec<f32>, String> {
