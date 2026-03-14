@@ -1,4 +1,4 @@
-use std::iter::once;
+use std::{collections::BTreeMap, iter::once};
 
 use serde::Deserialize;
 use taffy::{AvailableSpace, Layout, Size};
@@ -10,7 +10,7 @@ use crate::{
       InlineContentKind, InlineItem, InlineLayoutStage, create_inline_constraint,
       create_inline_layout, measure_inline_layout,
     },
-    node::{Node, NodeStyleLayers},
+    node::{Node, NodeMetadata, NodeStyleLayers},
     style::{Style, tw::TailwindValues},
   },
   rendering::{Canvas, MaxHeight, RenderContext, inline_drawing::draw_inline_layout},
@@ -23,40 +23,77 @@ use crate::{
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TextNode {
-  /// The element's tag name
-  pub tag_name: Option<Box<str>>,
-  /// The element's class name
-  pub class_name: Option<Box<str>>,
-  /// The element's id
-  pub id: Option<Box<str>>,
-  /// Default style presets from HTML element type (lowest priority)
-  pub preset: Option<Style>,
-  /// The styling properties for this text node
-  pub style: Option<Style>,
+  /// Shared node metadata.
+  #[serde(flatten)]
+  pub(crate) metadata: NodeMetadata,
   /// The text content to be rendered
-  pub text: String,
-  /// The tailwind properties for this text node
-  pub tw: Option<TailwindValues>,
+  pub(crate) text: String,
+}
+
+impl TextNode {
+  /// Set the tag name and return the updated text node.
+  pub fn with_tag_name(mut self, tag_name: impl Into<Box<str>>) -> Self {
+    self.metadata.tag_name = Some(tag_name.into());
+    self
+  }
+
+  /// Set the class name and return the updated text node.
+  pub fn with_class_name(mut self, class_name: impl Into<Box<str>>) -> Self {
+    self.metadata.class_name = Some(class_name.into());
+    self
+  }
+
+  /// Set the id and return the updated text node.
+  pub fn with_id(mut self, id: impl Into<Box<str>>) -> Self {
+    self.metadata.id = Some(id.into());
+    self
+  }
+
+  /// Set the attributes and return the updated text node.
+  pub fn with_attributes(mut self, attributes: BTreeMap<Box<str>, Box<str>>) -> Self {
+    self.metadata.attributes = Some(attributes);
+    self
+  }
+
+  /// Set the preset style and return the updated text node.
+  pub fn with_preset(mut self, preset: Style) -> Self {
+    self.metadata.preset = Some(preset);
+    self
+  }
+
+  /// Set the inline style and return the updated text node.
+  pub fn with_style(mut self, style: Style) -> Self {
+    self.metadata.style = Some(style);
+    self
+  }
+
+  /// Set the Tailwind values and return the updated text node.
+  pub fn with_tw(mut self, tw: TailwindValues) -> Self {
+    self.metadata.tw = Some(tw);
+    self
+  }
+
+  /// Set the text content of the node.
+  pub fn with_text(mut self, text: impl Into<String>) -> Self {
+    self.text = text.into();
+    self
+  }
 }
 
 impl<Nodes: Node<Nodes>> Node<Nodes> for TextNode {
-  fn tag_name(&self) -> Option<&str> {
-    self.tag_name.as_deref()
+  fn metadata(&self) -> &NodeMetadata {
+    &self.metadata
   }
 
-  fn class_name(&self) -> Option<&str> {
-    self.class_name.as_deref()
-  }
-
-  fn id(&self) -> Option<&str> {
-    self.id.as_deref()
+  fn metadata_mut(&mut self) -> &mut NodeMetadata {
+    &mut self.metadata
   }
 
   fn take_style_layers(&mut self) -> NodeStyleLayers {
     NodeStyleLayers {
-      preset: self.preset.take(),
-      author_tw: self.tw.take(),
-      inline: self.style.take(),
+      preset: self.metadata.preset.take(),
+      author_tw: self.metadata.tw.take(),
+      inline: self.metadata.style.take(),
     }
   }
 
@@ -136,14 +173,6 @@ impl<Nodes: Node<Nodes>> Node<Nodes> for TextNode {
   }
 
   fn get_style(&self) -> Option<&Style> {
-    self.style.as_ref()
-  }
-
-  fn get_preset(&self) -> Option<&Style> {
-    self.preset.as_ref()
-  }
-
-  fn get_tw(&self) -> Option<&TailwindValues> {
-    self.tw.as_ref()
+    self.metadata.style.as_ref()
   }
 }

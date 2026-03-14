@@ -955,12 +955,9 @@ mod tests {
   #[test]
   fn measure_layout_supports_structured_keyframes() {
     let global = GlobalContext::default();
-    let node: NodeKind = ContainerNode {
-      class_name: None,
-      id: None,
-      tag_name: Some("div".into()),
-      preset: None,
-      style: Some(
+    let node: NodeKind = ContainerNode::default()
+      .with_tag_name("div")
+      .with_style(
         Style::default()
           .with(StyleDeclaration::width(Px(100.0)))
           .with(StyleDeclaration::animation_name(AnimationNames(
@@ -975,11 +972,8 @@ mod tests {
           .with(StyleDeclaration::animation_fill_mode(AnimationFillModes(
             vec![AnimationFillMode::Both].into(),
           ))),
-      ),
-      children: None,
-      tw: None,
-    }
-    .into();
+      )
+      .into();
 
     let options_result = RenderOptionsBuilder::default()
       .global(&global)
