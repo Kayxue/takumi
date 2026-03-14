@@ -1,7 +1,4 @@
-use std::{
-  io::{Cursor, Error as IoError, ErrorKind},
-  slice,
-};
+use std::io::{Cursor, Error as IoError, ErrorKind};
 
 use image::{
   DynamicImage, ImageError, ImageFormat, ImageResult, RgbaImage,
@@ -16,6 +13,7 @@ use libwebp_sys::{WebPDecodeRGBA, WebPFree};
 use image_webp::WebPDecoder;
 
 const PNG_SIGNATURE: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
+const JPEG_SIGNATURE: [u8; 3] = [0xFF, 0xD8, 0xFF];
 
 pub(crate) fn decode_image(bytes: &[u8]) -> ImageResult<RgbaImage> {
   match detect_image_format(bytes) {
@@ -37,7 +35,7 @@ fn detect_image_format(bytes: &[u8]) -> Option<DetectedImageFormat> {
     return Some(DetectedImageFormat::Png);
   }
 
-  if bytes.len() >= 3 && bytes[..3] == [0xFF, 0xD8, 0xFF] {
+  if bytes.starts_with(&JPEG_SIGNATURE) {
     return Some(DetectedImageFormat::Jpeg);
   }
 
@@ -123,7 +121,7 @@ fn decode_webp(bytes: &[u8]) -> ImageResult<RgbaImage> {
   let buffer_len = usize::try_from(pixel_count).map_err(|_| invalid_buffer_error())?;
   let image_data = unsafe {
     // SAFETY: `decoded_ptr` points to a `buffer_len`-byte RGBA allocation returned by libwebp.
-    let slice = slice::from_raw_parts(decoded_ptr, buffer_len);
+    let slice = std::slice::from_raw_parts(decoded_ptr, buffer_len);
     let owned = slice.to_vec();
     WebPFree(decoded_ptr.cast());
     owned
