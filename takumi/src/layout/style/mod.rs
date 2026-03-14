@@ -35,18 +35,6 @@ impl std::fmt::Display for RawCssNumber {
   }
 }
 
-impl RawCssNumber {
-  #[cold]
-  #[inline(never)]
-  fn unexpected(&self) -> de::Unexpected<'_> {
-    match self {
-      RawCssNumber::Signed(value) => de::Unexpected::Signed(*value),
-      RawCssNumber::Unsigned(value) => de::Unexpected::Unsigned(*value),
-      RawCssNumber::Float(value) => de::Unexpected::Float(*value),
-    }
-  }
-}
-
 #[derive(Clone, Copy)]
 pub(super) enum RawCssUnexpected {
   Bool(bool),
@@ -56,20 +44,6 @@ pub(super) enum RawCssUnexpected {
   Seq,
   Map,
   Other(&'static str),
-}
-
-impl RawCssUnexpected {
-  fn as_serde_unexpected(&self) -> de::Unexpected<'_> {
-    match self {
-      Self::Bool(value) => de::Unexpected::Bool(*value),
-      Self::Char(value) => de::Unexpected::Char(*value),
-      Self::Bytes => de::Unexpected::Other("bytes"),
-      Self::Unit => de::Unexpected::Unit,
-      Self::Seq => de::Unexpected::Seq,
-      Self::Map => de::Unexpected::Map,
-      Self::Other(kind) => de::Unexpected::Other(kind),
-    }
-  }
 }
 
 #[derive(Clone)]
@@ -260,6 +234,12 @@ impl Expected for CssExpectedMessage<'_> {
         "CSS value, compile with --features detailed_css_error for more details"
       )
     }
+  }
+}
+
+impl std::fmt::Display for CssExpectedMessage<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    Expected::fmt(self, f)
   }
 }
 

@@ -2,7 +2,8 @@ use cssparser::Parser;
 
 use crate::{
   layout::style::{
-    BorderStyle, ColorInput, CssToken, FromCss, MakeComputed, ParseResult, properties::Length,
+    BorderStyle, ColorInput, CssSyntaxKind, CssToken, FromCss, MakeComputed, ParseResult,
+    properties::Length,
   },
   rendering::Sizing,
 };
@@ -57,13 +58,11 @@ impl<'i> FromCss<'i> for Border {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Token("length"),
-      CssToken::Token("border-style"),
-      CssToken::Token("color"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Syntax(CssSyntaxKind::Length),
+    CssToken::Syntax(CssSyntaxKind::BorderStyle),
+    CssToken::Syntax(CssSyntaxKind::Color),
+  ];
 }
 
 impl MakeComputed for Border {

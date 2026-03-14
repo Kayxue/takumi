@@ -3,8 +3,9 @@ use std::sync::Arc;
 use cssparser::{Parser, Token, match_ignore_ascii_case};
 
 use crate::layout::style::{
-  Animatable, ConicGradient, CssToken, FromCss, LinearGradient, ListInterpolationStrategy,
-  MakeComputed, NoiseV1, ParseResult, RadialGradient, tw::TailwindPropertyParser,
+  Animatable, ConicGradient, CssDescriptorKind, CssToken, FromCss, LinearGradient,
+  ListInterpolationStrategy, MakeComputed, NoiseV1, ParseResult, RadialGradient,
+  tw::TailwindPropertyParser,
 };
 use crate::rendering::Sizing;
 
@@ -80,16 +81,14 @@ impl<'i> FromCss<'i> for BackgroundImage {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Token("url()"),
-      CssToken::Token("linear-gradient()"),
-      CssToken::Token("radial-gradient()"),
-      CssToken::Token("conic-gradient()"),
-      CssToken::Token("noise-v1()"),
-      CssToken::Keyword("none"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Descriptor(CssDescriptorKind::UrlFn),
+    CssToken::Descriptor(CssDescriptorKind::LinearGradientFn),
+    CssToken::Descriptor(CssDescriptorKind::RadialGradientFn),
+    CssToken::Descriptor(CssDescriptorKind::ConicGradientFn),
+    CssToken::Descriptor(CssDescriptorKind::NoiseV1Fn),
+    CssToken::Keyword("none"),
+  ];
 }
 
 /// A collection of background images.
@@ -108,9 +107,7 @@ impl<'i> FromCss<'i> for BackgroundImages {
     Ok(images.into_boxed_slice())
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    BackgroundImage::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = BackgroundImage::VALID_TOKENS;
 }
 
 #[cfg(test)]

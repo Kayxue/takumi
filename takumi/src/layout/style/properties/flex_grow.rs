@@ -1,7 +1,8 @@
 use cssparser::Parser;
 
 use crate::layout::style::{
-  Animatable, Color, CssToken, FromCss, MakeComputed, ParseResult, lerp, tw::TailwindPropertyParser,
+  Animatable, Color, CssSyntaxKind, CssToken, FromCss, MakeComputed, ParseResult, lerp,
+  tw::TailwindPropertyParser,
 };
 use crate::rendering::Sizing;
 
@@ -29,9 +30,7 @@ impl<'i> FromCss<'i> for FlexGrow {
     Ok(FlexGrow(input.expect_number()?))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("number")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[CssToken::Syntax(CssSyntaxKind::Number)];
 }
 
 impl TailwindPropertyParser for FlexGrow {

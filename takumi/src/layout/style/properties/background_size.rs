@@ -3,8 +3,8 @@ use taffy::Size;
 
 use crate::{
   layout::style::{
-    Animatable, Color, CssToken, FromCss, Length, ListInterpolationStrategy, MakeComputed,
-    ParseResult, tw::TailwindPropertyParser,
+    Animatable, Color, CssSyntaxKind, CssToken, FromCss, Length, ListInterpolationStrategy,
+    MakeComputed, ParseResult, tw::TailwindPropertyParser,
   },
   rendering::Sizing,
 };
@@ -77,13 +77,11 @@ impl<'i> FromCss<'i> for BackgroundSize {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("cover"),
-      CssToken::Keyword("contain"),
-      CssToken::Token("length"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("cover"),
+    CssToken::Keyword("contain"),
+    CssToken::Syntax(CssSyntaxKind::Length),
+  ];
 }
 
 impl MakeComputed for BackgroundSize {
@@ -299,9 +297,7 @@ impl<'i> FromCss<'i> for BackgroundSizes {
     Ok(values.into_boxed_slice())
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    BackgroundSize::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = BackgroundSize::VALID_TOKENS;
 }
 
 #[cfg(test)]

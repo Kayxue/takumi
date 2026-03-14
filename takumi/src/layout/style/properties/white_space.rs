@@ -1,8 +1,8 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
 
 use crate::layout::style::{
-  CssToken, FromCss, MakeComputed, ParseResult, TextWrapMode, WhiteSpaceCollapse,
-  tw::TailwindPropertyParser,
+  CssDescriptorKind, CssToken, FromCss, MakeComputed, ParseResult, TextWrapMode,
+  WhiteSpaceCollapse, tw::TailwindPropertyParser,
 };
 
 /// Controls how whitespace should be handled.
@@ -115,16 +115,14 @@ impl<'i> FromCss<'i> for WhiteSpace {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("normal"),
-      CssToken::Keyword("pre"),
-      CssToken::Keyword("pre-wrap"),
-      CssToken::Keyword("pre-line"),
-      CssToken::Token("text-wrap-mode"),
-      CssToken::Token("white-space-collapse"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("normal"),
+    CssToken::Keyword("pre"),
+    CssToken::Keyword("pre-wrap"),
+    CssToken::Keyword("pre-line"),
+    CssToken::Descriptor(CssDescriptorKind::TextWrapMode),
+    CssToken::Descriptor(CssDescriptorKind::WhiteSpaceCollapse),
+  ];
 }
 
 #[cfg(test)]

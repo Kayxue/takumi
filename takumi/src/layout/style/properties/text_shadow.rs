@@ -4,8 +4,8 @@ use cssparser::{BasicParseErrorKind, ParseError, Parser};
 
 use crate::{
   layout::style::{
-    Animatable, Color, ColorInput, CssToken, FromCss, Length, ListInterpolationStrategy,
-    MakeComputed, ParseResult, next_is_comma,
+    Animatable, Color, ColorInput, CssSyntaxKind, CssToken, FromCss, Length,
+    ListInterpolationStrategy, MakeComputed, ParseResult, next_is_comma,
   },
   rendering::Sizing,
 };
@@ -35,9 +35,7 @@ impl<'i> FromCss<'i> for TextShadows {
     )
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    TextShadow::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = TextShadow::VALID_TOKENS;
 }
 
 impl<'i> FromCss<'i> for TextShadow {
@@ -93,9 +91,10 @@ impl<'i> FromCss<'i> for TextShadow {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("length"), CssToken::Token("color")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Syntax(CssSyntaxKind::Length),
+    CssToken::Syntax(CssSyntaxKind::Color),
+  ];
 }
 
 impl crate::layout::style::tw::TailwindPropertyParser for TextShadow {

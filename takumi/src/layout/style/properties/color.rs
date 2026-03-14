@@ -10,9 +10,9 @@ use image::Rgba;
 
 use crate::{
   layout::style::{
-    Animatable, Color as CurrentColor, CssToken, FromCss, MakeComputed, ParseResult,
-    PercentageNumber, properties::gradient_utils::interpolate_with_color_space,
-    tw::TailwindPropertyParser,
+    Animatable, Color as CurrentColor, CssDescriptorKind, CssSyntaxKind, CssToken, FromCss,
+    MakeComputed, ParseResult, PercentageNumber,
+    properties::gradient_utils::interpolate_with_color_space, tw::TailwindPropertyParser,
   },
   rendering::{Sizing, fast_div_255},
 };
@@ -106,9 +106,8 @@ impl<'i> FromCss<'i> for ColorInterpolationMethod {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("in <color-space>")]
-  }
+  const VALID_TOKENS: &'static [CssToken] =
+    &[CssToken::Descriptor(CssDescriptorKind::InColorSpace)];
 }
 
 /// Represents a color with 8-bit RGBA components.
@@ -508,9 +507,8 @@ impl<'i> FromCss<'i> for ColorMixItem {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("color and percentage")]
-  }
+  const VALID_TOKENS: &'static [CssToken] =
+    &[CssToken::Descriptor(CssDescriptorKind::ColorAndPercentage)];
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -592,9 +590,7 @@ impl<'i> FromCss<'i> for ColorMix {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("color-mix()")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[CssToken::Descriptor(CssDescriptorKind::ColorMixFn)];
 }
 
 impl<'i, const DEFAULT_CURRENT_COLOR: bool> FromCss<'i> for ColorInput<DEFAULT_CURRENT_COLOR> {
@@ -609,9 +605,10 @@ impl<'i, const DEFAULT_CURRENT_COLOR: bool> FromCss<'i> for ColorInput<DEFAULT_C
     Ok(ColorInput::Value(Color::from_css(input)?))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Keyword("currentColor"), CssToken::Token("color")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("currentColor"),
+    CssToken::Syntax(CssSyntaxKind::Color),
+  ];
 }
 
 impl<'i> FromCss<'i> for Color {
@@ -667,9 +664,7 @@ impl<'i> FromCss<'i> for Color {
       _ => Err(Self::unexpected_token_error(location, token)),
     }
   }
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("color")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[CssToken::Syntax(CssSyntaxKind::Color)];
 }
 
 #[cfg(test)]

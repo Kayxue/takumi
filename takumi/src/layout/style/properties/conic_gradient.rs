@@ -9,8 +9,8 @@ use super::gradient_utils::{
 };
 use crate::{
   layout::style::{
-    Angle, BackgroundPosition, ColorInput, ColorInterpolationMethod, CssToken, FromCss,
-    GradientStop, Length, MakeComputed, ObjectPosition, ParseResult, StopPosition,
+    Angle, BackgroundPosition, ColorInput, ColorInterpolationMethod, CssDescriptorKind, CssToken,
+    FromCss, GradientStop, Length, MakeComputed, ObjectPosition, ParseResult, StopPosition,
   },
   rendering::{RenderContext, Sizing},
 };
@@ -323,9 +323,8 @@ impl<'i> FromCss<'i> for ConicGradient {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("conic-gradient()")]
-  }
+  const VALID_TOKENS: &'static [CssToken] =
+    &[CssToken::Descriptor(CssDescriptorKind::ConicGradientFn)];
 }
 
 #[cfg(test)]

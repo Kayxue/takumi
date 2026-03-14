@@ -5,8 +5,8 @@ use taffy::{Point, Size};
 
 use crate::{
   layout::style::{
-    Angle, Animatable, Color, CssToken, FromCss, Length, ListInterpolationStrategy, MakeComputed,
-    ParseResult, PercentageNumber, lerp,
+    Angle, Animatable, Color, CssSyntaxKind, CssToken, FromCss, Length, ListInterpolationStrategy,
+    MakeComputed, ParseResult, PercentageNumber, lerp,
   },
   rendering::Sizing,
 };
@@ -348,9 +348,7 @@ impl<'i> FromCss<'i> for Affine {
     Ok(Affine { a, b, c, d, x, y })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("number")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[CssToken::Syntax(CssSyntaxKind::Number)];
 }
 
 /// A collection of transform operations that can be applied together
@@ -368,9 +366,7 @@ impl<'i> FromCss<'i> for Transforms {
     Ok(transforms.into_boxed_slice())
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    Transform::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = Transform::VALID_TOKENS;
 }
 
 impl<'i> FromCss<'i> for Transform {
@@ -444,9 +440,7 @@ impl<'i> FromCss<'i> for Transform {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("transform-function")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[CssToken::Syntax(CssSyntaxKind::TransformFunction)];
 }
 
 #[cfg(test)]

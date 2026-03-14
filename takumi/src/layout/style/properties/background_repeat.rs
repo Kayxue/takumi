@@ -84,16 +84,14 @@ impl<'i> FromCss<'i> for BackgroundRepeat {
     Ok(BackgroundRepeat(x, y))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("repeat-x"),
-      CssToken::Keyword("repeat-y"),
-      CssToken::Keyword("repeat"),
-      CssToken::Keyword("no-repeat"),
-      CssToken::Keyword("space"),
-      CssToken::Keyword("round"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("repeat-x"),
+    CssToken::Keyword("repeat-y"),
+    CssToken::Keyword("repeat"),
+    CssToken::Keyword("no-repeat"),
+    CssToken::Keyword("space"),
+    CssToken::Keyword("round"),
+  ];
 }
 
 /// A list of background-repeat values (one per layer).
@@ -111,7 +109,5 @@ impl<'i> FromCss<'i> for BackgroundRepeats {
     Ok(values.into_boxed_slice())
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    BackgroundRepeat::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = BackgroundRepeat::VALID_TOKENS;
 }

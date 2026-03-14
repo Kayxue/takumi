@@ -64,14 +64,12 @@ impl<'i, T: Copy + for<'j> FromCss<'j>> FromCss<'i> for Sides<T> {
     Ok(sides)
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    T::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = T::VALID_TOKENS;
 
   fn expect_message() -> Cow<'static, str> {
     Cow::Owned(format!(
       "1 ~ 4 values of {}",
-      merge_enum_values(T::valid_tokens())
+      merge_enum_values(T::VALID_TOKENS)
     ))
   }
 }

@@ -4,7 +4,7 @@ use cssparser::{Parser, match_ignore_ascii_case};
 use parley::{FontStack, GenericFamily};
 
 use crate::layout::style::{
-  CssToken, FromCss, MakeComputed, ParseResult, tw::TailwindPropertyParser,
+  CssSyntaxKind, CssToken, FromCss, MakeComputed, ParseResult, tw::TailwindPropertyParser,
 };
 
 /// Represents a font family for text rendering.
@@ -40,12 +40,10 @@ impl<'i> FromCss<'i> for FontFamilyToken {
     Ok(Self::Owned(family_name))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Token("family-name"),
-      CssToken::Token("generic-name"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Syntax(CssSyntaxKind::FamilyName),
+    CssToken::Syntax(CssSyntaxKind::GenericName),
+  ];
 }
 
 impl<'i> FromCss<'i> for FontFamily {
@@ -55,9 +53,7 @@ impl<'i> FromCss<'i> for FontFamily {
     Ok(Self(list.into_boxed_slice()))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    FontFamilyToken::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = FontFamilyToken::VALID_TOKENS;
 }
 
 impl TailwindPropertyParser for FontFamily {

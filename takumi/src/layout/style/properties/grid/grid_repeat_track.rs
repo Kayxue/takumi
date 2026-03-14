@@ -1,6 +1,8 @@
 use cssparser::Parser;
 
-use crate::layout::style::{CssToken, FromCss, GridTrackSize, MakeComputed, ParseResult};
+use crate::layout::style::{
+  CssSyntaxKind, CssToken, FromCss, GridTrackSize, MakeComputed, ParseResult,
+};
 use crate::rendering::Sizing;
 
 /// Represents a grid repeat track
@@ -55,9 +57,10 @@ impl<'i> FromCss<'i> for GridRepeatTrack {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("line-names"), CssToken::Token("track-size")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Syntax(CssSyntaxKind::LineNames),
+    CssToken::Syntax(CssSyntaxKind::TrackSize),
+  ];
 }
 
 #[cfg(test)]

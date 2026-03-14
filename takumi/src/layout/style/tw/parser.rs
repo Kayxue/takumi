@@ -20,9 +20,7 @@ impl<'i> FromCss<'i> for TwFontSize {
     Ok(Self::new(FontSize::from_css(input)?, None))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    FontSize::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = FontSize::VALID_TOKENS;
 }
 
 impl TailwindPropertyParser for TwFontSize {
@@ -97,9 +95,7 @@ impl<'i> FromCss<'i> for TwGridTemplate {
     Ok(Self(GridTemplateComponents::from_css(input)?))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    GridTemplateComponents::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = GridTemplateComponents::VALID_TOKENS;
 }
 
 impl TailwindPropertyParser for TwGridTemplate {
@@ -132,9 +128,7 @@ impl<'i> FromCss<'i> for TwLetterSpacing {
     Ok(Self(Length::from_css(input)?))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    Length::<true>::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = Length::<true>::VALID_TOKENS;
 }
 
 impl Neg for TwLetterSpacing {
@@ -167,9 +161,7 @@ impl<'i> FromCss<'i> for TwBorderWidth {
     Ok(Self(Length::from_css(input)?))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    Length::<true>::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = Length::<true>::VALID_TOKENS;
 }
 
 impl TailwindPropertyParser for TwBorderWidth {
@@ -188,9 +180,7 @@ impl<'i> FromCss<'i> for TwRounded {
     Ok(TwRounded(Length::from_css(input)?))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    Length::<false>::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = Length::<false>::VALID_TOKENS;
 }
 
 impl TailwindPropertyParser for TwRounded {
@@ -219,9 +209,7 @@ impl<'i> FromCss<'i> for TwBlur {
     Ok(TwBlur(Length::from_css(input)?))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    Length::<true>::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = Length::<true>::VALID_TOKENS;
 }
 
 impl TailwindPropertyParser for TwBlur {

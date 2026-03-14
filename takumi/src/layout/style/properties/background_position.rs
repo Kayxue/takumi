@@ -3,8 +3,8 @@ use taffy::{Point, Size};
 
 use crate::{
   layout::style::{
-    Animatable, Color, CssToken, FromCss, Length, ListInterpolationStrategy, MakeComputed,
-    ParseResult, SpacePair, tw::TailwindPropertyParser,
+    Animatable, Color, CssSyntaxKind, CssToken, FromCss, Length, ListInterpolationStrategy,
+    MakeComputed, ParseResult, SpacePair, tw::TailwindPropertyParser,
   },
   rendering::Sizing,
 };
@@ -218,9 +218,7 @@ impl<'i, const DEFAULT_TOP_LEFT: bool> FromCss<'i> for BackgroundPosition<DEFAUL
     Ok(BackgroundPosition(SpacePair::from_pair(x, y)))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    PositionComponent::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = PositionComponent::VALID_TOKENS;
 }
 
 impl<'i> FromCss<'i> for PositionComponent {
@@ -246,16 +244,14 @@ impl<'i> FromCss<'i> for PositionComponent {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("left"),
-      CssToken::Keyword("center"),
-      CssToken::Keyword("right"),
-      CssToken::Keyword("top"),
-      CssToken::Keyword("bottom"),
-      CssToken::Token("length"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("left"),
+    CssToken::Keyword("center"),
+    CssToken::Keyword("right"),
+    CssToken::Keyword("top"),
+    CssToken::Keyword("bottom"),
+    CssToken::Syntax(CssSyntaxKind::Length),
+  ];
 }
 
 /// A list of `background-position` values (one per layer).
@@ -273,7 +269,5 @@ impl<'i> FromCss<'i> for BackgroundPositions {
     Ok(values.into_boxed_slice())
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    BackgroundPosition::<true>::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = BackgroundPosition::<true>::VALID_TOKENS;
 }

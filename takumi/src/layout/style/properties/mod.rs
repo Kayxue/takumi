@@ -115,10 +115,199 @@ use crate::rendering::Sizing;
 /// Parser result type alias for CSS property parsers.
 pub type ParseResult<'i, T> = Result<T, ParseError<'i, Cow<'i, str>>>;
 
+/// Compact identifiers for frequently reused CSS syntax tokens.
+#[derive(Clone, Copy)]
+#[non_exhaustive]
+pub enum CssSyntaxKind {
+  /// `<angle>`
+  Angle,
+  /// `<border-style>`
+  BorderStyle,
+  /// `<clip>`
+  Clip,
+  /// `<color>`
+  Color,
+  /// `<custom-ident>`
+  CustomIdent,
+  /// `<easing-function>`
+  EasingFunction,
+  /// `<family-name>`
+  FamilyName,
+  /// `<generic-name>`
+  GenericName,
+  /// `<ident>`
+  Ident,
+  /// `<image>`
+  Image,
+  /// `<integer>`
+  Integer,
+  /// `<length>`
+  Length,
+  /// `<line-names>`
+  LineNames,
+  /// `<number>`
+  Number,
+  /// `<percentage>`
+  Percentage,
+  /// `<position>`
+  Position,
+  /// `<repeat>`
+  Repeat,
+  /// `<string>`
+  String,
+  /// `<time>`
+  Time,
+  /// `<track-size>`
+  TrackSize,
+  /// `<transform-function>`
+  TransformFunction,
+}
+
+impl CssSyntaxKind {
+  const fn as_str(self) -> &'static str {
+    match self {
+      Self::Angle => "angle",
+      Self::BorderStyle => "border-style",
+      Self::Clip => "clip",
+      Self::Color => "color",
+      Self::CustomIdent => "custom-ident",
+      Self::EasingFunction => "easing-function",
+      Self::FamilyName => "family-name",
+      Self::GenericName => "generic-name",
+      Self::Ident => "ident",
+      Self::Image => "image",
+      Self::Integer => "integer",
+      Self::Length => "length",
+      Self::LineNames => "line-names",
+      Self::Number => "number",
+      Self::Percentage => "percentage",
+      Self::Position => "position",
+      Self::Repeat => "repeat",
+      Self::String => "string",
+      Self::Time => "time",
+      Self::TrackSize => "track-size",
+      Self::TransformFunction => "transform-function",
+    }
+  }
+}
+
+/// Compact identifiers for reusable CSS descriptor and function labels.
+#[non_exhaustive]
+#[derive(Clone, Copy)]
+pub enum CssDescriptorKind {
+  /// `<blur()>`
+  BlurFn,
+  /// `<blend-mode>`
+  BlendMode,
+  /// `<brightness()>`
+  BrightnessFn,
+  /// `<circle()>`
+  CircleFn,
+  /// `<color and percentage>`
+  ColorAndPercentage,
+  /// `<color-mix()>`
+  ColorMixFn,
+  /// `<conic-gradient()>`
+  ConicGradientFn,
+  /// `<contrast()>`
+  ContrastFn,
+  /// `<cubic-bezier()>`
+  CubicBezierFn,
+  /// `<drop-shadow()>`
+  DropShadowFn,
+  /// `<ellipse()>`
+  EllipseFn,
+  /// `<grayscale()>`
+  GrayscaleFn,
+  /// `<hue-rotate()>`
+  HueRotateFn,
+  /// `<in <color-space>>`
+  InColorSpace,
+  /// `<inset()>`
+  InsetFn,
+  /// `<invert()>`
+  InvertFn,
+  /// `<linear-gradient()>`
+  LinearGradientFn,
+  /// `<minmax()>`
+  MinmaxFn,
+  /// `<noise-v1()>`
+  NoiseV1Fn,
+  /// `<opacity()>`
+  OpacityFn,
+  /// `<path()>`
+  PathFn,
+  /// `<polygon()>`
+  PolygonFn,
+  /// `<radial-gradient()>`
+  RadialGradientFn,
+  /// `<repeat()>`
+  RepeatFn,
+  /// `<saturate()>`
+  SaturateFn,
+  /// `<seed()>`
+  SeedFn,
+  /// `<sepia()>`
+  SepiaFn,
+  /// `<steps()>`
+  StepsFn,
+  /// `<text-wrap-mode>`
+  TextWrapMode,
+  /// `<text-wrap-style>`
+  TextWrapStyle,
+  /// `<url()>`
+  UrlFn,
+  /// `<white-space-collapse>`
+  WhiteSpaceCollapse,
+}
+
+impl CssDescriptorKind {
+  const fn as_str(self) -> &'static str {
+    match self {
+      Self::BlurFn => "blur()",
+      Self::BlendMode => "blend-mode",
+      Self::BrightnessFn => "brightness()",
+      Self::CircleFn => "circle()",
+      Self::ColorAndPercentage => "color and percentage",
+      Self::ColorMixFn => "color-mix()",
+      Self::ConicGradientFn => "conic-gradient()",
+      Self::ContrastFn => "contrast()",
+      Self::CubicBezierFn => "cubic-bezier()",
+      Self::DropShadowFn => "drop-shadow()",
+      Self::EllipseFn => "ellipse()",
+      Self::GrayscaleFn => "grayscale()",
+      Self::HueRotateFn => "hue-rotate()",
+      Self::InColorSpace => "in <color-space>",
+      Self::InsetFn => "inset()",
+      Self::InvertFn => "invert()",
+      Self::LinearGradientFn => "linear-gradient()",
+      Self::MinmaxFn => "minmax()",
+      Self::NoiseV1Fn => "noise-v1()",
+      Self::OpacityFn => "opacity()",
+      Self::PathFn => "path()",
+      Self::PolygonFn => "polygon()",
+      Self::RadialGradientFn => "radial-gradient()",
+      Self::RepeatFn => "repeat()",
+      Self::SaturateFn => "saturate()",
+      Self::SeedFn => "seed()",
+      Self::SepiaFn => "sepia()",
+      Self::StepsFn => "steps()",
+      Self::TextWrapMode => "text-wrap-mode",
+      Self::TextWrapStyle => "text-wrap-style",
+      Self::UrlFn => "url()",
+      Self::WhiteSpaceCollapse => "white-space-collapse",
+    }
+  }
+}
+
 /// Enum representing CSS tokens.
 pub enum CssToken {
   /// A CSS keyword.
   Keyword(&'static str),
+  /// A common CSS syntax token backed by a compact enum table.
+  Syntax(CssSyntaxKind),
+  /// A reusable CSS descriptor backed by a compact enum table.
+  Descriptor(CssDescriptorKind),
   /// A CSS token without the < and > wrappers.
   Token(&'static str),
 }
@@ -127,6 +316,8 @@ impl std::fmt::Display for CssToken {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
       CssToken::Keyword(keyword) => write!(f, "'{}'", keyword),
+      CssToken::Syntax(token) => write!(f, "<{}>", token.as_str()),
+      CssToken::Descriptor(token) => write!(f, "<{}>", token.as_str()),
       CssToken::Token(token) => write!(f, "<{}>", token),
     }
   }
@@ -151,7 +342,12 @@ pub trait FromCss<'i> {
   }
 
   /// Returns the list of valid CSS tokens for this type.
-  fn valid_tokens() -> &'static [CssToken];
+  const VALID_TOKENS: &'static [CssToken];
+
+  /// Returns the list of valid CSS tokens for this type.
+  fn valid_tokens() -> &'static [CssToken] {
+    Self::VALID_TOKENS
+  }
 
   /// Returns a message to be used in error messages.
   fn expect_message() -> Cow<'static, str> {
@@ -178,10 +374,8 @@ pub trait FromCss<'i> {
 }
 
 impl<'i, T: FromCss<'i>> FromCss<'i> for Option<T> {
-  fn valid_tokens() -> &'static [CssToken] {
-    // 'none' is intentionally omitted and applied in `expect_message`
-    T::valid_tokens()
-  }
+  // 'none' is intentionally omitted and applied in `expect_message`
+  const VALID_TOKENS: &'static [CssToken] = T::VALID_TOKENS;
 
   fn expect_message() -> Cow<'static, str> {
     Cow::Owned(format!("{} or 'none'", T::expect_message()))
@@ -586,9 +780,8 @@ macro_rules! declare_enum_from_css_impl {
     impl crate::layout::style::MakeComputed for $enum_type {}
 
     impl<'i> crate::layout::style::FromCss<'i> for $enum_type {
-      fn valid_tokens() -> &'static [crate::layout::style::CssToken] {
-        &[$(crate::layout::style::CssToken::Keyword($css_value)),*]
-      }
+      const VALID_TOKENS: &'static [crate::layout::style::CssToken] =
+        &[$(crate::layout::style::CssToken::Keyword($css_value)),*];
 
       fn from_css(input: &mut cssparser::Parser<'i, '_>) -> crate::layout::style::ParseResult<'i, Self> {
         let location = input.current_source_location();
@@ -741,9 +934,7 @@ impl<'i> FromCss<'i> for Box<BorderRadius> {
     BorderRadius::expect_message()
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    BorderRadius::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = BorderRadius::VALID_TOKENS;
 }
 
 impl<'i> FromCss<'i> for BorderRadius {
@@ -769,9 +960,7 @@ impl<'i> FromCss<'i> for BorderRadius {
       .into()
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("length")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[CssToken::Syntax(CssSyntaxKind::Length)];
 }
 
 /// Defines how the width and height of an element are calculated.

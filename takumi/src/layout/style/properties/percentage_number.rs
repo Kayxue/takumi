@@ -9,7 +9,7 @@ use crate::layout::style::{
 };
 use crate::rendering::Sizing;
 
-use super::CssToken;
+use super::{CssSyntaxKind, CssToken};
 
 /// Represents a percentage value (0.0-1.0) in CSS parsing.
 ///
@@ -75,7 +75,8 @@ impl<'i> FromCss<'i> for PercentageNumber {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("number"), CssToken::Token("percentage")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Syntax(CssSyntaxKind::Number),
+    CssToken::Syntax(CssSyntaxKind::Percentage),
+  ];
 }

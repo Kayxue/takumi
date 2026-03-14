@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use cssparser::{Parser, Token};
 
-use crate::layout::style::{CssToken, FromCss, MakeComputed, ParseResult};
+use crate::layout::style::{CssSyntaxKind, CssToken, FromCss, MakeComputed, ParseResult};
 
 /// Represents `grid-template-areas` value
 ///
@@ -87,7 +87,5 @@ impl<'i> FromCss<'i> for GridTemplateAreas {
     Ok(GridTemplateAreas(rows))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("string")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[CssToken::Syntax(CssSyntaxKind::String)];
 }

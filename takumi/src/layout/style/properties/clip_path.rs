@@ -4,8 +4,8 @@ use zeno::{Fill, PathBuilder, PathData, Placement};
 
 use crate::{
   layout::style::{
-    Axis, BorderStyle, Color, CssToken, FromCss, ImageScalingAlgorithm, Length, MakeComputed,
-    ParseResult, Sides, SpacePair,
+    Axis, BorderStyle, Color, CssDescriptorKind, CssSyntaxKind, CssToken, FromCss,
+    ImageScalingAlgorithm, Length, MakeComputed, ParseResult, Sides, SpacePair,
   },
   rendering::{BorderProperties, BufferPool, MaskMemory, RenderContext, Sizing},
 };
@@ -286,9 +286,8 @@ impl<'i> FromCss<'i> for FillRule {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Keyword("nonzero"), CssToken::Keyword("evenodd")]
-  }
+  const VALID_TOKENS: &'static [CssToken] =
+    &[CssToken::Keyword("nonzero"), CssToken::Keyword("evenodd")];
 }
 
 impl<'i> FromCss<'i> for ShapeRadius {
@@ -309,13 +308,11 @@ impl<'i> FromCss<'i> for ShapeRadius {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("closest-side"),
-      CssToken::Keyword("farthest-side"),
-      CssToken::Token("length"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("closest-side"),
+    CssToken::Keyword("farthest-side"),
+    CssToken::Syntax(CssSyntaxKind::Length),
+  ];
 }
 
 impl<'i> FromCss<'i> for ShapePosition {
@@ -330,9 +327,7 @@ impl<'i> FromCss<'i> for ShapePosition {
     Ok(ShapePosition(SpacePair::from_pair(first, second)))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    Length::<true>::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = Length::<true>::VALID_TOKENS;
 }
 
 impl<'i> FromCss<'i> for BasicShape {
@@ -414,15 +409,13 @@ impl<'i> FromCss<'i> for BasicShape {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Token("inset()"),
-      CssToken::Token("circle()"),
-      CssToken::Token("ellipse()"),
-      CssToken::Token("polygon()"),
-      CssToken::Token("path()"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Descriptor(CssDescriptorKind::InsetFn),
+    CssToken::Descriptor(CssDescriptorKind::CircleFn),
+    CssToken::Descriptor(CssDescriptorKind::EllipseFn),
+    CssToken::Descriptor(CssDescriptorKind::PolygonFn),
+    CssToken::Descriptor(CssDescriptorKind::PathFn),
+  ];
 }
 
 #[cfg(test)]

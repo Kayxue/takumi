@@ -1,7 +1,9 @@
 use cssparser::Parser;
 
 use crate::{
-  layout::style::{ColorInput, CssToken, FromCss, LengthDefaultsToZero, MakeComputed, ParseResult},
+  layout::style::{
+    ColorInput, CssSyntaxKind, CssToken, FromCss, LengthDefaultsToZero, MakeComputed, ParseResult,
+  },
   rendering::Sizing,
 };
 
@@ -26,9 +28,10 @@ impl<'i> FromCss<'i> for TextStroke {
     Ok(TextStroke { width, color })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("length"), CssToken::Token("color")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Syntax(CssSyntaxKind::Length),
+    CssToken::Syntax(CssSyntaxKind::Color),
+  ];
 }
 
 impl MakeComputed for TextStroke {

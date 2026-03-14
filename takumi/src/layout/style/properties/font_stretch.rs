@@ -2,7 +2,8 @@ use cssparser::{Parser, Token, match_ignore_ascii_case};
 use parley::FontWidth;
 
 use crate::layout::style::{
-  Animatable, Color, CssToken, FromCss, MakeComputed, ParseResult, lerp, tw::TailwindPropertyParser,
+  Animatable, Color, CssSyntaxKind, CssToken, FromCss, MakeComputed, ParseResult, lerp,
+  tw::TailwindPropertyParser,
 };
 use crate::rendering::Sizing;
 
@@ -48,20 +49,18 @@ impl<'i> FromCss<'i> for FontStretch {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("normal"),
-      CssToken::Keyword("ultra-condensed"),
-      CssToken::Keyword("extra-condensed"),
-      CssToken::Keyword("condensed"),
-      CssToken::Keyword("semi-condensed"),
-      CssToken::Keyword("semi-expanded"),
-      CssToken::Keyword("expanded"),
-      CssToken::Keyword("extra-expanded"),
-      CssToken::Keyword("ultra-expanded"),
-      CssToken::Token("percentage"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("normal"),
+    CssToken::Keyword("ultra-condensed"),
+    CssToken::Keyword("extra-condensed"),
+    CssToken::Keyword("condensed"),
+    CssToken::Keyword("semi-condensed"),
+    CssToken::Keyword("semi-expanded"),
+    CssToken::Keyword("expanded"),
+    CssToken::Keyword("extra-expanded"),
+    CssToken::Keyword("ultra-expanded"),
+    CssToken::Syntax(CssSyntaxKind::Percentage),
+  ];
 }
 
 impl TailwindPropertyParser for FontStretch {

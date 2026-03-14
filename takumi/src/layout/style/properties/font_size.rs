@@ -1,7 +1,9 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
 
 use crate::{
-  layout::style::{Animatable, Color, CssToken, FromCss, Length, MakeComputed, ParseResult},
+  layout::style::{
+    Animatable, Color, CssSyntaxKind, CssToken, FromCss, Length, MakeComputed, ParseResult,
+  },
   rendering::Sizing,
 };
 
@@ -64,18 +66,16 @@ impl<'i> FromCss<'i> for FontSizeKeyword {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("xx-small"),
-      CssToken::Keyword("x-small"),
-      CssToken::Keyword("small"),
-      CssToken::Keyword("medium"),
-      CssToken::Keyword("large"),
-      CssToken::Keyword("x-large"),
-      CssToken::Keyword("xx-large"),
-      CssToken::Keyword("xxx-large"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("xx-small"),
+    CssToken::Keyword("x-small"),
+    CssToken::Keyword("small"),
+    CssToken::Keyword("medium"),
+    CssToken::Keyword("large"),
+    CssToken::Keyword("x-large"),
+    CssToken::Keyword("xx-large"),
+    CssToken::Keyword("xxx-large"),
+  ];
 }
 
 /// A `font-size` value, either a keyword or an explicit length.
@@ -122,19 +122,17 @@ impl<'i> FromCss<'i> for FontSize {
       .or_else(|_| Length::from_css(input).map(Self::Length))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("xx-small"),
-      CssToken::Keyword("x-small"),
-      CssToken::Keyword("small"),
-      CssToken::Keyword("medium"),
-      CssToken::Keyword("large"),
-      CssToken::Keyword("x-large"),
-      CssToken::Keyword("xx-large"),
-      CssToken::Keyword("xxx-large"),
-      CssToken::Token("length"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("xx-small"),
+    CssToken::Keyword("x-small"),
+    CssToken::Keyword("small"),
+    CssToken::Keyword("medium"),
+    CssToken::Keyword("large"),
+    CssToken::Keyword("x-large"),
+    CssToken::Keyword("xx-large"),
+    CssToken::Keyword("xxx-large"),
+    CssToken::Syntax(CssSyntaxKind::Length),
+  ];
 }
 
 impl MakeComputed for FontSize {

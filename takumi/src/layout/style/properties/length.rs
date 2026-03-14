@@ -5,7 +5,7 @@ use taffy::{CompactLength, Dimension, LengthPercentage, LengthPercentageAuto};
 
 use crate::{
   layout::style::{
-    AspectRatio, CssToken, FromCss, MakeComputed, ParseResult,
+    AspectRatio, CssSyntaxKind, CssToken, FromCss, MakeComputed, ParseResult,
     tw::{TW_VAR_SPACING, TailwindPropertyParser},
   },
   rendering::Sizing,
@@ -733,9 +733,7 @@ impl<'i, const DEFAULT_AUTO: bool> FromCss<'i> for Length<DEFAULT_AUTO> {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("length")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[CssToken::Syntax(CssSyntaxKind::Length)];
 }
 
 impl<const DEFAULT_AUTO: bool> Length<DEFAULT_AUTO> {

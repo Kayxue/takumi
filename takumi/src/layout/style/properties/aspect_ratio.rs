@@ -1,7 +1,8 @@
 use cssparser::Parser;
 
 use crate::layout::style::{
-  Animatable, Color, CssToken, FromCss, MakeComputed, ParseResult, lerp, tw::TailwindPropertyParser,
+  Animatable, Color, CssSyntaxKind, CssToken, FromCss, MakeComputed, ParseResult, lerp,
+  tw::TailwindPropertyParser,
 };
 use crate::rendering::Sizing;
 
@@ -75,9 +76,10 @@ impl<'i> FromCss<'i> for AspectRatio {
     Ok(AspectRatio::Ratio(first_ratio / second_ratio))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Keyword("auto"), CssToken::Token("number")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("auto"),
+    CssToken::Syntax(CssSyntaxKind::Number),
+  ];
 }
 
 #[cfg(test)]

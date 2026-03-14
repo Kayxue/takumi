@@ -7,8 +7,9 @@ use super::gradient_utils::{
   resolve_stops_along_axis,
 };
 use crate::layout::style::{
-  Animatable, Color, ColorInterpolationMethod, CssToken, FromCss, Length, MakeComputed,
-  ParseResult, declare_enum_from_css_impl, properties::ColorInput, tw::TailwindPropertyParser,
+  Animatable, Color, ColorInterpolationMethod, CssDescriptorKind, CssSyntaxKind, CssToken, FromCss,
+  Length, MakeComputed, ParseResult, declare_enum_from_css_impl, properties::ColorInput,
+  tw::TailwindPropertyParser,
 };
 use crate::rendering::{RenderContext, Sizing};
 
@@ -221,9 +222,7 @@ impl MakeComputed for GradientStop {
 pub type GradientStops = Vec<GradientStop>;
 
 impl<'i> FromCss<'i> for GradientStops {
-  fn valid_tokens() -> &'static [CssToken] {
-    GradientStop::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = GradientStop::VALID_TOKENS;
 
   fn from_css(input: &mut Parser<'i, '_>) -> ParseResult<'i, Self> {
     let mut stops = Vec::new();
@@ -299,9 +298,7 @@ impl<'i> FromCss<'i> for StopPosition {
     Ok(StopPosition(length))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    Length::<true>::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = Length::<true>::VALID_TOKENS;
 }
 
 impl<'i> FromCss<'i> for GradientStop {
@@ -317,9 +314,10 @@ impl<'i> FromCss<'i> for GradientStop {
     Ok(GradientStop::ColorHint { color, hint })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("color"), CssToken::Token("length")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Syntax(CssSyntaxKind::Color),
+    CssToken::Syntax(CssSyntaxKind::Length),
+  ];
 }
 
 /// Represents an angle value in degrees.
@@ -490,9 +488,8 @@ impl<'i> FromCss<'i> for LinearGradient {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("linear-gradient()")]
-  }
+  const VALID_TOKENS: &'static [CssToken] =
+    &[CssToken::Descriptor(CssDescriptorKind::LinearGradientFn)];
 }
 
 impl Angle {
@@ -563,13 +560,11 @@ impl<'i> FromCss<'i> for Angle {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Token("angle"),
-      CssToken::Keyword("to"),
-      CssToken::Keyword("none"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Syntax(CssSyntaxKind::Angle),
+    CssToken::Keyword("to"),
+    CssToken::Keyword("none"),
+  ];
 }
 
 #[cfg(test)]

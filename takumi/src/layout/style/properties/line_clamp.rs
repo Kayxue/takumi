@@ -1,7 +1,7 @@
 use cssparser::Parser;
 
 use crate::layout::style::{
-  CssToken, FromCss, MakeComputed, ParseResult, tw::TailwindPropertyParser,
+  CssSyntaxKind, CssToken, FromCss, MakeComputed, ParseResult, tw::TailwindPropertyParser,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -46,7 +46,8 @@ impl<'i> FromCss<'i> for LineClamp {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("integer"), CssToken::Token("string")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Syntax(CssSyntaxKind::Integer),
+    CssToken::Syntax(CssSyntaxKind::String),
+  ];
 }

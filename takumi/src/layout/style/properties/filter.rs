@@ -6,7 +6,7 @@ use taffy::{Point, Size};
 use crate::{
   Result,
   layout::style::{
-    Affine, Angle, Animatable, BlendMode, Color, CssToken, FromCss, Length,
+    Affine, Angle, Animatable, BlendMode, Color, CssDescriptorKind, CssToken, FromCss, Length,
     ListInterpolationStrategy, MakeComputed, ParseResult, PercentageNumber, TextShadow,
     tw::TailwindPropertyParser,
   },
@@ -637,9 +637,7 @@ impl<'i> FromCss<'i> for Filters {
     Ok(filters)
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    Filter::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = Filter::VALID_TOKENS;
 }
 
 impl<'i> FromCss<'i> for Filter {
@@ -695,20 +693,18 @@ impl<'i> FromCss<'i> for Filter {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Token("brightness()"),
-      CssToken::Token("opacity()"),
-      CssToken::Token("contrast()"),
-      CssToken::Token("grayscale()"),
-      CssToken::Token("hue-rotate()"),
-      CssToken::Token("invert()"),
-      CssToken::Token("saturate()"),
-      CssToken::Token("sepia()"),
-      CssToken::Token("blur()"),
-      CssToken::Token("drop-shadow()"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Descriptor(CssDescriptorKind::BrightnessFn),
+    CssToken::Descriptor(CssDescriptorKind::OpacityFn),
+    CssToken::Descriptor(CssDescriptorKind::ContrastFn),
+    CssToken::Descriptor(CssDescriptorKind::GrayscaleFn),
+    CssToken::Descriptor(CssDescriptorKind::HueRotateFn),
+    CssToken::Descriptor(CssDescriptorKind::InvertFn),
+    CssToken::Descriptor(CssDescriptorKind::SaturateFn),
+    CssToken::Descriptor(CssDescriptorKind::SepiaFn),
+    CssToken::Descriptor(CssDescriptorKind::BlurFn),
+    CssToken::Descriptor(CssDescriptorKind::DropShadowFn),
+  ];
 }
 
 #[cfg(test)]

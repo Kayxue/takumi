@@ -1,7 +1,7 @@
 use cssparser::{Parser, Token};
 
 use crate::layout::style::{
-  CssToken, FromCss, MakeComputed, ParseResult, tw::TailwindPropertyParser,
+  CssSyntaxKind, CssToken, FromCss, MakeComputed, ParseResult, tw::TailwindPropertyParser,
 };
 
 /// Represents a grid placement with serde support
@@ -67,9 +67,7 @@ impl<'i> FromCss<'i> for GridPlacementSpan {
     )
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("integer")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[CssToken::Syntax(CssSyntaxKind::Integer)];
 }
 
 impl TailwindPropertyParser for GridPlacementSpan {
@@ -134,14 +132,12 @@ impl<'i> FromCss<'i> for GridPlacement {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("auto"),
-      CssToken::Keyword("span"),
-      CssToken::Token("number"),
-      CssToken::Token("ident"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("auto"),
+    CssToken::Keyword("span"),
+    CssToken::Syntax(CssSyntaxKind::Number),
+    CssToken::Syntax(CssSyntaxKind::Ident),
+  ];
 }
 
 #[cfg(test)]

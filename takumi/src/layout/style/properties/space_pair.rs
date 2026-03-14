@@ -38,13 +38,11 @@ impl<'i, T: Copy + FromCss<'i>> FromCss<'i> for SpacePair<T> {
   fn expect_message() -> Cow<'static, str> {
     Cow::Owned(format!(
       "1 ~ 2 values of {}",
-      merge_enum_values(T::valid_tokens())
+      merge_enum_values(T::VALID_TOKENS)
     ))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    T::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = T::VALID_TOKENS;
 }
 
 impl<T: Copy> SpacePair<T> {

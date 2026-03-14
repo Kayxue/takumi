@@ -1,7 +1,7 @@
 use cssparser::Parser;
 
 use crate::{
-  layout::style::{CssToken, FromCss, GridLength, MakeComputed, ParseResult},
+  layout::style::{CssDescriptorKind, CssToken, FromCss, GridLength, MakeComputed, ParseResult},
   rendering::Sizing,
 };
 
@@ -25,9 +25,7 @@ impl<'i> FromCss<'i> for GridMinMaxSize {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("minmax()")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[CssToken::Descriptor(CssDescriptorKind::MinmaxFn)];
 }
 
 impl MakeComputed for GridMinMaxSize {

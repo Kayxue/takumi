@@ -1,6 +1,6 @@
 use cssparser::{Parser, Token};
 
-use crate::layout::style::{CssToken, FromCss, ParseResult};
+use crate::layout::style::{CssSyntaxKind, CssToken, FromCss, ParseResult};
 
 /// Represents grid track repetition keywords
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -74,13 +74,11 @@ impl<'i> FromCss<'i> for GridRepetitionCount {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("auto-fill"),
-      CssToken::Keyword("auto-fit"),
-      CssToken::Token("number"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("auto-fill"),
+    CssToken::Keyword("auto-fit"),
+    CssToken::Syntax(CssSyntaxKind::Number),
+  ];
 }
 
 #[cfg(test)]

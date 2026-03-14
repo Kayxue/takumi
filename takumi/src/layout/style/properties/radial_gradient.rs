@@ -7,8 +7,8 @@ use super::gradient_utils::{
 };
 use crate::{
   layout::style::{
-    ColorInterpolationMethod, CssToken, FromCss, GradientStop, GradientStops, Length, MakeComputed,
-    ObjectPosition, ParseResult, declare_enum_from_css_impl,
+    ColorInterpolationMethod, CssDescriptorKind, CssToken, FromCss, GradientStop, GradientStops,
+    Length, MakeComputed, ObjectPosition, ParseResult, declare_enum_from_css_impl,
   },
   rendering::{RenderContext, Sizing},
 };
@@ -360,9 +360,8 @@ impl<'i> FromCss<'i> for RadialGradient {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("radial-gradient()")]
-  }
+  const VALID_TOKENS: &'static [CssToken] =
+    &[CssToken::Descriptor(CssDescriptorKind::RadialGradientFn)];
 }
 
 #[cfg(test)]

@@ -1,7 +1,7 @@
 use cssparser::{Parser, match_ignore_ascii_case};
 
 use crate::layout::style::{
-  CssToken, FromCss, MakeComputed, ParseResult, declare_enum_from_css_impl,
+  CssDescriptorKind, CssToken, FromCss, MakeComputed, ParseResult, declare_enum_from_css_impl,
   tw::TailwindPropertyParser,
 };
 
@@ -63,12 +63,10 @@ impl<'i> FromCss<'i> for TextWrap {
     Ok(TextWrap { mode, style })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Token("text-wrap-mode"),
-      CssToken::Token("text-wrap-style"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Descriptor(CssDescriptorKind::TextWrapMode),
+    CssToken::Descriptor(CssDescriptorKind::TextWrapStyle),
+  ];
 }
 
 /// Controls whether text should be wrapped.

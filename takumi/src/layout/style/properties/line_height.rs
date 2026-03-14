@@ -2,7 +2,8 @@ use cssparser::{Parser, match_ignore_ascii_case};
 
 use crate::{
   layout::style::{
-    CssToken, FromCss, Length, MakeComputed, ParseResult, parse_calc_number_expression,
+    CssSyntaxKind, CssToken, FromCss, Length, MakeComputed, ParseResult,
+    parse_calc_number_expression,
     tw::{TW_VAR_SPACING, TailwindPropertyParser},
   },
   rendering::Sizing,
@@ -66,9 +67,10 @@ impl<'i> FromCss<'i> for LineHeight {
     Ok(LineHeight::Unitless(number))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("number"), CssToken::Token("length")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Syntax(CssSyntaxKind::Number),
+    CssToken::Syntax(CssSyntaxKind::Length),
+  ];
 }
 
 impl LineHeight {

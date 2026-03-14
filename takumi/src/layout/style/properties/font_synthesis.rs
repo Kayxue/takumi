@@ -46,13 +46,11 @@ impl<'i> FromCss<'i> for FontSynthesis {
     Ok(Self { weight, style })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("none"),
-      CssToken::Keyword("weight"),
-      CssToken::Keyword("style"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("none"),
+    CssToken::Keyword("weight"),
+    CssToken::Keyword("style"),
+  ];
 }
 
 /// Control mode for synthetic.

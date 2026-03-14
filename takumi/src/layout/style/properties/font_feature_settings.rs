@@ -2,7 +2,7 @@ use cssparser::{Parser, Token};
 use parley::FontFeature;
 use swash::tag_from_str_lossy;
 
-use crate::layout::style::{CssToken, FromCss, MakeComputed, ParseResult};
+use crate::layout::style::{CssSyntaxKind, CssToken, FromCss, MakeComputed, ParseResult};
 
 /// Controls OpenType font features via CSS font-feature-settings property.
 ///
@@ -54,7 +54,8 @@ impl<'i> FromCss<'i> for FontFeatureSettings {
     Ok(list.into_boxed_slice())
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Keyword("normal"), CssToken::Token("string")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("normal"),
+    CssToken::Syntax(CssSyntaxKind::String),
+  ];
 }

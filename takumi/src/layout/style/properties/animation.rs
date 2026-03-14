@@ -3,8 +3,8 @@ use std::borrow::Cow;
 use cssparser::{BasicParseErrorKind, Parser, Token, match_ignore_ascii_case};
 
 use crate::layout::style::{
-  CssToken, FromCss, MakeComputed, ParseResult, declare_enum_from_css_impl, next_is_comma,
-  tw::TailwindPropertyParser,
+  CssDescriptorKind, CssSyntaxKind, CssToken, FromCss, MakeComputed, ParseResult,
+  declare_enum_from_css_impl, next_is_comma, tw::TailwindPropertyParser,
 };
 
 /// Represents a CSS animation time value stored in milliseconds.
@@ -39,9 +39,7 @@ impl<'i> FromCss<'i> for AnimationTime {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("time")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[CssToken::Syntax(CssSyntaxKind::Time)];
 }
 
 /// Parsed values for `animation-name`.
@@ -76,9 +74,10 @@ impl<'i> FromCss<'i> for AnimationNames {
     Ok(Self(names.into_boxed_slice()))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Keyword("none"), CssToken::Token("custom-ident")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("none"),
+    CssToken::Syntax(CssSyntaxKind::CustomIdent),
+  ];
 }
 
 /// Parsed values for `animation-duration` and `animation-delay`.
@@ -94,9 +93,7 @@ impl<'i> FromCss<'i> for AnimationDurations {
       .map(|values| Self(values.into_boxed_slice()))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    AnimationTime::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = AnimationTime::VALID_TOKENS;
 }
 
 /// Supported CSS timing functions for animations.
@@ -162,19 +159,17 @@ impl<'i> FromCss<'i> for AnimationTimingFunction {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("linear"),
-      CssToken::Keyword("ease"),
-      CssToken::Keyword("ease-in"),
-      CssToken::Keyword("ease-out"),
-      CssToken::Keyword("ease-in-out"),
-      CssToken::Keyword("step-start"),
-      CssToken::Keyword("step-end"),
-      CssToken::Token("steps()"),
-      CssToken::Token("cubic-bezier()"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("linear"),
+    CssToken::Keyword("ease"),
+    CssToken::Keyword("ease-in"),
+    CssToken::Keyword("ease-out"),
+    CssToken::Keyword("ease-in-out"),
+    CssToken::Keyword("step-start"),
+    CssToken::Keyword("step-end"),
+    CssToken::Descriptor(CssDescriptorKind::StepsFn),
+    CssToken::Descriptor(CssDescriptorKind::CubicBezierFn),
+  ];
 }
 
 /// Parsed values for `animation-timing-function`.
@@ -190,9 +185,7 @@ impl<'i> FromCss<'i> for AnimationTimingFunctions {
       .map(|values| Self(values.into_boxed_slice()))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    AnimationTimingFunction::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = AnimationTimingFunction::VALID_TOKENS;
 }
 
 /// Supported values for `animation-iteration-count`.
@@ -229,9 +222,10 @@ impl<'i> FromCss<'i> for AnimationIterationCount {
     Ok(Self::Number(value))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("number"), CssToken::Keyword("infinite")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Syntax(CssSyntaxKind::Number),
+    CssToken::Keyword("infinite"),
+  ];
 }
 
 /// Parsed values for `animation-iteration-count`.
@@ -247,9 +241,7 @@ impl<'i> FromCss<'i> for AnimationIterationCounts {
       .map(|values| Self(values.into_boxed_slice()))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    AnimationIterationCount::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = AnimationIterationCount::VALID_TOKENS;
 }
 
 /// Supported values for `animation-direction`.
@@ -287,9 +279,7 @@ impl<'i> FromCss<'i> for AnimationDirections {
       .map(|values| Self(values.into_boxed_slice()))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    AnimationDirection::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = AnimationDirection::VALID_TOKENS;
 }
 
 /// Supported values for `animation-fill-mode`.
@@ -327,9 +317,7 @@ impl<'i> FromCss<'i> for AnimationFillModes {
       .map(|values| Self(values.into_boxed_slice()))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    AnimationFillMode::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = AnimationFillMode::VALID_TOKENS;
 }
 
 /// Supported values for `animation-play-state`.
@@ -361,9 +349,7 @@ impl<'i> FromCss<'i> for AnimationPlayStates {
       .map(|values| Self(values.into_boxed_slice()))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    AnimationPlayState::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = AnimationPlayState::VALID_TOKENS;
 }
 
 /// Parsed value for one `animation` shorthand item.
@@ -441,9 +427,7 @@ impl<'i> FromCss<'i> for Animation {
     Ok(animation)
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    Animations::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = Animations::VALID_TOKENS;
 }
 
 /// Parsed values for the `animation` shorthand.
@@ -458,25 +442,23 @@ impl<'i> FromCss<'i> for Animations {
     )
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Token("time"),
-      CssToken::Token("easing-function"),
-      CssToken::Token("number"),
-      CssToken::Keyword("infinite"),
-      CssToken::Keyword("normal"),
-      CssToken::Keyword("reverse"),
-      CssToken::Keyword("alternate"),
-      CssToken::Keyword("alternate-reverse"),
-      CssToken::Keyword("none"),
-      CssToken::Keyword("forwards"),
-      CssToken::Keyword("backwards"),
-      CssToken::Keyword("both"),
-      CssToken::Keyword("running"),
-      CssToken::Keyword("paused"),
-      CssToken::Token("custom-ident"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Syntax(CssSyntaxKind::Time),
+    CssToken::Syntax(CssSyntaxKind::EasingFunction),
+    CssToken::Syntax(CssSyntaxKind::Number),
+    CssToken::Keyword("infinite"),
+    CssToken::Keyword("normal"),
+    CssToken::Keyword("reverse"),
+    CssToken::Keyword("alternate"),
+    CssToken::Keyword("alternate-reverse"),
+    CssToken::Keyword("none"),
+    CssToken::Keyword("forwards"),
+    CssToken::Keyword("backwards"),
+    CssToken::Keyword("both"),
+    CssToken::Keyword("running"),
+    CssToken::Keyword("paused"),
+    CssToken::Syntax(CssSyntaxKind::CustomIdent),
+  ];
 }
 
 impl TailwindPropertyParser for Animations {

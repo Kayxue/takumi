@@ -1,6 +1,8 @@
-use std::{borrow::Cow, collections::HashMap, marker::PhantomData, str::FromStr};
+use std::{borrow::Cow, collections::HashMap, fmt::Write, marker::PhantomData, str::FromStr};
 
-use cssparser::{Parser, ParserInput, Token, match_ignore_ascii_case};
+use cssparser::{
+  ParseError, ParseErrorKind, Parser, ParserInput, SourceLocation, Token, match_ignore_ascii_case,
+};
 use parley::{FontSettings, TextStyle};
 use paste::paste;
 use serde::de::IgnoredAny;
@@ -47,10 +49,17 @@ struct DeferredDeclaration {
 
 type ExpectedMessageFn = fn() -> super::CssExpectedMessage<'static>;
 
+#[derive(Debug, Clone)]
+struct RawStyleValueParseFailure {
+  location: SourceLocation,
+  detail: Option<String>,
+}
+
 enum RawStyleValueParseError<'de> {
   Value {
     value: Cow<'de, str>,
     expected_message: ExpectedMessageFn,
+    failure: Option<RawStyleValueParseFailure>,
   },
   NumberType {
     number: super::RawCssNumber,
@@ -63,26 +72,85 @@ enum RawStyleValueParseError<'de> {
 }
 
 impl RawStyleValueParseError<'_> {
-  fn into_serde_error<E>(self) -> E
+  fn into_serde_error<E>(self, property_name: &str, property: PropertyId) -> E
   where
     E: serde::de::Error,
   {
+    E::custom(self.message(property_name, property))
+  }
+
+  fn message(self, property_name: &str, _property: PropertyId) -> String {
+    let mut message = String::new();
+    let _ = write!(
+      message,
+      "invalid {} for {}",
+      self.value_kind(),
+      property_name
+    );
+
+    if let Some(failure) = self.failure() {
+      let _ = write!(
+        message,
+        ", line {}, column {}",
+        failure.location.line + 1,
+        failure.location.column
+      );
+      if let Some(detail) = failure.detail {
+        let _ = write!(message, " near \"{}\"", detail);
+      }
+    }
+
+    let _ = write!(
+      message,
+      ": {}; {}",
+      self.input_description(),
+      self.expected_description()
+    );
+
+    message
+  }
+
+  fn value_kind(&self) -> &'static str {
+    match self {
+      Self::Value { .. } => "value",
+      Self::NumberType { .. } | Self::UnexpectedType { .. } => "type",
+    }
+  }
+
+  fn failure(&self) -> Option<RawStyleValueParseFailure> {
+    match self {
+      Self::Value { failure, .. } => failure.clone(),
+      Self::NumberType { .. } | Self::UnexpectedType { .. } => None,
+    }
+  }
+
+  fn input_description(&self) -> String {
+    match self {
+      Self::Value { value, .. } => format!("string {:?}", value),
+      Self::NumberType { number, .. } => format_raw_number(*number),
+      Self::UnexpectedType { unexpected, .. } => match unexpected {
+        super::RawCssUnexpected::Bool(value) => format!("boolean `{value}`"),
+        super::RawCssUnexpected::Char(value) => format!("char `{value}`"),
+        super::RawCssUnexpected::Bytes => "bytes".to_owned(),
+        super::RawCssUnexpected::Unit => "unit".to_owned(),
+        super::RawCssUnexpected::Seq => "sequence".to_owned(),
+        super::RawCssUnexpected::Map => "map".to_owned(),
+        super::RawCssUnexpected::Other(kind) => (*kind).to_owned(),
+      },
+    }
+  }
+
+  fn expected_description(&self) -> String {
     match self {
       Self::Value {
-        value,
-        expected_message,
-      } => E::invalid_value(
-        serde::de::Unexpected::Str(value.as_ref()),
-        &expected_message(),
-      ),
-      Self::NumberType {
-        number,
-        expected_message,
-      } => E::invalid_type(number.unexpected(), &expected_message()),
-      Self::UnexpectedType {
-        unexpected,
-        expected_message,
-      } => E::invalid_type(unexpected.as_serde_unexpected(), &expected_message()),
+        expected_message, ..
+      }
+      | Self::NumberType {
+        expected_message, ..
+      }
+      | Self::UnexpectedType {
+        expected_message, ..
+      } => expected_message().to_string(),
     }
   }
 }
@@ -105,16 +173,17 @@ where
       if let Ok(keyword) = CssWideKeyword::from_str(value.as_ref()) {
         Ok(ParsedRawStyleValue::Keyword(keyword))
       } else {
-        let parsed_value = T::from_str(value.as_ref()).ok();
+        let source = value.as_ref().to_owned();
+        let parsed = T::from_str(source.as_str());
 
-        let Some(parsed_value) = parsed_value else {
-          return Err(RawStyleValueParseError::Value {
+        match parsed {
+          Ok(parsed_value) => Ok(ParsedRawStyleValue::Value(parsed_value)),
+          Err(error) => Err(RawStyleValueParseError::Value {
             value,
             expected_message: expected_message::<T>,
-          });
-        };
-
-        Ok(ParsedRawStyleValue::Value(parsed_value))
+            failure: Some(raw_style_value_parse_failure(source.as_str(), error)),
+          }),
+        }
       }
     }
     RawCssInput::Number(number) => {
@@ -131,6 +200,57 @@ where
       unexpected,
       expected_message: expected_message::<T>,
     }),
+  }
+}
+
+fn raw_style_value_parse_failure(
+  source: &str,
+  error: ParseError<'_, Cow<'_, str>>,
+) -> RawStyleValueParseFailure {
+  let location = error.location;
+  let detail = match error.kind {
+    ParseErrorKind::Basic(_) | ParseErrorKind::Custom(_) => {
+      Some(snippet_at_column(source, location.column))
+    }
+  }
+  .filter(|snippet| !snippet.is_empty());
+
+  RawStyleValueParseFailure { location, detail }
+}
+
+fn format_raw_number(number: super::RawCssNumber) -> String {
+  match number {
+    super::RawCssNumber::Signed(value) => format!("integer `{value}`"),
+    super::RawCssNumber::Unsigned(value) => format!("integer `{value}`"),
+    super::RawCssNumber::Float(value) => format!("float `{value}`"),
+  }
+}
+
+fn snippet_at_column(source: &str, column: u32) -> String {
+  let Some(start) = source
+    .char_indices()
+    .nth(column.saturating_sub(1) as usize)
+    .map(|(index, _)| index)
+  else {
+    return String::new();
+  };
+
+  let snippet = source[start..]
+    .trim_start()
+    .split([' ', '\t', '\n', '\r', ',', ')', '('])
+    .next()
+    .unwrap_or_default()
+    .trim_matches('"')
+    .trim_matches('\'');
+
+  snippet.chars().take(24).collect()
+}
+
+fn css_property_name(name: &'static str) -> Cow<'static, str> {
+  if name.contains('_') {
+    Cow::Owned(name.replace('_', "-"))
+  } else {
+    Cow::Borrowed(name)
   }
 }
 
@@ -364,11 +484,16 @@ macro_rules! define_style {
       }
 
       impl LonghandId {
-        const COUNT: usize = 0 $(+ { let _ = Self::[<$longhand:camel>]; 1 })*;
+        const COUNT: usize = [$(Self::[<$longhand:camel>]),*].len();
         const ALL: [Self; Self::COUNT] = [$(Self::[<$longhand:camel>],)*];
+        const CSS_NAMES: [&'static str; Self::COUNT] = [$(stringify!($longhand),)*];
 
         const fn index(self) -> usize {
           self as usize
+        }
+
+        const fn raw_name(self) -> &'static str {
+          Self::CSS_NAMES[self.index()]
         }
       }
 
@@ -379,10 +504,15 @@ macro_rules! define_style {
       }
 
       impl ShorthandId {
-        const COUNT: usize = 0 $(+ { let _ = Self::[<$shorthand:camel>]; 1 })*;
+        const COUNT: usize = [$(Self::[<$shorthand:camel>]),*].len();
+        const CSS_NAMES: [&'static str; Self::COUNT] = [$(stringify!($shorthand),)*];
 
         const fn index(self) -> usize {
           self as usize
+        }
+
+        const fn raw_name(self) -> &'static str {
+          Self::CSS_NAMES[self.index()]
         }
       }
 
@@ -469,6 +599,15 @@ macro_rules! define_style {
       }
 
       impl PropertyId {
+        fn css_name(self) -> Cow<'static, str> {
+          match self {
+            Self::Ignored => Cow::Borrowed("<ignored>"),
+            Self::Custom => Cow::Borrowed("<custom>"),
+            Self::Longhand(property) => css_property_name(property.raw_name()),
+            Self::Shorthand(property) => css_property_name(property.raw_name()),
+          }
+        }
+
         fn from_normalized_name(name: &str) -> Self {
           match name {
             $(stringify!($longhand) => Self::Longhand(LonghandId::[<$longhand:camel>]),)*
@@ -520,6 +659,7 @@ macro_rules! define_style {
 
         fn parse_raw_declarations<'de, E>(
           self,
+          name: &str,
           raw_value: RawCssInput<'de>,
         ) -> Result<ParsedDeclarations, E>
         where
@@ -550,11 +690,11 @@ macro_rules! define_style {
             Self::Custom => unreachable!(),
             Self::Shorthand(property) => {
               RAW_SHORTHAND_PARSE_FNS[property.index()](raw_value)
-                .map_err(RawStyleValueParseError::into_serde_error)
+                .map_err(|error| error.into_serde_error(name, self))
             }
             Self::Longhand(property) => {
               RAW_LONGHAND_PARSE_FNS[property.index()](raw_value)
-                .map_err(RawStyleValueParseError::into_serde_error)
+                .map_err(|error| error.into_serde_error(name, self))
             }
           }
         }
@@ -740,7 +880,7 @@ macro_rules! define_style {
 
           self
             .declarations
-            .append_parsed_declarations(property.parse_raw_declarations(raw_value)?, important);
+            .append_parsed_declarations(property.parse_raw_declarations(name, raw_value)?, important);
           Ok(())
         }
       }
@@ -1537,9 +1677,13 @@ fn apply_deferred_declaration(
     return;
   };
 
-  let declarations = deferred
-    .property
-    .parse_raw_declarations::<serde::de::value::Error>(RawCssInput::Str(Cow::Owned(resolved_value)))
+  let property = deferred.property;
+  let css_name = property.css_name();
+  let declarations = property
+    .parse_raw_declarations::<serde::de::value::Error>(
+      css_name.as_ref(),
+      RawCssInput::Str(Cow::Owned(resolved_value)),
+    )
     .ok();
 
   let Some(declarations) = declarations else {
@@ -1573,13 +1717,11 @@ impl<'i> FromCss<'i> for CssWideKeyword {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("initial"),
-      CssToken::Keyword("inherit"),
-      CssToken::Keyword("unset"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("initial"),
+    CssToken::Keyword("inherit"),
+    CssToken::Keyword("unset"),
+  ];
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

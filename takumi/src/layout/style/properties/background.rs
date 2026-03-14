@@ -115,16 +115,14 @@ impl<'i> FromCss<'i> for Background {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Token("color"),
-      CssToken::Token("image"),
-      CssToken::Token("position"),
-      CssToken::Token("repeat"),
-      CssToken::Token("clip"),
-      CssToken::Token("blend-mode"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Syntax(CssSyntaxKind::Color),
+    CssToken::Syntax(CssSyntaxKind::Image),
+    CssToken::Syntax(CssSyntaxKind::Position),
+    CssToken::Syntax(CssSyntaxKind::Repeat),
+    CssToken::Syntax(CssSyntaxKind::Clip),
+    CssToken::Descriptor(CssDescriptorKind::BlendMode),
+  ];
 }
 
 /// A list of background properties (one per layer).
@@ -139,9 +137,7 @@ impl<'i> FromCss<'i> for Backgrounds {
     )
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    Background::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = Background::VALID_TOKENS;
 }
 
 #[cfg(test)]

@@ -25,13 +25,11 @@ impl<'i> FromCss<'i> for FontStyle {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("normal"),
-      CssToken::Keyword("italic"),
-      CssToken::Keyword("oblique"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("normal"),
+    CssToken::Keyword("italic"),
+    CssToken::Keyword("oblique"),
+  ];
 }
 
 impl FontStyle {

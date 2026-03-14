@@ -4,8 +4,8 @@ use cssparser::{BasicParseErrorKind, ParseError, Parser};
 
 use crate::{
   layout::style::{
-    Animatable, Color, ColorInput, CssToken, FromCss, Length, ListInterpolationStrategy,
-    MakeComputed, ParseResult, next_is_comma,
+    Animatable, Color, ColorInput, CssSyntaxKind, CssToken, FromCss, Length,
+    ListInterpolationStrategy, MakeComputed, ParseResult, next_is_comma,
   },
   rendering::Sizing,
 };
@@ -45,9 +45,7 @@ impl<'i> FromCss<'i> for BoxShadows {
     )
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    BoxShadow::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = BoxShadow::VALID_TOKENS;
 }
 
 impl<'i> FromCss<'i> for BoxShadow {
@@ -120,13 +118,11 @@ impl<'i> FromCss<'i> for BoxShadow {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("inset"),
-      CssToken::Token("length"),
-      CssToken::Token("color"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("inset"),
+    CssToken::Syntax(CssSyntaxKind::Length),
+    CssToken::Syntax(CssSyntaxKind::Color),
+  ];
 }
 
 impl crate::layout::style::tw::TailwindPropertyParser for BoxShadow {

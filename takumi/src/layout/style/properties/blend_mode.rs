@@ -20,9 +20,7 @@ impl<'i> FromCss<'i> for BlendModes {
     Ok(values.into_boxed_slice())
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    BlendMode::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = BlendMode::VALID_TOKENS;
 }
 
 /// Defines the blending mode for an element.

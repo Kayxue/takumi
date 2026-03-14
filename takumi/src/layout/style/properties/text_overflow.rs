@@ -1,6 +1,6 @@
 use cssparser::{Parser, match_ignore_ascii_case};
 
-use crate::layout::style::{CssToken, FromCss, MakeComputed, ParseResult};
+use crate::layout::style::{CssSyntaxKind, CssToken, FromCss, MakeComputed, ParseResult};
 
 /// Defines how text should be overflowed.
 ///
@@ -29,11 +29,9 @@ impl<'i> FromCss<'i> for TextOverflow {
     }
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("clip"),
-      CssToken::Keyword("ellipsis"),
-      CssToken::Token("string"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("clip"),
+    CssToken::Keyword("ellipsis"),
+    CssToken::Syntax(CssSyntaxKind::String),
+  ];
 }

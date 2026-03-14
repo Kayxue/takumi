@@ -103,11 +103,10 @@ pub(crate) struct TakumiSelectorImpl;
 pub(crate) enum UnsupportedPseudoClass {}
 
 impl ToCss for UnsupportedPseudoClass {
-  fn to_css<W>(&self, dest: &mut W) -> fmt::Result
+  fn to_css<W>(&self, _dest: &mut W) -> fmt::Result
   where
     W: Write,
   {
-    let _ = dest;
     match *self {}
   }
 }
@@ -126,11 +125,10 @@ impl NonTSPseudoClass for UnsupportedPseudoClass {
 pub(crate) enum UnsupportedPseudoElement {}
 
 impl ToCss for UnsupportedPseudoElement {
-  fn to_css<W>(&self, dest: &mut W) -> fmt::Result
+  fn to_css<W>(&self, _dest: &mut W) -> fmt::Result
   where
     W: Write,
   {
-    let _ = dest;
     match *self {}
   }
 }
@@ -418,7 +416,9 @@ impl<'i> DeclarationParser<'i> for KeyframeDeclarationParser {
     _state: &ParserState,
   ) -> Result<Self::Declaration, ParseError<'i, Self::Error>> {
     let declarations = StyleDeclarationBlock::parse(&name, input).map_err(ParseError::into)?;
-    let _ = input.try_parse(parse_important);
+    // !important flag is ignored in keyframe declartion.
+    // Ref: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@keyframes#!important_in_a_keyframe
+    input.try_parse(parse_important).ok();
     Ok(declarations)
   }
 }

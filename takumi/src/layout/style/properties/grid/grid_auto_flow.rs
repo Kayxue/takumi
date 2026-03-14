@@ -100,11 +100,9 @@ impl<'i> FromCss<'i> for GridAutoFlow {
     Ok(GridAutoFlow { direction, dense })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("row"),
-      CssToken::Keyword("column"),
-      CssToken::Keyword("dense"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("row"),
+    CssToken::Keyword("column"),
+    CssToken::Keyword("dense"),
+  ];
 }

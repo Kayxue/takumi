@@ -2,7 +2,9 @@ use std::mem::take;
 
 use cssparser::Parser;
 
-use crate::layout::style::{CssToken, FromCss, MakeComputed, ParseResult};
+use crate::layout::style::{
+  CssDescriptorKind, CssSyntaxKind, CssToken, FromCss, MakeComputed, ParseResult,
+};
 use crate::rendering::Sizing;
 
 use super::{GridRepeatTrack, GridRepetitionCount, GridTrackSize};
@@ -125,14 +127,12 @@ impl<'i> FromCss<'i> for GridTemplateComponent {
     Ok(GridTemplateComponent::Single(size))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Token("line-names"),
-      CssToken::Token("repeat()"),
-      CssToken::Token("minmax()"),
-      CssToken::Token("length"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Syntax(CssSyntaxKind::LineNames),
+    CssToken::Descriptor(CssDescriptorKind::RepeatFn),
+    CssToken::Descriptor(CssDescriptorKind::MinmaxFn),
+    CssToken::Syntax(CssSyntaxKind::Length),
+  ];
 }
 
 impl<'i> FromCss<'i> for GridTemplateComponents {
@@ -144,9 +144,7 @@ impl<'i> FromCss<'i> for GridTemplateComponents {
     Ok(components)
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    GridTemplateComponent::valid_tokens()
-  }
+  const VALID_TOKENS: &'static [CssToken] = GridTemplateComponent::VALID_TOKENS;
 }
 
 impl GridTemplateComponentsExt for [GridTemplateComponent] {

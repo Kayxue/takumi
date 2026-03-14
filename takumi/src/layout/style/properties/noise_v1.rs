@@ -1,7 +1,7 @@
 use cssparser::{Parser, Token, match_ignore_ascii_case};
 use image::{GenericImageView, Rgba};
 
-use crate::layout::style::{CssToken, FromCss, ParseResult};
+use crate::layout::style::{CssDescriptorKind, CssToken, FromCss, ParseResult};
 
 const DEFAULT_OPACITY: f32 = 0.15;
 const DEFAULT_SEED: i32 = 0;
@@ -96,7 +96,8 @@ impl<'i> FromCss<'i> for NoiseV1 {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Token("seed()"), CssToken::Token("opacity()")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Descriptor(CssDescriptorKind::SeedFn),
+    CssToken::Descriptor(CssDescriptorKind::OpacityFn),
+  ];
 }

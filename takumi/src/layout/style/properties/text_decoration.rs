@@ -3,7 +3,7 @@ use cssparser::{Parser, Token, match_ignore_ascii_case};
 
 use crate::{
   layout::style::{
-    Animatable, Color, CssToken, FromCss, Length, MakeComputed, ParseResult,
+    Animatable, Color, CssSyntaxKind, CssToken, FromCss, Length, MakeComputed, ParseResult,
     declare_enum_from_css_impl, properties::ColorInput, tw::TailwindPropertyParser,
   },
   rendering::Sizing,
@@ -57,13 +57,11 @@ impl<'i> FromCss<'i> for TextDecorationLines {
     Ok(lines)
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("underline"),
-      CssToken::Keyword("line-through"),
-      CssToken::Keyword("overline"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("underline"),
+    CssToken::Keyword("line-through"),
+    CssToken::Keyword("overline"),
+  ];
 }
 
 impl MakeComputed for TextDecorationLines {}
@@ -135,9 +133,10 @@ impl<'i> FromCss<'i> for TextDecorationThickness {
     Ok(Self::Length(Length::from_css(input)?))
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[CssToken::Keyword("from-font"), CssToken::Token("length")]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("from-font"),
+    CssToken::Syntax(CssSyntaxKind::Length),
+  ];
 }
 
 impl TailwindPropertyParser for TextDecorationThickness {
@@ -229,15 +228,13 @@ impl<'i> FromCss<'i> for TextDecoration {
     })
   }
 
-  fn valid_tokens() -> &'static [CssToken] {
-    &[
-      CssToken::Keyword("underline"),
-      CssToken::Keyword("line-through"),
-      CssToken::Keyword("overline"),
-      CssToken::Keyword("solid"),
-      CssToken::Token("color"),
-    ]
-  }
+  const VALID_TOKENS: &'static [CssToken] = &[
+    CssToken::Keyword("underline"),
+    CssToken::Keyword("line-through"),
+    CssToken::Keyword("overline"),
+    CssToken::Keyword("solid"),
+    CssToken::Syntax(CssSyntaxKind::Color),
+  ];
 }
 
 #[cfg(test)]
