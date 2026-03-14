@@ -13,14 +13,16 @@ use takumi::{
   layout::{
     node::Node,
     Viewport,
-    style::Style,
+    style::{Length::Px, Style, StyleDeclaration},
   },
   rendering::{render, RenderOptionsBuilder},
   GlobalContext,
 };
 
-// Create a node tree with `Node`
-let node = Node::container([Node::text("Hello, world!")]).with_style(Style::default());
+// Create a node tree with `Node::container` and `Node::text`
+let node = Node::container([Node::text("Hello, world!").with_style(
+  Style::default().with(StyleDeclaration::font_size(Px(32.0).into())),
+)]);
 
 // Create a context for storing resources, font caches.
 // You should reuse the context to speed up the rendering.
