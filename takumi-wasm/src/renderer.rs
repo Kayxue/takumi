@@ -138,22 +138,22 @@ impl Renderer {
         self
           .context
           .font_context_mut()
-          .load_and_store(FontResource::new(buffer.into_vec().into()))
+          .load_and_store(FontResource::new(buffer.into_vec()))
           .map_err(map_error)?;
       }
       Font::Object(details) => {
         self
           .context
           .font_context_mut()
-          .load_and_store(
-            FontResource::new(details.data.into_vec().into()).override_info(FontInfoOverride {
+          .load_and_store(FontResource::new(details.data.into_vec()).override_info(
+            FontInfoOverride {
               family_name: details.name.as_deref(),
               style: details.style.map(Into::into),
               weight: details.weight.map(|weight| FontWeight::new(weight as f32)),
               axes: None,
               width: None,
-            }),
-          )
+            },
+          ))
           .map_err(map_error)?;
       }
     }

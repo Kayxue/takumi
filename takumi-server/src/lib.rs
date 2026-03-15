@@ -67,7 +67,7 @@ pub async fn run_server(args: Args, mut context: GlobalContext) {
 
           if let Err(e) = context
             .font_context_mut()
-            .load_and_store(FontResource::new(file.into()))
+            .load_and_store(FontResource::new(file))
           {
             error!("Failed to load font {}: {e:?}", path.file_name().display());
             continue;

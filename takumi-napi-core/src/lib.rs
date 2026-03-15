@@ -24,7 +24,8 @@ use napi::{De, Env, Error, bindgen_prelude::*};
 use serde::{Deserialize, Deserializer, de::DeserializeOwned};
 use takumi::{
   layout::style::{KeyframesRule, StyleSheet},
-  parley::FontStyle,
+  parley::{FontStyle, FontWeight, fontique::FontInfoOverride},
+  resources::font::FontResource,
 };
 
 pub use helper::*;
@@ -50,7 +51,7 @@ impl<'de> Deserialize<'de> for FontStyleInput {
   }
 }
 
-fn buffer_from_object(env: Env, value: Object) -> Result<Buffer> {
+pub(crate) fn buffer_from_object(env: Env, value: Object) -> Result<Buffer> {
   if value.is_buffer()? {
     let buffer = unsafe { BufferSlice::from_napi_value(env.raw(), value.raw()) }?;
     return buffer.into_buffer(&env);
@@ -58,6 +59,35 @@ fn buffer_from_object(env: Env, value: Object) -> Result<Buffer> {
 
   let bytes = buffer_slice_from_object(env, value)?;
   Ok(Buffer::from(bytes.as_ref().to_vec()))
+}
+
+pub(crate) fn parse_font_input(env: Env, font: Object) -> Result<(FontInput, Buffer)> {
+  if let Ok(buffer) = buffer_from_object(env, font) {
+    Ok((FontInput::default(), buffer))
+  } else {
+    let buffer = font
+      .get_named_property("data")
+      .and_then(|buffer| buffer_from_object(env, buffer))?;
+    let font: FontInput = deserialize_with_tracing(font).map_err(map_error)?;
+
+    Ok((font, buffer))
+  }
+}
+
+pub(crate) fn resolve_font_resource<'a>(
+  font: &'a FontInput,
+  buffer: &'a [u8],
+) -> Result<FontResource<'a>> {
+  FontResource::new(buffer)
+    .override_info(FontInfoOverride {
+      family_name: font.name.as_deref(),
+      width: None,
+      style: font.style.map(|style| style.0),
+      weight: font.weight.map(|weight| FontWeight::new(weight as f32)),
+      axes: None,
+    })
+    .into_resolved()
+    .map_err(|e| Error::from_reason(format!("Failed to load font: {e}")))
 }
 
 pub(crate) enum BufferOrSlice<'env> {

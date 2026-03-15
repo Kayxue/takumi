@@ -1,11 +1,9 @@
-use std::borrow::Cow;
 use std::sync::{Arc, RwLock};
 
 use napi::bindgen_prelude::*;
-use takumi::parley::{FontWeight, fontique::FontInfoOverride};
-use takumi::resources::font::FontResource;
+use rayon::prelude::*;
 
-use crate::{FontInput, renderer::RendererState};
+use crate::{FontInput, renderer::RendererState, resolve_font_resource};
 
 pub struct LoadFontTask {
   pub(crate) state: Arc<RwLock<RendererState>>,
@@ -27,19 +25,18 @@ impl Task for LoadFontTask {
       .write()
       .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
 
-    for (font, buffer) in &self.buffers {
+    let resources = self
+      .buffers
+      .par_iter()
+      .with_min_len(2)
+      .map(|(font, buffer): &(FontInput, Buffer)| resolve_font_resource(font, buffer.as_ref()))
+      .collect::<Result<Vec<_>>>()?;
+
+    for resource in resources.into_iter() {
       if state
         .global
         .font_context_mut()
-        .load_and_store(
-          FontResource::new(Cow::Borrowed(buffer)).override_info(FontInfoOverride {
-            family_name: font.name.as_deref(),
-            width: None,
-            style: font.style.map(|style| style.0),
-            weight: font.weight.map(|weight| FontWeight::new(weight as f32)),
-            axes: None,
-          }),
-        )
+        .load_and_store(resource)
         .is_ok()
       {
         loaded_count += 1;

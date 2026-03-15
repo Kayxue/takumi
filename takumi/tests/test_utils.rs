@@ -128,7 +128,7 @@ fn create_test_context() -> GlobalContext {
     context
       .font_context_mut()
       .load_and_store(
-        FontResource::new(font_data.into())
+        FontResource::new(font_data)
           .override_info(FontInfoOverride {
             family_name: Some(name),
             ..Default::default()

@@ -74,11 +74,7 @@ pub enum FontFormat {
   Ttc,
 }
 
-/// Loads and processes font data, optionally using format hint for detection
-pub fn load_font(
-  source: Cow<'_, [u8]>,
-  format_hint: Option<FontFormat>,
-) -> Result<Vec<u8>, FontError> {
+fn load_font(source: Cow<'_, [u8]>, format_hint: Option<FontFormat>) -> Result<Vec<u8>, FontError> {
   let format = if let Some(format) = format_hint {
     format
   } else {
@@ -284,7 +280,7 @@ impl FontContext {
     } = font;
 
     let cache_key = FontCacheKey {
-      data_hash: xxh3_64(&source),
+      data_hash: xxh3_64(source.as_ref()),
       family_name: info_override
         .and_then(|info| info.family_name)
         .map(Into::into),
@@ -308,12 +304,10 @@ impl FontContext {
       return Ok(());
     }
 
-    let font_data = Blob::new(Arc::new(load_font(source, None)?));
-
     let fonts = self
       .inner
       .collection
-      .register_fonts(font_data, info_override);
+      .register_fonts(source.into_blob()?, info_override);
 
     for (family, _) in fonts {
       if let Some(generic_family) = generic_family {
@@ -337,11 +331,67 @@ impl FontContext {
   }
 }
 
-#[derive(Debug, Clone)]
+/// Represents a font source buffer.
+#[derive(Debug)]
+pub enum FontSource<'a> {
+  /// Raw font buffer.
+  Raw(Cow<'a, [u8]>),
+  /// Recognized font blob.
+  /// Woff2 and Woff should be decompressed into raw buffer before passing to this.
+  Blob(Blob<u8>),
+}
+
+impl<'a> From<Cow<'a, [u8]>> for FontSource<'a> {
+  fn from(value: Cow<'a, [u8]>) -> Self {
+    Self::Raw(value)
+  }
+}
+
+impl<'a> From<Vec<u8>> for FontSource<'a> {
+  fn from(value: Vec<u8>) -> Self {
+    Self::Raw(Cow::Owned(value))
+  }
+}
+
+impl<'a> From<&'a [u8]> for FontSource<'a> {
+  fn from(value: &'a [u8]) -> Self {
+    Self::Raw(Cow::Borrowed(value))
+  }
+}
+
+impl<'a> FontSource<'a> {
+  fn into_blob_variant(self) -> Result<Self, FontError> {
+    match self {
+      Self::Raw(raw) => {
+        let font = load_font(raw, None)?;
+        Ok(Self::Blob(Blob::new(Arc::new(font))))
+      }
+      Self::Blob(_) => Ok(self),
+    }
+  }
+
+  fn into_blob(self) -> Result<Blob<u8>, FontError> {
+    match self.into_blob_variant()? {
+      Self::Raw(_) => unreachable!(),
+      Self::Blob(blob) => Ok(blob),
+    }
+  }
+}
+
+impl<'a> AsRef<[u8]> for FontSource<'a> {
+  fn as_ref(&self) -> &[u8] {
+    match self {
+      Self::Raw(raw) => raw,
+      Self::Blob(blob) => blob.as_ref(),
+    }
+  }
+}
+
+#[derive(Debug)]
 /// Information of a font resource
 pub struct FontResource<'a> {
   /// Font source
-  source: Cow<'a, [u8]>,
+  source: FontSource<'a>,
   /// Font information for override
   info_override: Option<FontInfoOverride<'a>>,
   /// Generic font family
@@ -350,9 +400,9 @@ pub struct FontResource<'a> {
 
 impl<'a> FontResource<'a> {
   /// Create a new font to load
-  pub fn new(source: Cow<'a, [u8]>) -> Self {
+  pub fn new(source: impl Into<FontSource<'a>>) -> Self {
     Self {
-      source,
+      source: source.into(),
       info_override: None,
       generic_family: None,
     }
@@ -372,5 +422,16 @@ impl<'a> FontResource<'a> {
       generic_family: Some(generic_family),
       ..self
     }
+  }
+
+  /// Convert to resolved font resource
+  /// Woff2 and Woff should be decompressed into raw buffer.
+  pub fn into_resolved(self) -> Result<Self, FontError> {
+    let source = self.source.into_blob_variant()?;
+    Ok(Self {
+      source,
+      info_override: self.info_override,
+      generic_family: self.generic_family,
+    })
   }
 }
