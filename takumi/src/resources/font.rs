@@ -337,6 +337,7 @@ impl FontContext {
   }
 }
 
+#[derive(Debug, Clone)]
 /// Information of a font resource
 pub struct FontResource<'a> {
   /// Font source
@@ -351,7 +352,7 @@ impl<'a> FontResource<'a> {
   /// Create a new font to load
   pub fn new(source: Cow<'a, [u8]>) -> Self {
     Self {
-      source: source.into(),
+      source,
       info_override: None,
       generic_family: None,
     }
