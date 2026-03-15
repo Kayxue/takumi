@@ -20,10 +20,6 @@ impl Task for LoadFontTask {
     }
 
     let mut loaded_count = 0;
-    let mut state = self
-      .state
-      .write()
-      .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
 
     let resources = self
       .buffers
@@ -31,6 +27,11 @@ impl Task for LoadFontTask {
       .with_min_len(2)
       .map(|(font, buffer): &(FontInput, Buffer)| resolve_font_resource(font, buffer.as_ref()))
       .collect::<Result<Vec<_>>>()?;
+
+    let mut state = self
+      .state
+      .write()
+      .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
 
     for resource in resources.into_iter() {
       if state

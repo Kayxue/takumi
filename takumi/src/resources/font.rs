@@ -362,8 +362,11 @@ impl<'a> FontSource<'a> {
   }
 
   fn into_blob(self) -> Result<Blob<u8>, FontError> {
-    match self.into_blob_variant()? {
-      Self::Raw(_) => unreachable!(),
+    match self {
+      Self::Raw(raw) => {
+        let font = load_font(raw, None)?;
+        Ok(Blob::new(Arc::new(font)))
+      }
       Self::Blob(blob) => Ok(blob),
     }
   }
