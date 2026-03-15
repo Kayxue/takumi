@@ -33,6 +33,7 @@
 //!     Viewport,
 //!     style::{Length::Px, Style, StyleDeclaration},
 //!   },
+//!   resources::font::FontResource,
 //!   rendering::{render, RenderOptions},
 //!   GlobalContext,
 //! };
@@ -48,9 +49,7 @@
 //!
 //! // Load fonts
 //! global.font_context_mut().load_and_store(
-//!   include_bytes!("../../assets/fonts/geist/Geist[wght].woff2").into(),
-//!   None,
-//!   None,
+//!   FontResource::new(include_bytes!("../../assets/fonts/geist/Geist[wght].woff2").into())
 //! );
 //!
 //! // Create a viewport
