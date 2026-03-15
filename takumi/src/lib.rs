@@ -49,7 +49,7 @@
 //!
 //! // Load fonts
 //! global.font_context_mut().load_and_store(
-//!   FontResource::new(include_bytes!("../../assets/fonts/geist/Geist[wght].woff2").into())
+//!   FontResource::new(include_bytes!("../../assets/fonts/geist/Geist[wght].woff2"))
 //! );
 //!
 //! // Create a viewport
