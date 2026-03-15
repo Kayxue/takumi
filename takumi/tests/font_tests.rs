@@ -4,7 +4,7 @@ use std::{
   path::{Path, PathBuf},
 };
 
-use takumi::{GlobalContext, resources::font::FontError};
+use takumi::{GlobalContext, resources::font::{FontResource, FontError}};
 
 fn font_path(path: &str) -> PathBuf {
   Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -26,7 +26,7 @@ fn test_ttf_font_loading() {
   assert!(
     context
       .font_context_mut()
-      .load_and_store(font_data.into(), None, None)
+      .load_and_store(FontResource::new(font_data.into()))
       .is_ok()
   );
 }
@@ -44,7 +44,7 @@ fn test_ttc_font_loading() {
   assert!(
     context
       .font_context_mut()
-      .load_and_store(font_data.into(), None, None)
+      .load_and_store(FontResource::new(font_data.into()))
       .is_ok()
   );
 }
@@ -62,7 +62,7 @@ fn test_woff2_font_loading() {
   assert!(
     context
       .font_context_mut()
-      .load_and_store(font_data.into(), None, None)
+      .load_and_store(FontResource::new(font_data.into()))
       .is_ok()
   );
 }
@@ -75,7 +75,7 @@ fn test_invalid_format_detection() {
 
   let result = context
     .font_context_mut()
-    .load_and_store(invalid_data.into(), None, None);
+    .load_and_store(FontResource::new(invalid_data.into()));
   assert!(matches!(result, Err(FontError::UnsupportedFormat)));
 }
 
@@ -87,7 +87,7 @@ fn test_empty_data() {
 
   let result = context
     .font_context_mut()
-    .load_and_store(empty_data.into(), None, None);
+    .load_and_store(FontResource::new(empty_data.into()));
   assert!(matches!(result, Err(FontError::UnsupportedFormat)));
 }
 
@@ -99,6 +99,6 @@ fn test_too_short_data() {
 
   let result = context
     .font_context_mut()
-    .load_and_store(short_data.into(), None, None);
+    .load_and_store(FontResource::new(short_data.into()));
   assert!(matches!(result, Err(FontError::UnsupportedFormat)));
 }

@@ -3,6 +3,7 @@ use std::sync::{Arc, RwLock};
 
 use napi::bindgen_prelude::*;
 use takumi::parley::{FontWeight, fontique::FontInfoOverride};
+use takumi::resources::font::FontResource;
 
 use crate::{FontInput, renderer::RendererState};
 
@@ -31,15 +32,13 @@ impl Task for LoadFontTask {
         .global
         .font_context_mut()
         .load_and_store(
-          Cow::Borrowed(buffer),
-          Some(FontInfoOverride {
+          FontResource::new(Cow::Borrowed(buffer)).override_info(FontInfoOverride {
             family_name: font.name.as_deref(),
             width: None,
             style: font.style.map(|style| style.0),
             weight: font.weight.map(|weight| FontWeight::new(weight as f32)),
             axes: None,
           }),
-          None,
         )
         .is_ok()
       {

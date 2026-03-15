@@ -17,7 +17,10 @@ use takumi::{
     RenderOptions, encode_animated_gif, encode_animated_png, encode_animated_webp, render,
     write_image,
   },
-  resources::image::{ImageSource, parse_svg_str},
+  resources::{
+    font::FontResource,
+    image::{ImageSource, parse_svg_str},
+  },
 };
 
 fn assets_path(path: &str) -> PathBuf {
@@ -125,12 +128,12 @@ fn create_test_context() -> GlobalContext {
     context
       .font_context_mut()
       .load_and_store(
-        font_data.into(),
-        Some(FontInfoOverride {
-          family_name: Some(name),
-          ..Default::default()
-        }),
-        Some(*generic),
+        FontResource::new(font_data.into())
+          .override_info(FontInfoOverride {
+            family_name: Some(name),
+            ..Default::default()
+          })
+          .generic_family(*generic),
       )
       .unwrap();
   }

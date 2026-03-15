@@ -276,12 +276,13 @@ impl FontContext {
   }
 
   /// Loads font into internal font db with caching
-  pub fn load_and_store(
-    &mut self,
-    source: Cow<'_, [u8]>,
-    info_override: Option<FontInfoOverride<'_>>,
-    generic_family: Option<GenericFamily>,
-  ) -> Result<(), FontError> {
+  pub fn load_and_store(&mut self, font: FontResource) -> Result<(), FontError> {
+    let FontResource {
+      source,
+      info_override,
+      generic_family,
+    } = font;
+
     let cache_key = FontCacheKey {
       data_hash: xxh3_64(&source),
       family_name: info_override
@@ -333,5 +334,42 @@ impl FontContext {
     self.cache.insert(cache_key);
 
     Ok(())
+  }
+}
+
+/// Information of a font resource
+pub struct FontResource<'a> {
+  /// Font source
+  source: Cow<'a, [u8]>,
+  /// Font information for override
+  info_override: Option<FontInfoOverride<'a>>,
+  /// Generic font family
+  generic_family: Option<GenericFamily>,
+}
+
+impl<'a> FontResource<'a> {
+  /// Create a new font to load
+  pub fn new(source: Cow<'a, [u8]>) -> Self {
+    Self {
+      source: source.into(),
+      info_override: None,
+      generic_family: None,
+    }
+  }
+
+  /// Set font information for overriding
+  pub fn override_info(self, info_override: FontInfoOverride<'a>) -> Self {
+    Self {
+      info_override: Some(info_override),
+      ..self
+    }
+  }
+
+  /// Set generic family for the font
+  pub fn generic_family(self, generic_family: GenericFamily) -> Self {
+    Self {
+      generic_family: Some(generic_family),
+      ..self
+    }
   }
 }

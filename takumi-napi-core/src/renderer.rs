@@ -11,7 +11,7 @@ use takumi::{
   layout::{node::Node, style::KeyframesRule as CoreKeyframesRule},
   parley::{FontWeight, GenericFamily, fontique::FontInfoOverride},
   rendering::{DitheringAlgorithm as CoreDitheringAlgorithm, ImageOutputFormat},
-  resources::image::ImageSource as LoadedImageSource,
+  resources::{font::FontResource, image::ImageSource as LoadedImageSource},
 };
 use xxhash_rust::xxh3::Xxh3DefaultBuilder;
 
@@ -318,12 +318,12 @@ impl Renderer {
         global
           .font_context_mut()
           .load_and_store(
-            Cow::Borrowed(font),
-            Some(FontInfoOverride {
-              family_name: Some(name),
-              ..Default::default()
-            }),
-            Some(*generic),
+            FontResource::new(Cow::Borrowed(font))
+              .override_info(FontInfoOverride {
+                family_name: Some(name),
+                ..Default::default()
+              })
+              .generic_family(*generic),
           )
           .map_err(map_error)?;
       }
@@ -396,7 +396,7 @@ impl Renderer {
       state
         .global
         .font_context_mut()
-        .load_and_store(Cow::Borrowed(&buffer), None, None)
+        .load_and_store(FontResource::new(Cow::Borrowed(&buffer)))
         .map_err(map_error)?;
 
       return Ok(());
@@ -418,7 +418,7 @@ impl Renderer {
     state
       .global
       .font_context_mut()
-      .load_and_store(Cow::Borrowed(&buffer), Some(font_override), None)
+      .load_and_store(FontResource::new(Cow::Borrowed(&buffer)).override_info(font_override))
       .map_err(map_error)?;
 
     Ok(())
