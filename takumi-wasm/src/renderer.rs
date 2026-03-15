@@ -146,15 +146,13 @@ impl Renderer {
           .context
           .font_context_mut()
           .load_and_store(
-            FontResource::new(details.data.into_vec().into()).override_info(
-              FontInfoOverride {
-                family_name: details.name.as_deref(),
-                style: details.style.map(Into::into),
-                weight: details.weight.map(|weight| FontWeight::new(weight as f32)),
-                axes: None,
-                width: None,
-              },
-            ),
+            FontResource::new(details.data.into_vec().into()).override_info(FontInfoOverride {
+              family_name: details.name.as_deref(),
+              style: details.style.map(Into::into),
+              weight: details.weight.map(|weight| FontWeight::new(weight as f32)),
+              axes: None,
+              width: None,
+            }),
           )
           .map_err(map_error)?;
       }

@@ -4,7 +4,10 @@ use std::{
   path::{Path, PathBuf},
 };
 
-use takumi::{GlobalContext, resources::font::{FontResource, FontError}};
+use takumi::{
+  GlobalContext,
+  resources::font::{FontError, FontResource},
+};
 
 fn font_path(path: &str) -> PathBuf {
   Path::new(env!("CARGO_MANIFEST_DIR"))
