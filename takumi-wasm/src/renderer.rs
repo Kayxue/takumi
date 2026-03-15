@@ -21,7 +21,7 @@ use takumi::{
     SequentialScene, encode_animated_gif, encode_animated_png, encode_animated_webp,
     measure_layout, render, render_sequence_animation, write_image,
   },
-  resources::image::ImageSource as LoadedImageSource,
+  resources::{font::FontResource, image::ImageSource as LoadedImageSource},
 };
 use wasm_bindgen::prelude::*;
 use xxhash_rust::xxh3::{Xxh3DefaultBuilder, xxh3_64};
@@ -138,24 +138,22 @@ impl Renderer {
         self
           .context
           .font_context_mut()
-          .load_and_store(buffer.into_vec().into(), None, None)
+          .load_and_store(FontResource::new(buffer.into_vec()))
           .map_err(map_error)?;
       }
       Font::Object(details) => {
         self
           .context
           .font_context_mut()
-          .load_and_store(
-            details.data.into_vec().into(),
-            Some(FontInfoOverride {
+          .load_and_store(FontResource::new(details.data.into_vec()).override_info(
+            FontInfoOverride {
               family_name: details.name.as_deref(),
               style: details.style.map(Into::into),
               weight: details.weight.map(|weight| FontWeight::new(weight as f32)),
               axes: None,
               width: None,
-            }),
-            None,
-          )
+            },
+          ))
           .map_err(map_error)?;
       }
     }

@@ -1,25 +1,25 @@
 use std::{
-  borrow::Cow,
   collections::HashSet,
   sync::{Arc, RwLock},
 };
 
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
+use rayon::prelude::*;
 use takumi::{
   GlobalContext,
   layout::{node::Node, style::KeyframesRule as CoreKeyframesRule},
-  parley::{FontWeight, GenericFamily, fontique::FontInfoOverride},
+  parley::{GenericFamily, fontique::FontInfoOverride},
   rendering::{DitheringAlgorithm as CoreDitheringAlgorithm, ImageOutputFormat},
-  resources::image::ImageSource as LoadedImageSource,
+  resources::{font::FontResource, image::ImageSource as LoadedImageSource},
 };
 use xxhash_rust::xxh3::Xxh3DefaultBuilder;
 
 use crate::{
   De, FontInput, buffer_from_object, buffer_slice_from_object, deserialize_with_tracing,
   encode_frames_task::EncodeFramesTask, load_font_task::LoadFontTask, map_error,
-  measure_task::MeasureTask, put_persistent_image_task::PutPersistentImageTask,
-  render_animation_task::RenderAnimationTask, render_task::RenderTask,
+  measure_task::MeasureTask, parse_font_input, put_persistent_image_task::PutPersistentImageTask,
+  render_animation_task::RenderAnimationTask, render_task::RenderTask, resolve_font_resource,
 };
 
 /// Represents a single run of text in a measured node.
@@ -314,17 +314,24 @@ impl Renderer {
     let mut global = GlobalContext::default();
 
     if load_default_fonts {
-      for (font, name, generic) in EMBEDDED_FONTS {
+      let default_fonts_resources = EMBEDDED_FONTS
+        .par_iter()
+        .map(|(font, name, generic)| {
+          FontResource::new(*font)
+            .override_info(FontInfoOverride {
+              family_name: Some(*name),
+              ..Default::default()
+            })
+            .generic_family(*generic)
+            .into_resolved()
+            .map_err(|e| Error::from_reason(format!("Failed to load default font: {e}")))
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+      for resource in default_fonts_resources {
         global
           .font_context_mut()
-          .load_and_store(
-            Cow::Borrowed(font),
-            Some(FontInfoOverride {
-              family_name: Some(name),
-              ..Default::default()
-            }),
-            Some(*generic),
-          )
+          .load_and_store(resource)
           .map_err(map_error)?;
       }
     }
@@ -337,8 +344,28 @@ impl Renderer {
     };
 
     if let Some(fonts) = options.fonts {
-      for font in fonts {
-        renderer.load_font_sync(env, font)?;
+      let buffers = fonts
+        .into_iter()
+        .map(|font| parse_font_input(env, font))
+        .collect::<Result<Vec<_>>>()?;
+
+      let custom_fonts_resources = buffers
+        .par_iter()
+        .with_min_len(2)
+        .map(|(font, buffer): &(FontInput, Buffer)| resolve_font_resource(font, buffer.as_ref()))
+        .collect::<Result<Vec<_>>>()?;
+
+      let mut state = renderer
+        .state
+        .write()
+        .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
+
+      for resource in custom_fonts_resources {
+        state
+          .global
+          .font_context_mut()
+          .load_and_store(resource)
+          .map_err(map_error)?;
       }
     }
 
@@ -388,15 +415,20 @@ impl Renderer {
   /// Loads a font synchronously.
   #[napi(ts_args_type = "font: Font")]
   pub fn load_font_sync(&self, env: Env, font: Object) -> Result<()> {
-    let mut state = self
-      .state
-      .write()
-      .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
     if let Ok(buffer) = buffer_slice_from_object(env, font) {
+      let resource = FontResource::new(buffer.as_ref())
+        .into_resolved()
+        .map_err(map_error)?;
+
+      let mut state = self
+        .state
+        .write()
+        .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
+
       state
         .global
         .font_context_mut()
-        .load_and_store(Cow::Borrowed(&buffer), None, None)
+        .load_and_store(resource)
         .map_err(map_error)?;
 
       return Ok(());
@@ -405,20 +437,19 @@ impl Renderer {
     let buffer = font
       .get_named_property("data")
       .and_then(|buffer| buffer_slice_from_object(env, buffer))?;
-    let font: FontInput = deserialize_with_tracing(font)?;
+    let font_input: FontInput = deserialize_with_tracing(font)?;
 
-    let font_override = FontInfoOverride {
-      family_name: font.name.as_deref(),
-      style: font.style.map(|style| style.0),
-      weight: font.weight.map(|weight| FontWeight::new(weight as f32)),
-      axes: None,
-      width: None,
-    };
+    let resource = resolve_font_resource(&font_input, buffer.as_ref())?;
+
+    let mut state = self
+      .state
+      .write()
+      .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
 
     state
       .global
       .font_context_mut()
-      .load_and_store(Cow::Borrowed(&buffer), Some(font_override), None)
+      .load_and_store(resource)
       .map_err(map_error)?;
 
     Ok(())
@@ -451,18 +482,7 @@ impl Renderer {
   ) -> Result<AsyncTask<LoadFontTask>> {
     let buffers = fonts
       .into_iter()
-      .map(|font| {
-        if let Ok(buffer) = buffer_from_object(env, font) {
-          Ok((FontInput::default(), buffer))
-        } else {
-          let buffer = font
-            .get_named_property("data")
-            .and_then(|buffer| buffer_from_object(env, buffer))?;
-          let font: FontInput = deserialize_with_tracing(font).map_err(map_error)?;
-
-          Ok((font, buffer))
-        }
-      })
+      .map(|font| parse_font_input(env, font))
       .collect::<Result<Vec<_>>>()?;
 
     Ok(AsyncTask::with_optional_signal(
