@@ -1,7 +1,7 @@
 export default function Welcome() {
   return (
     <div
-      tw="w-full h-full justify-center bg-black bg-size-[100px_100px] items-center"
+      tw="flex w-full h-full justify-center bg-black bg-size-[100px_100px] items-center"
       style={{
         backgroundImage:
           "radial-gradient(circle at 25px 25px, lightgray 2%, transparent 0%), radial-gradient(circle at 75px 75px, lightgray 2%, transparent 0%)",
