@@ -11,19 +11,22 @@ fn inline_vertical_align_types() {
     Node::container([
       Node::text(format!("Baseline guide {label} ")).with_style(
         Style::default()
+          .with(StyleDeclaration::display(Display::Flex))
           .with(StyleDeclaration::display(Display::Inline))
-          .with_text_decoration(TextDecoration {
-            line: TextDecorationLines::UNDERLINE,
-            style: None,
-            color: Some(ColorInput::Value(Color([220, 38, 38, 255]))),
-            thickness: Some(TextDecorationThickness::Length(Px(3.0))),
-          })
+          .with_text_decoration(
+            TextDecoration::builder()
+              .line(TextDecorationLines::UNDERLINE)
+              .color(ColorInput::Value(Color([220, 38, 38, 255])))
+              .thickness(TextDecorationThickness::Length(Px(3.0)))
+              .build(),
+          )
           .with(StyleDeclaration::text_decoration_skip_ink(
             TextDecorationSkipInk::None,
           )),
       ),
       Node::container([]).with_style(
         Style::default()
+          .with(StyleDeclaration::display(Display::Flex))
           .with(StyleDeclaration::display(Display::InlineBlock))
           .with(StyleDeclaration::width(Px(44.0)))
           .with(StyleDeclaration::height(Px(44.0)))
@@ -37,13 +40,15 @@ fn inline_vertical_align_types() {
       ),
       Node::text(" marker".to_string()).with_style(
         Style::default()
+          .with(StyleDeclaration::display(Display::Flex))
           .with(StyleDeclaration::display(Display::Inline))
-          .with_text_decoration(TextDecoration {
-            line: TextDecorationLines::UNDERLINE,
-            style: None,
-            color: Some(ColorInput::Value(Color([220, 38, 38, 255]))),
-            thickness: Some(TextDecorationThickness::Length(Px(3.0))),
-          })
+          .with_text_decoration(
+            TextDecoration::builder()
+              .line(TextDecorationLines::UNDERLINE)
+              .color(ColorInput::Value(Color([220, 38, 38, 255])))
+              .thickness(TextDecorationThickness::Length(Px(3.0)))
+              .build(),
+          )
           .with(StyleDeclaration::text_decoration_skip_ink(
             TextDecorationSkipInk::None,
           )),
@@ -51,6 +56,7 @@ fn inline_vertical_align_types() {
     ])
     .with_style(
       Style::default()
+        .with(StyleDeclaration::display(Display::Flex))
         .with(StyleDeclaration::display(Display::Block))
         .with(StyleDeclaration::width(Percentage(48.0)))
         .with_margin(Sides([Px(4.0); 4]))
@@ -133,6 +139,7 @@ fn inline_vertical_align_types() {
 
   let container = Node::container(children).with_style(
     Style::default()
+      .with(StyleDeclaration::display(Display::Flex))
       .with(StyleDeclaration::width(Percentage(100.0)))
       .with(StyleDeclaration::height(Percentage(100.0)))
       .with(StyleDeclaration::display(Display::Flex))

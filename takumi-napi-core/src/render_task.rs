@@ -6,8 +6,8 @@ use napi::bindgen_prelude::*;
 use takumi::layout::node::Node;
 use takumi::{
   layout::style::StyleSheet,
-  layout::{DEFAULT_DEVICE_PIXEL_RATIO, DEFAULT_FONT_SIZE, Viewport},
-  rendering::{DitheringAlgorithm, RenderOptionsBuilder, render, write_image},
+  layout::{DEFAULT_DEVICE_PIXEL_RATIO, Viewport},
+  rendering::{DitheringAlgorithm, render, write_image},
   resources::image::ImageSource as LoadedImageSource,
 };
 
@@ -39,16 +39,13 @@ impl RenderTask {
     Ok(RenderTask {
       node: Some(node),
       state,
-      viewport: Viewport {
-        width: options.width,
-        height: options.height,
-        font_size: DEFAULT_FONT_SIZE,
-        device_pixel_ratio: options
+      viewport: Viewport::new(options.width, options.height).with_device_pixel_ratio(
+        options
           .device_pixel_ratio
           .map(|ratio| ratio as f32)
           .unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO),
-      },
-      format: options.format.unwrap_or(OutputFormat::png),
+      ),
+      format: options.format.unwrap_or(OutputFormat::Png),
       quality: options.quality,
       dithering: options.dithering.map(Into::into).unwrap_or_default(),
       time_ms: options.time_ms.unwrap_or_default().max(0) as u64,
@@ -93,7 +90,7 @@ impl Task for RenderTask {
       .map_err(|e| Error::from_reason(format!("Renderer lock poisoned: {e}")))?;
 
     let image = render(
-      RenderOptionsBuilder::default()
+      takumi::rendering::RenderOptions::builder()
         .viewport(self.viewport)
         .fetched_resources(initialized_images)
         .stylesheet(take(&mut self.stylesheet))
@@ -102,12 +99,11 @@ impl Task for RenderTask {
         .node(node)
         .global(&state.global)
         .draw_debug_border(self.draw_debug_border)
-        .build()
-        .map_err(map_error)?,
+        .build(),
     )
     .map_err(map_error)?;
 
-    if self.format == OutputFormat::raw {
+    if self.format == OutputFormat::Raw {
       return Ok(image.into_raw());
     }
 

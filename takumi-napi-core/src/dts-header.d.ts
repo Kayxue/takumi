@@ -1,10 +1,13 @@
-import type {
+import type { Node } from "@takumi-rs/helpers";
+
+export type {
   ContainerNode,
   ImageNode,
-  Node,
   NodeMetadata,
   TextNode,
 } from "@takumi-rs/helpers";
+
+export type { Node };
 
 export interface FontDetails {
   /**
@@ -32,16 +35,4 @@ export interface FontDetails {
 
 export type Font = FontDetails | Uint8Array | ArrayBuffer;
 
-export type { ContainerNode, ImageNode, Node, NodeMetadata, TextNode };
-
-/**
- * @deprecated Use `Node` instead.
- */
-export type AnyNode = Node;
-
 export type Keyframes = Record<string, Record<string, Record<string, unknown>>>;
-
-/**
- * @deprecated use `ImageSource` instead.
- */
-export type PersistentImage = ImageSource;

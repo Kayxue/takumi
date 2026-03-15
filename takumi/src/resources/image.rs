@@ -24,6 +24,7 @@ pub type ImageResult = Result<Arc<ImageSource>, ImageResourceError>;
 
 #[derive(Debug, Clone)]
 /// Represents the source of an image.
+#[non_exhaustive]
 pub enum ImageSource {
   /// An svg image source
   #[cfg(feature = "svg")]
@@ -39,6 +40,7 @@ pub enum ImageSource {
 
 /// Represents a persistent image store.
 #[derive(Debug, Default)]
+#[non_exhaustive]
 pub struct PersistentImageStore {
   #[cfg(target_arch = "wasm32")]
   map: RefCell<HashMap<String, Arc<ImageSource>>>,
@@ -188,12 +190,6 @@ impl ImageSource {
   }
 }
 
-/// Deprecated compatibility wrapper for [`ImageSource::from_bytes`].
-#[deprecated(note = "use `ImageSource::from_bytes` instead")]
-pub fn load_image_source_from_bytes(bytes: &[u8]) -> ImageResult {
-  ImageSource::from_bytes(bytes)
-}
-
 /// Check if the string looks like an SVG image.
 pub(crate) fn is_svg_like(src: &str) -> bool {
   src.contains("<svg") && src.contains("xmlns")
@@ -281,6 +277,7 @@ pub fn parse_svg_str(src: &str) -> ImageResult {
 /// This enum tracks whether an image has been successfully loaded and decoded,
 /// or if there was an error during the process.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum ImageResourceError {
   /// An error occurred while decoding the image data
   #[error("An error occurred while decoding the image data: {0}")]
