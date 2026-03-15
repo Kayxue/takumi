@@ -5,7 +5,7 @@ export default function Article() {
         <div tw="absolute -top-24 -right-24 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
 
         <div tw="flex items-center mb-12">
-          <div tw="bg-indigo-500/10 px-5 py-2 rounded-full border border-indigo-500/20">
+          <div tw="flex items-center justify-center bg-indigo-500/10 px-5 py-2 rounded-full border border-indigo-500/20">
             <span tw="text-indigo-400 text-xl font-bold uppercase tracking-widest">
               Engineering
             </span>
