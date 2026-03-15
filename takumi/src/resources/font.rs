@@ -358,7 +358,7 @@ impl<'a> FontResource<'a> {
     }
   }
 
-  /// Set font information for overriding
+  /// Set font information for override
   pub fn override_info(self, info_override: FontInfoOverride<'a>) -> Self {
     Self {
       info_override: Some(info_override),
