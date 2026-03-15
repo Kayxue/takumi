@@ -341,21 +341,12 @@ pub enum FontSource<'a> {
   Blob(Blob<u8>),
 }
 
-impl<'a> From<Cow<'a, [u8]>> for FontSource<'a> {
-  fn from(value: Cow<'a, [u8]>) -> Self {
-    Self::Raw(value)
-  }
-}
-
-impl<'a> From<Vec<u8>> for FontSource<'a> {
-  fn from(value: Vec<u8>) -> Self {
-    Self::Raw(Cow::Owned(value))
-  }
-}
-
-impl<'a> From<&'a [u8]> for FontSource<'a> {
-  fn from(value: &'a [u8]) -> Self {
-    Self::Raw(Cow::Borrowed(value))
+impl<'a, T> From<T> for FontSource<'a>
+where
+  T: Into<Cow<'a, [u8]>>,
+{
+  fn from(value: T) -> Self {
+    Self::Raw(value.into())
   }
 }
 
