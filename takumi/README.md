@@ -15,7 +15,7 @@ use takumi::{
     Viewport,
     style::{Length::Px, Style, StyleDeclaration},
   },
-  resources::font::Font
+  resources::font::FontResource,
   rendering::{render, RenderOptions},
   GlobalContext,
 };
