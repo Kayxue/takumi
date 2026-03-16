@@ -111,7 +111,10 @@ impl<'i> FromCss<'i> for BackgroundImages {
 
 #[cfg(test)]
 mod tests {
-  use crate::layout::style::RadialSize;
+  use crate::layout::style::{
+    Angle, BackgroundPosition, Color, ConicGradient, GradientStop, Length, LengthDefaultsToZero,
+    LinearGradient, RadialGradient, RadialShape, RadialSize, SpacePair, StopPosition,
+  };
 
   use super::*;
 
@@ -137,15 +140,58 @@ mod tests {
       "radial-gradient(ellipse 60% 60% at 50% 50%, rgba(255, 53, 53, 0.10) 0%, transparent 70%), radial-gradient(ellipse 30% 30% at 50% 50%, rgba(255, 53, 53, 0.06) 0%, transparent 55%)",
     );
 
-    assert!(match images {
-      Ok(images) => matches!(
-        images.as_ref(),
-        [BackgroundImage::Radial(first), BackgroundImage::Radial(second)]
-          if matches!(first.size, RadialSize::Explicit { .. })
-            && matches!(second.size, RadialSize::Explicit { .. })
-      ),
-      Err(_) => false,
-    });
+    assert_eq!(
+      images,
+      Ok(
+        [
+          BackgroundImage::Radial(
+            RadialGradient::builder()
+              .size(RadialSize::Explicit {
+                radius_x: LengthDefaultsToZero::Percentage(0.6 * 100.0),
+                radius_y: LengthDefaultsToZero::Percentage(0.6 * 100.0),
+              })
+              .center(BackgroundPosition::<false>(SpacePair::from_pair(
+                Length::Percentage(0.5 * 100.0).into(),
+                Length::Percentage(0.5 * 100.0).into(),
+              )))
+              .stops([
+                GradientStop::ColorHint {
+                  color: Color([255, 53, 53, 26]).into(),
+                  hint: Some(StopPosition(Length::Percentage(0.0))),
+                },
+                GradientStop::ColorHint {
+                  color: Color::transparent().into(),
+                  hint: Some(StopPosition(Length::Percentage(70.0))),
+                },
+              ])
+              .build(),
+          ),
+          BackgroundImage::Radial(
+            RadialGradient::builder()
+              .size(RadialSize::Explicit {
+                radius_x: LengthDefaultsToZero::Percentage(0.3 * 100.0),
+                radius_y: LengthDefaultsToZero::Percentage(0.3 * 100.0),
+              })
+              .center(BackgroundPosition::<false>(SpacePair::from_pair(
+                Length::Percentage(0.5 * 100.0).into(),
+                Length::Percentage(0.5 * 100.0).into(),
+              )))
+              .stops([
+                GradientStop::ColorHint {
+                  color: Color([255, 53, 53, 15]).into(),
+                  hint: Some(StopPosition(Length::Percentage(0.0))),
+                },
+                GradientStop::ColorHint {
+                  color: Color::transparent().into(),
+                  hint: Some(StopPosition(Length::Percentage(55.0))),
+                },
+              ])
+              .build(),
+          ),
+        ]
+        .into()
+      )
+    );
   }
 
   #[test]
@@ -154,42 +200,89 @@ mod tests {
       "repeating-linear-gradient(90deg, red 0px 5px, blue 5px 10px), repeating-radial-gradient(circle 20px, red 0px 5px, blue 5px 10px), repeating-conic-gradient(from 0deg, red 0deg 90deg, blue 90deg 180deg)",
     );
 
-    assert!(match images {
-      Ok(images) => matches!(
-        images.as_ref(),
-        [BackgroundImage::Linear(linear), BackgroundImage::Radial(radial), BackgroundImage::Conic(conic)]
-          if linear.repeating && radial.repeating && conic.repeating
-      ),
-      Err(_) => false,
-    });
-  }
-
-  #[test]
-  fn test_linear_gradient_from_css_repeating() {
-    let mut input = cssparser::ParserInput::new("repeating-linear-gradient(90deg, red, blue)");
-    let mut parser = cssparser::Parser::new(&mut input);
-    let gradient = LinearGradient::from_css(&mut parser).unwrap();
-    assert!(gradient.repeating);
-    assert!((*gradient.angle - 90.0).abs() < 1e-3);
-    assert_eq!(gradient.stops.len(), 2);
-  }
-
-  #[test]
-  fn test_radial_gradient_from_css_repeating() {
-    let mut input = cssparser::ParserInput::new("repeating-radial-gradient(circle, red, blue)");
-    let mut parser = cssparser::Parser::new(&mut input);
-    let gradient = RadialGradient::from_css(&mut parser).unwrap();
-    assert!(gradient.repeating);
-    assert_eq!(gradient.stops.len(), 2);
-  }
-
-  #[test]
-  fn test_conic_gradient_from_css_repeating() {
-    let mut input = cssparser::ParserInput::new("repeating-conic-gradient(from 45deg, red, blue)");
-    let mut parser = cssparser::Parser::new(&mut input);
-    let gradient = ConicGradient::from_css(&mut parser).unwrap();
-    assert!(gradient.repeating);
-    assert!((*gradient.from_angle - 45.0).abs() < 1e-3);
-    assert_eq!(gradient.stops.len(), 2);
+    assert_eq!(
+      images,
+      Ok(
+        [
+          BackgroundImage::Linear(
+            LinearGradient::builder()
+              .repeating(true)
+              .angle(Angle::new(90.0))
+              .stops([
+                GradientStop::ColorHint {
+                  color: Color::from_rgb(0xff0000).into(),
+                  hint: Some(StopPosition(Length::Px(0.0))),
+                },
+                GradientStop::ColorHint {
+                  color: Color::from_rgb(0xff0000).into(),
+                  hint: Some(StopPosition(Length::Px(5.0))),
+                },
+                GradientStop::ColorHint {
+                  color: Color::from_rgb(0x0000ff).into(),
+                  hint: Some(StopPosition(Length::Px(5.0))),
+                },
+                GradientStop::ColorHint {
+                  color: Color::from_rgb(0x0000ff).into(),
+                  hint: Some(StopPosition(Length::Px(10.0))),
+                },
+              ])
+              .build(),
+          ),
+          BackgroundImage::Radial(
+            RadialGradient::builder()
+              .repeating(true)
+              .shape(RadialShape::Circle)
+              .size(RadialSize::Explicit {
+                radius_x: LengthDefaultsToZero::Px(20.0),
+                radius_y: LengthDefaultsToZero::Px(20.0),
+              })
+              .stops([
+                GradientStop::ColorHint {
+                  color: Color::from_rgb(0xff0000).into(),
+                  hint: Some(StopPosition(Length::Px(0.0))),
+                },
+                GradientStop::ColorHint {
+                  color: Color::from_rgb(0xff0000).into(),
+                  hint: Some(StopPosition(Length::Px(5.0))),
+                },
+                GradientStop::ColorHint {
+                  color: Color::from_rgb(0x0000ff).into(),
+                  hint: Some(StopPosition(Length::Px(5.0))),
+                },
+                GradientStop::ColorHint {
+                  color: Color::from_rgb(0x0000ff).into(),
+                  hint: Some(StopPosition(Length::Px(10.0))),
+                },
+              ])
+              .build(),
+          ),
+          BackgroundImage::Conic(
+            ConicGradient::builder()
+              .repeating(true)
+              .from_angle(Angle::zero())
+              .stops([
+                GradientStop::ColorHint {
+                  color: Color::from_rgb(0xff0000).into(),
+                  hint: Some(StopPosition(Length::Percentage(0.0))),
+                },
+                GradientStop::ColorHint {
+                  color: Color::from_rgb(0xff0000).into(),
+                  hint: Some(StopPosition(Length::Percentage(25.0))),
+                },
+                GradientStop::ColorHint {
+                  color: Color::from_rgb(0x0000ff).into(),
+                  hint: Some(StopPosition(Length::Percentage(25.0))),
+                },
+                GradientStop::ColorHint {
+                  color: Color::from_rgb(0x0000ff).into(),
+                  hint: Some(StopPosition(Length::Percentage(50.0))),
+                },
+              ])
+              .build(),
+          ),
+        ]
+        .into()
+      )
+    );
   }
 }
