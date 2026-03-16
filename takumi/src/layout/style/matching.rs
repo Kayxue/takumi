@@ -376,11 +376,6 @@ pub(crate) fn match_stylesheets(
         .all(|media_queries| media_queries.matches(viewport))
     })
     .collect();
-  let layer_count = flattened_rules
-    .iter()
-    .filter_map(|rule| rule.layer_order)
-    .max()
-    .map_or(0, |max_order| max_order + 1);
 
   for i in 0..arena.nodes.len() {
     let Some(parent) = arena.nodes[i].parent else {
@@ -427,7 +422,9 @@ pub(crate) fn match_stylesheets(
       }
 
       if let Some(specificity) = best_specificity {
-        let normal_layer_order = rule.layer_order.map_or(layer_count, |order| order);
+        let normal_layer_order = rule
+          .layer_order
+          .map_or(stylesheet.layer_count, |order| order);
         matched_rule.push(MatchedRule {
           important: false,
           layer_order: normal_layer_order,
@@ -435,7 +432,9 @@ pub(crate) fn match_stylesheets(
           source_order,
           declarations: &rule.normal_declarations,
         });
-        let important_layer_order = rule.layer_order.map_or(0, |order| layer_count - order);
+        let important_layer_order = rule
+          .layer_order
+          .map_or(0, |order| stylesheet.layer_count - order);
         matched_rule.push(MatchedRule {
           important: true,
           layer_order: important_layer_order,
@@ -690,5 +689,21 @@ mod tests {
     assert_eq!(matched.len(), 2);
     assert_eq!(computed_width_from_matches(&matched[1]), Length::Px(30.0));
     assert_eq!(computed_height_from_matches(&matched[1]), Length::Px(40.0));
+  }
+
+  #[test]
+  fn test_repro_mixed_importance_bug() {
+    let stylesheet = parse_stylesheet(".test { width: 10px; height: 20px !important; }");
+    let root = Node::container([]).with_class_name("test");
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
+
+    // Matched normal: should have width: 10px.
+    // Matched important: should have height: 20px.
+
+    assert_eq!(matched[0].normal.declarations.len(), 1);
+    assert!(matched[0].normal.importance.is_empty());
+
+    assert_eq!(matched[0].important.declarations.len(), 1);
+    assert!(!matched[0].important.importance.is_empty());
   }
 }

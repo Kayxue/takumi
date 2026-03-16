@@ -5,7 +5,7 @@ import type {
   ReactNode,
 } from "react";
 import { container, image, percentage, text } from "../helpers";
-import type { Node } from "../types";
+import type { Node, NodeMetadata } from "../types";
 import { defaultStylePresets } from "./style-presets";
 import { serializeSvg } from "./svg";
 import {
@@ -61,6 +61,7 @@ interface FromJsxTraversalResult {
 
 type HtmlProps = {
   className?: string;
+  class?: string;
   id?: string;
   [key: string]: unknown;
 };
@@ -138,6 +139,7 @@ function extractAttributes(
     if (
       attributeName === "children" ||
       attributeName === "className" ||
+      attributeName === "class" ||
       attributeName === "id" ||
       attributeName === "style" ||
       attributeName === tailwindClassesProperty ||
@@ -355,11 +357,8 @@ async function processReactElement(
   if (typeof element.type !== "string" || isHtmlVoidElement(element)) {
     return { nodes: [], stylesheets: [] };
   }
-  const htmlProps = element.props as HtmlProps;
-  const attributes = extractAttributes(
-    htmlProps,
-    options.tailwindClassesProperty,
-  );
+
+  const metadata = extractNodeMetadata(element, options);
 
   if (isHtmlElement(element, "br")) {
     return {
@@ -367,10 +366,7 @@ async function processReactElement(
         text({
           text: "\n",
           preset: options.presets?.span,
-          tagName: "br",
-          className: element.props.className,
-          id: element.props.id,
-          attributes,
+          ...metadata,
         }),
       ],
       stylesheets: [],
@@ -391,22 +387,13 @@ async function processReactElement(
     };
   }
 
-  const { preset, style } = extractStyle(element, options);
-  const tw = extractTw(element, options);
-
   const textChildren = tryCollectTextChildren(element);
   if (textChildren !== undefined) {
     return {
       nodes: [
         text({
           text: textChildren,
-          preset,
-          style,
-          tw,
-          className: htmlProps.className,
-          id: htmlProps.id,
-          attributes,
-          tagName: element.type,
+          ...metadata,
         }),
       ],
       stylesheets: [],
@@ -419,13 +406,7 @@ async function processReactElement(
     nodes: [
       container({
         children: children.nodes,
-        preset,
-        style,
-        tw,
-        tagName: element.type,
-        className: htmlProps.className,
-        id: htmlProps.id,
-        attributes,
+        ...metadata,
       }),
     ],
     stylesheets: children.stylesheets,
@@ -440,8 +421,7 @@ function createImageElement(
     throw new Error("Image element must have a 'src' prop.");
   }
 
-  const { preset, style } = extractStyle(element, options);
-  const tw = extractTw(element, options);
+  const metadata = extractNodeMetadata(element, options);
 
   const width =
     element.props.width !== undefined ? Number(element.props.width) : undefined;
@@ -454,16 +434,7 @@ function createImageElement(
     src: element.props.src,
     width,
     height,
-    preset,
-    style,
-    tw,
-    className: element.props.className,
-    id: element.props.id,
-    attributes: extractAttributes(
-      element.props as HtmlProps,
-      options.tailwindClassesProperty,
-    ),
-    tagName: "img",
+    ...metadata,
   });
 }
 
@@ -471,8 +442,7 @@ function createSvgElement(
   element: ReactElement<ComponentProps<"svg">, "svg">,
   options: ResolvedFromJsxOptions,
 ) {
-  const { preset, style } = extractStyle(element, options);
-  const tw = extractTw(element, options);
+  const metadata = extractNodeMetadata(element, options);
   const svg = serializeSvg(element);
 
   const width =
@@ -483,19 +453,10 @@ function createSvgElement(
       : undefined;
 
   return image({
-    preset,
+    src: svg,
     width,
     height,
-    style,
-    src: svg,
-    tw,
-    className: element.props.className,
-    id: element.props.id,
-    attributes: extractAttributes(
-      element.props as HtmlProps,
-      options.tailwindClassesProperty,
-    ),
-    tagName: "svg",
+    ...metadata,
   });
 }
 
@@ -549,6 +510,29 @@ function extractTw(
   if (typeof tw !== "string") return;
 
   return tw;
+}
+
+function extractNodeMetadata(
+  element: ReactElementLike,
+  options: ResolvedFromJsxOptions,
+): NodeMetadata {
+  const htmlProps = element.props as HtmlProps;
+  const { preset, style } = extractStyle(element, options);
+  const tw = extractTw(element, options);
+  const attributes = extractAttributes(
+    htmlProps,
+    options.tailwindClassesProperty,
+  );
+
+  return {
+    tagName: typeof element.type === "string" ? element.type : undefined,
+    className: htmlProps.className ?? htmlProps.class,
+    id: htmlProps.id,
+    attributes,
+    tw,
+    style,
+    preset,
+  };
 }
 
 function collectChildren(

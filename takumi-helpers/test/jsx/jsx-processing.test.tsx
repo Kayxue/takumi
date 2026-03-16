@@ -121,6 +121,61 @@ describe("fromJsx", () => {
     } satisfies ContainerNode);
   });
 
+  test("supports class prop as alias for className on container nodes", async () => {
+    const { node } = await fromJsx(
+      // @ts-expect-error: used to test class prop as alias for className
+      <div id="wrapper" class="stack">
+        <span>First</span>
+        <span>Second</span>
+      </div>,
+    );
+
+    expect(node).toEqual({
+      type: "container",
+      children: [
+        {
+          type: "text",
+          text: "First",
+          preset: defaultStylePresets.span,
+          tagName: "span",
+        },
+        {
+          type: "text",
+          text: "Second",
+          preset: defaultStylePresets.span,
+          tagName: "span",
+        },
+      ],
+      preset: defaultStylePresets.div,
+      tagName: "div",
+      id: "wrapper",
+      className: "stack",
+    } satisfies ContainerNode);
+  });
+
+  test("className takes precedence over class on container nodes", async () => {
+    const { node } = await fromJsx(
+      // @ts-expect-error: used to test class prop as alias for className
+      <div className="from-className" class="from-class">
+        <span>Content</span>
+      </div>,
+    );
+
+    expect(node).toEqual({
+      type: "container",
+      children: [
+        {
+          type: "text",
+          text: "Content",
+          preset: defaultStylePresets.span,
+          tagName: "span",
+        },
+      ],
+      preset: defaultStylePresets.div,
+      tagName: "div",
+      className: "from-className",
+    } satisfies ContainerNode);
+  });
   test("handles function components", async () => {
     const MyComponent = ({ name }: { name: string }) => <div>Hello {name}</div>;
 

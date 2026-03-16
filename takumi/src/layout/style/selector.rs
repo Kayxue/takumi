@@ -1298,12 +1298,14 @@ pub struct StyleSheet {
   pub(crate) rules: Vec<CssRule>,
   pub(crate) keyframes: Vec<KeyframesRule>,
   pub(crate) property_rules: Vec<PropertyRule>,
+  pub(crate) layer_count: usize,
 }
 
 impl From<Vec<KeyframesRule>> for StyleSheet {
   fn from(keyframes: Vec<KeyframesRule>) -> Self {
     Self {
       keyframes,
+      layer_count: 0,
       ..Default::default()
     }
   }
@@ -1437,6 +1439,7 @@ impl StyleSheet {
       rules,
       keyframes,
       property_rules,
+      layer_count: layer_order.len(),
     })
   }
 }
