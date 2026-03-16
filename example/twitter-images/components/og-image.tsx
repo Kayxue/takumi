@@ -2,10 +2,18 @@ import { readFile } from "node:fs/promises";
 import { Box, Brain, Globe, type LucideIcon, Zap } from "lucide-react";
 import { createElement } from "react";
 
-const secondaryForeground = "rgba(241, 245, 249, 0.75)";
-const primaryForeground = "#F1F5F9";
-const borderColor = "rgba(215, 29, 54, 0.5)";
 const accentColor = "#ff3535";
+const cardBg = "rgba(255, 255, 255, 0.03)";
+const borderColor = "rgba(255, 255, 255, 0.08)";
+
+const spacing = {
+  outer: "3rem",
+  card: "2.5rem",
+  cardCompact: "2.25rem 2.5rem",
+  large: "2rem",
+  gap: "1.5rem",
+  compact: "0.75rem",
+};
 
 export const persistentImages = [
   {
@@ -19,139 +27,175 @@ export const name = "og-image";
 export const width = 1280;
 export const height = 640;
 
-export const fonts = [
-  "plus-jakarta-sans/PlusJakartaSans-VariableFont_wght.woff2",
-];
+export const fonts = ["geist/Geist[wght].woff2"];
 
 export default function OgImage() {
   return (
     <div
       style={{
-        backgroundImage:
-          "linear-gradient(135deg, #100806 0%, #1b0a08 35%, #2a0c0a 65%, #360e0c 100%)",
+        backgroundColor: "#09090b",
         width: "100%",
         height: "100%",
-        fontFamily: "Plus Jakarta Sans",
-        display: "grid",
-        gridTemplateColumns: "3fr 5fr",
+        fontFamily: "Geist, sans-serif",
+        display: "flex",
+        flexDirection: "column",
+        padding: spacing.outer,
+        color: "white",
+        gap: spacing.gap,
+        position: "relative",
       }}
     >
+      {/* Decorative Gradients */}
       <div
         style={{
-          paddingLeft: "4rem",
-          display: "flex",
-          flexDirection: "column",
-          borderRightWidth: 1,
-          borderColor,
-          borderStyle: "solid",
-          justifyContent: "center",
-          color: primaryForeground,
-          gap: "2rem",
+          position: "absolute",
+          top: -200,
+          right: -200,
+          width: 800,
+          height: 800,
+          backgroundImage:
+            "radial-gradient(circle, rgba(255, 53, 53, 0.08) 0%, transparent 70%)",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          bottom: -200,
+          left: -200,
+          width: 600,
+          height: 600,
+          backgroundImage:
+            "radial-gradient(circle, rgba(255, 53, 53, 0.05) 0%, transparent 70%)",
+        }}
+      />
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1.15fr 1fr",
+          gap: spacing.gap,
+          flexGrow: 1,
         }}
       >
-        <img
-          src={persistentImages[0]?.src}
-          alt="Takumi logo"
-          style={{
-            width: "6rem",
-          }}
-        />
-        <span style={{ fontSize: "4rem", fontWeight: 800 }}>Takumi</span>
-        <span
-          style={{
-            fontSize: "2rem",
-            fontWeight: 600,
-            color: secondaryForeground,
-            lineHeight: 1.5,
-          }}
-        >
-          Render your React components to images.
-        </span>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column" }}>
+        {/* Hero Card */}
         <div
           style={{
             display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            padding: "1rem",
-            borderBottomWidth: 1,
-            borderColor,
-            borderStyle: "solid",
+            flexDirection: "column",
+            backgroundColor: cardBg,
+            border: `1px solid ${borderColor}`,
+            borderRadius: "2.5rem",
+            padding: spacing.card,
+            gap: "3rem",
+            position: "relative",
+            justifyContent: "space-between",
           }}
         >
-          <span
+          <img
+            src={persistentImages[0]?.src}
+            alt="Takumi logo"
             style={{
-              color: accentColor,
-              fontWeight: 800,
-              fontSize: "1.75rem",
-              padding: "0.5rem 1rem",
+              width: "5rem",
+              height: "5rem",
+              flexShrink: 0,
+            }}
+          />
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: spacing.compact,
             }}
           >
-            Build for Developers.
-          </span>
+            <h1
+              style={{
+                fontSize: "5rem",
+                fontWeight: 800,
+                margin: 0,
+                letterSpacing: "-0.04em",
+                lineHeight: 1,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Takumi
+            </h1>
+            <p
+              style={{
+                fontSize: "2rem",
+                color: "rgba(255, 255, 255, 0.5)",
+                fontWeight: 500,
+                maxWidth: "420px",
+                margin: 0,
+                lineHeight: 1.4,
+              }}
+            >
+              Turn JSX into production-ready PNG, GIF, Video fast.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: spacing.compact,
+              backgroundColor: "rgba(255, 53, 53, 0.1)",
+              padding: "0.75rem 1.25rem",
+              borderRadius: "100px",
+              border: "1px solid rgba(255, 53, 53, 0.2)",
+              alignSelf: "flex-start",
+            }}
+          >
+            <div
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                backgroundColor: accentColor,
+              }}
+            />
+            <span
+              style={{
+                fontSize: "1.125rem",
+                fontWeight: 600,
+                color: accentColor,
+                letterSpacing: "0.02em",
+              }}
+            >
+              Built for Developers
+            </span>
+          </div>
         </div>
-        <Features />
+
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "0.75rem",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gridTemplateRows: "1fr 1fr",
+            gap: spacing.gap,
           }}
         >
-          <span
-            style={{
-              color: secondaryForeground,
-              fontWeight: 600,
-              fontSize: "1rem",
-            }}
-          >
-            This image is rendered with Takumi.
-          </span>
+          <Feature
+            title="Direct Rendering"
+            description="No SVG conversion step needed."
+            icon={Box}
+          />
+          <Feature
+            title="Runs at Native Speed"
+            description="Rust engine for Node and WASM."
+            icon={Zap}
+          />
+          <Feature
+            title="Runs Everywhere"
+            description="Node.js, Browser, and Edge."
+            icon={Globe}
+          />
+          <Feature
+            title="Output to Any Format"
+            description="WebP, PNG, JPEG, and GIF."
+            icon={Brain}
+          />
         </div>
       </div>
-    </div>
-  );
-}
-
-function Features() {
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(2, 1fr)",
-        gridTemplateRows: "repeat(2, 1fr)",
-        flexGrow: 1,
-      }}
-    >
-      <Feature
-        title="All in One"
-        description="React code to image file in a single library."
-        icon={Box}
-        borderBottom
-        borderRight
-      />
-      <Feature
-        title="Speed is the Priority"
-        description="Focus on speed to get your images ready."
-        icon={Zap}
-        borderBottom
-      />
-      <Feature
-        title="Runs Everywhere"
-        description="In the browser, Node.js, and Edge Runtime."
-        icon={Globe}
-        borderRight
-        borderBottom
-      />
-      <Feature
-        title="LLM Friendly"
-        description="Documentation is ready for AI to use."
-        icon={Brain}
-        borderBottom
-      />
     </div>
   );
 }
@@ -160,55 +204,63 @@ function Feature({
   title,
   description,
   icon,
-  borderBottom = false,
-  borderRight = false,
 }: {
   title: string;
   description: string;
   icon: LucideIcon;
-  borderBottom?: boolean;
-  borderRight?: boolean;
 }) {
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
-        borderBottomWidth: Number(borderBottom),
-        borderRightWidth: Number(borderRight),
-        borderColor,
-        borderStyle: "solid",
-        padding: "2rem",
-        gap: "1rem",
-        justifyContent: "center",
+        backgroundColor: cardBg,
+        border: `1px solid ${borderColor}`,
+        borderRadius: "2rem",
+        padding: spacing.cardCompact,
+        gap: spacing.compact,
+        justifyContent: "space-between",
+        textWrap: "balance",
       }}
     >
       <div
         style={{
+          width: "3rem",
+          height: "3rem",
+          backgroundColor: "rgba(255, 53, 53, 0.15)",
+          borderRadius: "1rem",
           display: "flex",
-          gap: "0.5rem",
-          color: secondaryForeground,
           alignItems: "center",
+          justifyContent: "center",
+          color: accentColor,
+          flexShrink: 0,
         }}
       >
         {createElement(icon, {
-          color: accentColor,
-          strokeWidth: 2.5,
-          width: 24,
-          height: 24,
+          size: 24,
+          strokeWidth: 2,
         })}
-        <span style={{ fontSize: "1.5rem", fontWeight: 600 }}>{title}</span>
       </div>
-      <span
-        style={{
-          fontSize: "1.75rem",
-          color: primaryForeground,
-          fontWeight: 600,
-          lineHeight: 1.5,
-        }}
-      >
-        {description}
-      </span>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
+        <span
+          style={{
+            fontSize: "1.35rem",
+            fontWeight: 700,
+          }}
+        >
+          {title}
+        </span>
+        <span
+          style={{
+            fontSize: "1.125rem",
+            color: "rgba(255, 255, 255, 0.7)",
+            fontWeight: 500,
+            lineHeight: 1.3,
+          }}
+        >
+          {description}
+        </span>
+      </div>
     </div>
   );
 }
