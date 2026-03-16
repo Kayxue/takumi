@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { type OutputFormat, Renderer } from "@takumi-rs/core";
 import { fromJsx } from "@takumi-rs/helpers/jsx";
 import * as FiveHundredStars from "./components/500-stars";
+import * as GithubSocialPreview from "./components/github-social-preview";
 import * as OgImage from "./components/og-image";
 import * as PackageOgImage from "./components/package-og-image";
 import * as PrismaOGImage from "./components/prisma-og-image";
@@ -14,6 +15,7 @@ const components = [
   XPostImage,
   PrismaOGImage,
   PackageOgImage,
+  GithubSocialPreview,
 ];
 
 type Component = (typeof components)[number];
