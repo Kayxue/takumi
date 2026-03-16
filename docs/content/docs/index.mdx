@@ -38,12 +38,13 @@ import { ImageResponse } from "@takumi-rs/image-response";
 export function GET() {
   return new ImageResponse(
     <div tw="w-full h-full flex items-center justify-center bg-white">
-      <h1 tw="text-4xl font-bold">Hello Takumi</h1>
+      <h1 tw="text-4xl font-bold">Hello Takumi 👋😁</h1>
     </div>,
     {
       width: 1200,
       height: 630,
       format: "webp",
+      emoji: "twemoji", // Available since 1.0.0-beta.3
       headers: {
         "Cache-Control": "public, max-age=3600",
       },
@@ -61,12 +62,13 @@ import module from "@takumi-rs/wasm/next";
 export function GET() {
   return new ImageResponse(
     <div tw="w-full h-full flex items-center justify-center bg-white">
-      <h1 tw="text-4xl font-bold">Hello Takumi</h1>
+      <h1 tw="text-4xl font-bold">Hello Takumi 👋😁</h1>
     </div>,
     {
       width: 1200,
       height: 630,
       format: "webp",
+      emoji: "twemoji", // Available since 1.0.0-beta.3
       module,
       headers: {
         "Cache-Control": "public, max-age=3600",
@@ -75,6 +77,8 @@ export function GET() {
   );
 }
 ```
+
+Check [the reference page](/docs/reference#imageresponse) for all available options.
 
 ## 4. Framework notes (only if needed)
 

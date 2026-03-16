@@ -48,7 +48,57 @@ For variable fonts, `font-weight` has the same effect as `font-variation-setting
 </div>
 ```
 
-### Emoji Support (COLR)
+### Render Emojis
+
+#### Dynamic fetching
+
+<Callout type="warning">
+This is not in stable release yet, available since `1.0.0-beta.3`.
+</Callout>
+
+If you are using `ImageResponse` API, theres a satori compatible `emoji` option.
+
+```tsx twoslash
+/** @jsxImportSource react */
+// ---cut-before---
+import { ImageResponse } from "@takumi-rs/image-response";
+
+export function GET() {
+  return new ImageResponse(
+    <div tw="flex justify-center items-center text-3xl">Hello 👋😁</div>, 
+    {
+      emoji: "twemoji",
+    }
+  );
+}
+```
+
+Under the hood it calls `extractEmojis` helper function, which separates the emoji segments from the text and modifies the text node.
+
+```tsx twoslash
+/** @jsxImportSource react */
+// ---cut-before---
+import { extractEmojis } from "@takumi-rs/helpers/emoji";
+import { fromJsx } from "@takumi-rs/helpers/jsx";
+import { fetchResources } from "@takumi-rs/helpers";
+import { Renderer, extractResourceUrls } from "@takumi-rs/core";
+
+let { node } = await fromJsx(
+  <div tw="flex justify-center items-center text-3xl">Hello 👋😁</div>
+);
+node = extractEmojis(node, "twemoji");
+
+const resourceUrls = extractResourceUrls(node);
+const fetchedResources = await fetchResources(resourceUrls);
+
+const renderer = new Renderer();
+
+const image = await renderer.render(node, {
+  fetchedResources,
+});
+```
+
+#### COLR/Bitmap Font File
 
 Takumi supports the COLR font format, which is commonly used for emojis like `Twemoji-COLR`.
 
