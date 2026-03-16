@@ -2068,6 +2068,12 @@ impl ComputedStyle {
     };
 
     self.make_computed_values(sizing);
+
+    // https://www.w3.org/TR/css-display-3/#transformations
+    // Elements with position: absolute or fixed are blockified
+    if self.position == Position::Absolute {
+      self.display.blockify();
+    }
   }
 
   pub(crate) fn is_invisible(&self) -> bool {
@@ -2733,6 +2739,26 @@ mod tests {
         ellipsis: Some("…".to_string()),
       }))
     );
+  }
+
+  #[test]
+  fn test_position_absolute_blockifies_inline_display() {
+    let mut style = style_with([
+      StyleDeclaration::display(Display::Inline),
+      StyleDeclaration::position(Position::Absolute),
+    ])
+    .inherit(&ComputedStyle::default());
+
+    let sizing = Sizing {
+      viewport: Viewport::new(Some(1200), Some(630)),
+      container_size: Size::NONE,
+      font_size: 16.0,
+      calc_arena: Rc::new(CalcArena::default()),
+    };
+
+    style.make_computed(&sizing);
+
+    assert_eq!(style.display, Display::Block);
   }
 
   #[test]
