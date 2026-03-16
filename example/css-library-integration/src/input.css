@@ -1,3 +1,52 @@
-@import "tailwindcss" source(none);
+@import "tailwindcss";
 
-@source "./card.tsx";
+:root {
+  --takumi-black: #020204;
+  --takumi-dark: #0c0b14;
+  --takumi-card: #1a1926;
+  --takumi-border: #2d2b3d;
+
+  --brand-primary: #6366f1;
+  --brand-secondary: #06b6d4;
+  --brand-accent: #f472b6;
+}
+
+@theme inline {
+  --color-takumi-black: var(--takumi-black);
+  --color-takumi-dark: var(--takumi-dark);
+  --color-takumi-card: var(--takumi-card);
+  --color-takumi-border: var(--takumi-border);
+
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-accent: var(--brand-accent);
+
+  --font-brand: "Inter", system-ui, sans-serif;
+
+  --spacing-18: 4.5rem;
+  --spacing-22: 5.5rem;
+
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 2rem;
+
+  --shadow-brand: 0 0 45px -10px rgba(99, 102, 241, 0.5);
+
+  --animate-float: float 3s ease-in-out infinite;
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+}
+
+@utility glass-card {
+  background-color: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
