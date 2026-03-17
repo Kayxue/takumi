@@ -3076,7 +3076,8 @@ checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"
 [[package]]
 name = "zune-core"
 version = "0.5.1"
-source = "git+https://github.com/etemesi254/zune-image?rev=05a21489ffd6de1e629ce89f51f5cb4d66dd3f0d#05a21489ffd6de1e629ce89f51f5cb4d66dd3f0d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb8a0807f7c01457d0379ba880ba6322660448ddebc890ce29bb64da71fb40f9"
 
 [[package]]
 name = "zune-inflate"
@@ -3089,8 +3090,9 @@ dependencies = [
 
 [[package]]
 name = "zune-jpeg"
-version = "0.5.12"
-source = "git+https://github.com/etemesi254/zune-image?rev=05a21489ffd6de1e629ce89f51f5cb4d66dd3f0d#05a21489ffd6de1e629ce89f51f5cb4d66dd3f0d"
+version = "0.5.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec5f41c76397b7da451efd19915684f727d7e1d516384ca6bd0ec43ec94de23c"
 dependencies = [
  "zune-core",
 ]
