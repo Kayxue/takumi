@@ -20,7 +20,7 @@ export type FetchResourcesOptions = {
    * Cache for fetched resources.
    * Custom features (like LRU, TTL, etc.) can be implemented by providing an extended `Map<string, ArrayBuffer>`.
    */
-  cache?: Map<string, ArrayBuffer>;
+  cache?: Pick<Map<string, ArrayBuffer>, "has" | "get" | "set">;
 };
 
 /**
