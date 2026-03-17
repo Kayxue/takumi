@@ -10,6 +10,8 @@ use sha2::Sha256;
 
 use crate::{AxumResult, AxumState};
 
+type HmacSha256 = Hmac<Sha256>;
+
 #[derive(Deserialize)]
 pub struct HmacQuery {
   pub hash: String,
@@ -37,6 +39,7 @@ pub async fn hmac_verify_middleware(
 pub const ERROR_HASH_LENGTH: &str = "Hash must be a 64-character hexadecimal string";
 pub const ERROR_INVALID_HEX: &str = "Invalid hexadecimal hash";
 pub const ERROR_HMAC_VERIFICATION: &str = "HMAC verification failed";
+pub const ERROR_HMAC_INIT: &str = "Failed to initialize HMAC";
 
 pub fn verify_payload(query: &HmacQuery, secret: &[u8]) -> Result<(), &'static str> {
   if query.hash.len() != 64 {
@@ -45,7 +48,7 @@ pub fn verify_payload(query: &HmacQuery, secret: &[u8]) -> Result<(), &'static s
 
   let decoded_hash = hex::decode(&query.hash).map_err(|_| ERROR_INVALID_HEX)?;
 
-  let mut mac = Hmac::<Sha256>::new_from_slice(secret).unwrap();
+  let mut mac = HmacSha256::new_from_slice(secret).map_err(|_| ERROR_HMAC_INIT)?;
   mac.update(query.payload.as_bytes());
   mac.update(b";");
   mac.update(query.timestamp.to_string().as_bytes());
