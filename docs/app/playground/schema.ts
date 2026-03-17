@@ -1,4 +1,4 @@
-import { z } from "zod/mini";
+import * as z from "zod/mini";
 
 export const optionsSchema = z.object({
   width: z.optional(z.int().check(z.positive(), z.minimum(1))),

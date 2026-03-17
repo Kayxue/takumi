@@ -11,7 +11,7 @@ import lastModified from "fumadocs-mdx/plugins/last-modified";
 import { transformerTwoslash } from "fumadocs-twoslash";
 import { createFileSystemTypesCache } from "fumadocs-twoslash/cache-fs";
 import type { ShikiTransformer } from "shiki";
-import z from "zod";
+import * as z from "zod";
 
 export const docs = defineDocs({
   dir: "content/docs",
