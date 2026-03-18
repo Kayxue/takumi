@@ -154,26 +154,22 @@ impl<const DEFAULT_CURRENT_COLOR: bool> Animatable for ColorInput<DEFAULT_CURREN
     current_color: CurrentColor,
   ) {
     *self = match (from, to) {
-      (ColorInput::Value(lhs), ColorInput::Value(rhs)) => ColorInput::Value(Color::from(
-        interpolate_with_color_space(
+      (ColorInput::Value(lhs), ColorInput::Value(rhs)) => {
+        ColorInput::Value(interpolate_with_color_space(
           *lhs,
           *rhs,
           progress,
           ColorSpaceTag::Srgb,
           HueDirection::Shorter,
-        )
-        .to_array(),
-      )),
+        ))
+      }
       (ColorInput::CurrentColor, ColorInput::CurrentColor) => ColorInput::CurrentColor,
-      _ => ColorInput::Value(Color::from(
-        interpolate_with_color_space(
-          from.resolve(current_color),
-          to.resolve(current_color),
-          progress,
-          ColorSpaceTag::Srgb,
-          HueDirection::Shorter,
-        )
-        .to_array(),
+      _ => ColorInput::Value(interpolate_with_color_space(
+        from.resolve(current_color),
+        to.resolve(current_color),
+        progress,
+        ColorSpaceTag::Srgb,
+        HueDirection::Shorter,
       )),
     };
   }

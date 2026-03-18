@@ -182,6 +182,18 @@ fn test_style_background_image_linear_radial_mixed() {
 }
 
 #[test]
+fn test_style_background_image_builder_gradient_layers() {
+  let background_images = BackgroundImages::from_str(
+    "radial-gradient(circle at top left,rgba(236,253,245,0.9),transparent 30%),radial-gradient(circle at bottom right,rgba(45,212,191,0.22),transparent 28%),linear-gradient(135deg,#0f172a 0%,#134e4a 38%,#115e59 66%,#0f766e 100%)",
+  )
+  .unwrap();
+
+  let container = create_container(background_images);
+
+  run_fixture_test(container, "style_background_image_builder_gradient_layers");
+}
+
+#[test]
 fn test_style_background_image_repeating_gradients() {
   let repeating_linear = Node::container([]).with_style(
     Style::default()

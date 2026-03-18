@@ -534,7 +534,7 @@ pub(crate) fn resolve_tile_layers(
   let last_blend_mode = blend_modes.last().copied().unwrap_or_default();
 
   let mut results = Vec::new();
-  for (i, image) in images.iter().enumerate() {
+  for (i, image) in images.iter().enumerate().rev() {
     let pos = positions.get(i).copied().unwrap_or(last_position);
     let size = sizes.get(i).copied().unwrap_or(last_size);
     let repeat = repeats.get(i).copied().unwrap_or(last_repeat);

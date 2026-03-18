@@ -2,52 +2,37 @@ use color::{AlphaColor, ColorSpaceTag, DynamicColor, HueDirection, Srgb};
 use image::{Rgba, RgbaImage};
 use smallvec::SmallVec;
 use taffy::Point;
-use wide::f32x4;
 
 use super::{Color, GradientStop, ResolvedGradientStop};
-use crate::rendering::{RenderContext, blend_pixel};
+use crate::rendering::{RenderContext, blend_pixel, premultiply_alpha, unpremultiply_alpha};
 
 const MIN_GRADIENT_LUT_SIZE: usize = 1024;
 const MAX_GRADIENT_LUT_SIZE: usize = 8193;
 
 /// Interpolates between two colors in RGBA space, if t is 0.0 or 1.0, returns the first or second color.
-/// Uses SIMD to process all 4 color channels in parallel.
 pub(crate) fn interpolate_rgba(c1: Color, c2: Color, t: f32) -> Color {
-  let result_f32 = interpolate_rgba_impl(c1, c2, t);
-  let result = result_f32.to_array();
-  Color([
-    result[0].round() as u8,
-    result[1].round() as u8,
-    result[2].round() as u8,
-    result[3].round() as u8,
-  ])
-}
-
-/// Interpolates between two colors in RGBA space, if t is 0.0 or 1.0, returns the first or second color as f32x4.
-fn interpolate_rgba_impl(c1: Color, c2: Color, t: f32) -> f32x4 {
-  let c1_f32 = f32x4::from([
-    c1.0[0] as f32,
-    c1.0[1] as f32,
-    c1.0[2] as f32,
-    c1.0[3] as f32,
-  ]);
-
   if t <= f32::EPSILON {
-    return c1_f32;
+    return c1;
   }
-
-  let c2_f32 = f32x4::from([
-    c2.0[0] as f32,
-    c2.0[1] as f32,
-    c2.0[2] as f32,
-    c2.0[3] as f32,
-  ]);
 
   if t >= 1.0 - f32::EPSILON {
-    return c2_f32;
+    return c2;
   }
 
-  c1_f32 * (1.0 - t) + c2_f32 * t
+  let mut premul_1 = c1.0;
+  premultiply_alpha(&mut premul_1);
+  let mut premul_2 = c2.0;
+  premultiply_alpha(&mut premul_2);
+
+  let mut result = [0u8; 4];
+  for i in 0..4 {
+    result[i] = (premul_1[i] as f32 * (1.0 - t) + premul_2[i] as f32 * t)
+      .round()
+      .clamp(0.0, 255.0) as u8;
+  }
+  unpremultiply_alpha(&mut result);
+
+  Color(result)
 }
 
 pub(crate) fn interpolate_with_color_space(
@@ -56,27 +41,17 @@ pub(crate) fn interpolate_with_color_space(
   t: f32,
   color_space: ColorSpaceTag,
   hue_direction: HueDirection,
-) -> f32x4 {
+) -> Color {
   if color_space == ColorSpaceTag::Srgb && hue_direction == HueDirection::Shorter {
-    return interpolate_rgba_impl(c1, c2, t);
+    return interpolate_rgba(c1, c2, t);
   }
 
   if t <= f32::EPSILON {
-    return f32x4::from([
-      c1.0[0] as f32,
-      c1.0[1] as f32,
-      c1.0[2] as f32,
-      c1.0[3] as f32,
-    ]);
+    return c1;
   }
 
   if t >= 1.0 - f32::EPSILON {
-    return f32x4::from([
-      c2.0[0] as f32,
-      c2.0[1] as f32,
-      c2.0[2] as f32,
-      c2.0[3] as f32,
-    ]);
+    return c2;
   }
 
   let dynamic_1 =
@@ -89,23 +64,7 @@ pub(crate) fn interpolate_with_color_space(
     .eval(t);
   let rgba = mixed.to_alpha_color::<Srgb>().to_rgba8().to_u8_array();
 
-  f32x4::from([
-    rgba[0] as f32,
-    rgba[1] as f32,
-    rgba[2] as f32,
-    rgba[3] as f32,
-  ])
-}
-
-impl From<Color> for [f32; 4] {
-  fn from(color: Color) -> Self {
-    [
-      color.0[0] as f32,
-      color.0[1] as f32,
-      color.0[2] as f32,
-      color.0[3] as f32,
-    ]
-  }
+  Color(rgba)
 }
 
 pub(crate) trait GradientOverlayTile {
@@ -306,7 +265,7 @@ pub(crate) fn build_color_lut_with_interpolation(
     }
 
     let color = if right_index >= resolved_stops.len() {
-      f32x4::from(<[f32; 4]>::from(resolved_stops[left_index].color))
+      resolved_stops[left_index].color
     } else {
       let left_stop = &resolved_stops[left_index];
       let right_stop = &resolved_stops[right_index];
@@ -326,7 +285,7 @@ pub(crate) fn build_color_lut_with_interpolation(
       )
     };
 
-    Color::from(color.to_array()).into()
+    color.into()
   };
 
   let mut typed_lut = vec![Rgba([0, 0, 0, 0]); lut_size];
@@ -857,5 +816,11 @@ mod tests {
       assert_eq!(pair[0].0[3], 255);
       assert_eq!(pair[1].0[3], 255);
     }
+  }
+
+  #[test]
+  fn test_interpolate_rgba_uses_premultiplied_alpha() {
+    let mixed = interpolate_rgba(Color([255, 255, 255, 255]), Color([0, 0, 0, 0]), 0.5);
+    assert_eq!(mixed, Color([255, 255, 255, 128]));
   }
 }

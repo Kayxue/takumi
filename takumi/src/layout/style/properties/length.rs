@@ -18,6 +18,8 @@ const ONE_IN_PX: f32 = 2.54 * ONE_CM_IN_PX;
 const ONE_PT_IN_PX: f32 = ONE_IN_PX / 72.0;
 const ONE_PC_IN_PX: f32 = ONE_IN_PX / 6.0;
 const CALC_ZERO_EPSILON: f32 = 1e-6;
+const SAFE_INT_MIN_PX: f32 = i32::MIN as f32;
+const SAFE_INT_MAX_PX: f32 = i32::MAX as f32;
 
 #[derive(Default)]
 pub(crate) struct CalcArena {
@@ -538,6 +540,22 @@ fn is_near_zero(value: f32) -> bool {
   value.abs() <= CALC_ZERO_EPSILON
 }
 
+fn clamp_px_for_integer_cast(value: f32) -> f32 {
+  if value.is_nan() {
+    return 0.0;
+  }
+
+  if value.is_infinite() {
+    return if value.is_sign_positive() {
+      SAFE_INT_MAX_PX
+    } else {
+      SAFE_INT_MIN_PX
+    };
+  }
+
+  value.clamp(SAFE_INT_MIN_PX, SAFE_INT_MAX_PX)
+}
+
 /// A length value that defaults to zero instead of auto.
 pub type LengthDefaultsToZero = Length<false>;
 
@@ -870,7 +888,7 @@ impl<const DEFAULT_AUTO: bool> Length<DEFAULT_AUTO> {
   pub(crate) fn to_px(self, sizing: &Sizing, percentage_full_px: f32) -> f32 {
     let value = self.to_px_pre_dpr(sizing, percentage_full_px);
 
-    if matches!(
+    let value = if matches!(
       self,
       Length::Auto
         | Length::Percentage(_)
@@ -885,10 +903,12 @@ impl<const DEFAULT_AUTO: bool> Length<DEFAULT_AUTO> {
         | Length::Em(_)
         | Length::Calc(_)
     ) {
-      return value;
-    }
+      value
+    } else {
+      value * sizing.viewport.device_pixel_ratio
+    };
 
-    value * sizing.viewport.device_pixel_ratio
+    clamp_px_for_integer_cast(value)
   }
 
   pub(crate) fn resolve_to_length_percentage_auto(self, sizing: &Sizing) -> LengthPercentageAuto {
@@ -1169,7 +1189,7 @@ mod tests {
   }
 
   #[test]
-  fn parse_calc_infinity_times_length_resolves_to_infinite_px() {
+  fn parse_calc_infinity_times_length_clamps_in_to_px() {
     let parsed = Length::<true>::from_str("calc(infinity * 1px)");
     let sizing = sizing();
     assert!(parsed.is_ok(), "expected successful parse, got {parsed:?}");
@@ -1178,6 +1198,7 @@ mod tests {
     };
     let resolved = length.to_px(&sizing, 200.0);
 
-    assert!(resolved.is_infinite() && resolved.is_sign_positive());
+    assert_eq!(resolved, SAFE_INT_MAX_PX);
+    assert!(resolved.is_finite());
   }
 }

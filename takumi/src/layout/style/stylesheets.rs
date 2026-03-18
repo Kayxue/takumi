@@ -2985,9 +2985,10 @@ mod tests {
       .x
       .to_px(&sizing, sizing.viewport.width.unwrap_or_default() as f32);
 
-    assert!(
-      radius.is_infinite() && radius.is_sign_positive(),
-      "radius={radius:?}, parsed={:?}",
+    assert_eq!(
+      radius,
+      i32::MAX as f32,
+      "parsed={:?}",
       style.border_top_left_radius.x
     );
   }
