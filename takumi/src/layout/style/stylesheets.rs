@@ -2967,4 +2967,28 @@ mod tests {
 
     assert_eq!(style.width, Length::default());
   }
+
+  #[test]
+  fn test_border_radius_calc_infinity_parses_from_stylesheet_declaration() {
+    let style = inherited_style_from_pairs(
+      [("border-radius", "calc(infinity * 1px)")],
+      &ComputedStyle::default(),
+    );
+    let sizing = Sizing {
+      viewport: Viewport::new(Some(1200), Some(630)),
+      container_size: Size::NONE,
+      font_size: 16.0,
+      calc_arena: Rc::new(CalcArena::default()),
+    };
+    let radius = style
+      .border_top_left_radius
+      .x
+      .to_px(&sizing, sizing.viewport.width.unwrap_or_default() as f32);
+
+    assert!(
+      radius.is_infinite() && radius.is_sign_positive(),
+      "radius={radius:?}, parsed={:?}",
+      style.border_top_left_radius.x
+    );
+  }
 }

@@ -99,6 +99,10 @@ pub struct CalcFormula {
 }
 
 impl CalcFormula {
+  fn scale_component(value: f32, factor: f32) -> f32 {
+    if value == 0.0 { 0.0 } else { value * factor }
+  }
+
   fn px(value: f32) -> Self {
     Self {
       px: value,
@@ -296,24 +300,24 @@ impl CalcFormula {
 
   fn scale(self, factor: f32) -> Self {
     Self {
-      px: self.px * factor,
-      percent: self.percent * factor,
-      rem: self.rem * factor,
-      em: self.em * factor,
-      vh: self.vh * factor,
-      vw: self.vw * factor,
-      cqh: self.cqh * factor,
-      cqw: self.cqw * factor,
-      cqmin: self.cqmin * factor,
-      cqmax: self.cqmax * factor,
-      vmin: self.vmin * factor,
-      vmax: self.vmax * factor,
-      cm: self.cm * factor,
-      mm: self.mm * factor,
-      inch: self.inch * factor,
-      q: self.q * factor,
-      pt: self.pt * factor,
-      pc: self.pc * factor,
+      px: Self::scale_component(self.px, factor),
+      percent: Self::scale_component(self.percent, factor),
+      rem: Self::scale_component(self.rem, factor),
+      em: Self::scale_component(self.em, factor),
+      vh: Self::scale_component(self.vh, factor),
+      vw: Self::scale_component(self.vw, factor),
+      cqh: Self::scale_component(self.cqh, factor),
+      cqw: Self::scale_component(self.cqw, factor),
+      cqmin: Self::scale_component(self.cqmin, factor),
+      cqmax: Self::scale_component(self.cqmax, factor),
+      vmin: Self::scale_component(self.vmin, factor),
+      vmax: Self::scale_component(self.vmax, factor),
+      cm: Self::scale_component(self.cm, factor),
+      mm: Self::scale_component(self.mm, factor),
+      inch: Self::scale_component(self.inch, factor),
+      q: Self::scale_component(self.q, factor),
+      pt: Self::scale_component(self.pt, factor),
+      pc: Self::scale_component(self.pc, factor),
     }
   }
 
@@ -1162,5 +1166,18 @@ mod tests {
 
     let nan = Length::<true>::from_str("calc(nan)");
     assert!(matches!(nan, Ok(Length::Px(v)) if v.is_nan()));
+  }
+
+  #[test]
+  fn parse_calc_infinity_times_length_resolves_to_infinite_px() {
+    let parsed = Length::<true>::from_str("calc(infinity * 1px)");
+    let sizing = sizing();
+    assert!(parsed.is_ok(), "expected successful parse, got {parsed:?}");
+    let Ok(length) = parsed else {
+      return;
+    };
+    let resolved = length.to_px(&sizing, 200.0);
+
+    assert!(resolved.is_infinite() && resolved.is_sign_positive());
   }
 }
