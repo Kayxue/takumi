@@ -19,7 +19,6 @@ gif = "0.14"
 data-url = "0.3"
 color = "0.3"
 thiserror = "2.0"
-wide = "1.1"
 libm = "0.2"
 typed-builder = "0.23"
 
