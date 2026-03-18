@@ -516,6 +516,14 @@ fn parse_calc_factor<'i>(input: &mut Parser<'i, '_>) -> ParseResult<'i, CalcValu
     Token::Function(name) if name.eq_ignore_ascii_case("calc") => {
       input.parse_nested_block(parse_calc_sum)
     }
+    Token::Ident(ident) => match_ignore_ascii_case! {ident.as_ref(),
+      "e" => Ok(CalcValue::Number(std::f32::consts::E)),
+      "pi" => Ok(CalcValue::Number(std::f32::consts::PI)),
+      "infinity" => Ok(CalcValue::Number(f32::INFINITY)),
+      "-infinity" => Ok(CalcValue::Number(f32::NEG_INFINITY)),
+      "nan" => Ok(CalcValue::Number(f32::NAN)),
+      _ => Err(<Length as FromCss<'i>>::unexpected_token_error(location, token)),
+    },
     _ => Err(<Length as FromCss<'i>>::unexpected_token_error(
       location, token,
     )),
@@ -1133,5 +1141,26 @@ mod tests {
     let sizing = sizing();
     assert_near(Length::<true>::VMin(50.0).to_px(&sizing, 0.0), 50.0);
     assert_near(Length::<true>::VMax(50.0).to_px(&sizing, 0.0), 100.0);
+  }
+
+  #[test]
+  fn parse_calc_supports_constants() {
+    assert_eq!(
+      Length::<true>::from_str("calc(pi)").as_ref(),
+      Ok(&Length::Px(std::f32::consts::PI))
+    );
+    assert_eq!(
+      Length::<true>::from_str("calc(e)").as_ref(),
+      Ok(&Length::Px(std::f32::consts::E))
+    );
+
+    let inf = Length::<true>::from_str("calc(infinity)");
+    assert!(matches!(inf, Ok(Length::Px(v)) if v.is_infinite() && v.is_sign_positive()));
+
+    let neg_inf = Length::<true>::from_str("calc(-infinity)");
+    assert!(matches!(neg_inf, Ok(Length::Px(v)) if v.is_infinite() && v.is_sign_negative()));
+
+    let nan = Length::<true>::from_str("calc(nan)");
+    assert!(matches!(nan, Ok(Length::Px(v)) if v.is_nan()));
   }
 }
