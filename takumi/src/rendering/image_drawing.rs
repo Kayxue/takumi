@@ -38,7 +38,7 @@ pub fn process_image_for_object_fit<'i>(
   context: &RenderContext,
   content_box: Size<f32>,
 ) -> Result<(CowImage<'i>, Point<f32>)> {
-  let (image_width, image_height) = image.size();
+  let (image_width, image_height) = image.size(&context.sizing);
 
   let object_position_x =
     Length::from(context.style.object_position.0.x).to_px(&context.sizing, content_box.width);

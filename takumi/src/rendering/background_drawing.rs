@@ -56,7 +56,7 @@ fn resolve_intrinsic_size(image: &BackgroundImage, context: &RenderContext) -> O
     return None;
   };
 
-  Some(source.size())
+  Some(source.size(&context.sizing))
 }
 
 pub(crate) fn rasterize_layers(

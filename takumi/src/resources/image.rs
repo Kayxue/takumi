@@ -15,7 +15,7 @@ use image::RgbaImage;
 use super::image_decoder;
 use crate::{
   layout::style::{Color, ImageScalingAlgorithm},
-  rendering::{fast_resize, unpremultiply_alpha},
+  rendering::{Sizing, fast_resize, unpremultiply_alpha},
 };
 use thiserror::Error;
 
@@ -117,13 +117,16 @@ impl ImageSource {
     Ok(Arc::new(img.into()))
   }
 
-  /// Get the size of the image source.
-  pub fn size(&self) -> (f32, f32) {
-    match self {
+  /// Get the image size in device pixels for the current sizing context.
+  pub(crate) fn size(&self, sizing: &Sizing) -> (f32, f32) {
+    let (width, height) = match self {
       #[cfg(feature = "svg")]
       ImageSource::Svg { tree, .. } => (tree.size().width(), tree.size().height()),
       ImageSource::Bitmap(bitmap) => (bitmap.width() as f32, bitmap.height() as f32),
-    }
+    };
+
+    let dpr = sizing.viewport.device_pixel_ratio;
+    (width * dpr, height * dpr)
   }
 
   /// Render the image source to an RGBA image with the specified dimensions.
