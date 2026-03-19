@@ -781,7 +781,7 @@ mod tests {
       Filter::Opacity(PercentageNumber(0.5)),    // 255 * 0.5 = 127
     ];
 
-    let viewport = Viewport::new(Some(100), Some(100));
+    let viewport = Viewport::new((100, 100));
     let sizing = Sizing {
       viewport,
       container_size: Size::NONE,

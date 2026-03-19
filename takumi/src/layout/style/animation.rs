@@ -630,7 +630,10 @@ fn resolve_length_with_sizing<const DEFAULT_AUTO: bool>(
     return None;
   }
 
-  Some(value.to_px(sizing, sizing.viewport.width.unwrap_or_default() as f32))
+  Some(value.to_px(
+    sizing,
+    sizing.viewport.size.width.unwrap_or_default() as f32,
+  ))
 }
 
 #[cfg(test)]
@@ -647,7 +650,7 @@ mod tests {
 
   fn sizing() -> Sizing {
     Sizing {
-      viewport: Viewport::new(Some(200), Some(100)),
+      viewport: Viewport::new((200, 100)),
       container_size: Size::NONE,
       font_size: 16.0,
       calc_arena: Rc::new(CalcArena::default()),

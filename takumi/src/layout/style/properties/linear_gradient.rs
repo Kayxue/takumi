@@ -644,7 +644,7 @@ mod tests {
 
   fn sizing() -> Sizing {
     Sizing {
-      viewport: Viewport::new(Some(200), Some(100)),
+      viewport: Viewport::new((200, 100)),
       container_size: Size::NONE,
       font_size: 16.0,
       calc_arena: Rc::new(CalcArena::default()),
@@ -1072,7 +1072,7 @@ mod tests {
 
     // Test at the top (should be red)
     let context = GlobalContext::default();
-    let dummy_context = RenderContext::new_test(&context, (100, 100).into());
+    let dummy_context = RenderContext::new_test(&context, Viewport::new((100, 100)));
     let tile = LinearGradientTile::new(&gradient, 100, 100, &dummy_context);
 
     let color_top = tile.get_pixel(50, 0);
@@ -1109,7 +1109,7 @@ mod tests {
 
     // Test at the left (should be red)
     let context = GlobalContext::default();
-    let dummy_context = RenderContext::new_test(&context, (100, 100).into());
+    let dummy_context = RenderContext::new_test(&context, Viewport::new((100, 100)));
 
     let tile = LinearGradientTile::new(&gradient, 100, 100, &dummy_context);
     let color_left = tile.get_pixel(0, 50);
@@ -1135,7 +1135,7 @@ mod tests {
 
     // Should always return the same color
     let context = GlobalContext::default();
-    let dummy_context = RenderContext::new_test(&context, (100, 100).into());
+    let dummy_context = RenderContext::new_test(&context, Viewport::new((100, 100)));
     let tile = LinearGradientTile::new(&gradient, 100, 100, &dummy_context);
     let color = tile.get_pixel(50, 50);
     assert_eq!(color, Rgba([255, 0, 0, 255]));
@@ -1152,7 +1152,7 @@ mod tests {
 
     // Should return transparent
     let context = GlobalContext::default();
-    let dummy_context = RenderContext::new_test(&context, (100, 100).into());
+    let dummy_context = RenderContext::new_test(&context, Viewport::new((100, 100)));
     let tile = LinearGradientTile::new(&gradient, 100, 100, &dummy_context);
     let color = tile.get_pixel(50, 50);
     assert_eq!(color, Rgba([0, 0, 0, 0]));
@@ -1184,7 +1184,7 @@ mod tests {
       .build();
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new_test(&context, (40, 1).into());
+    let render_context = RenderContext::new_test(&context, Viewport::new((40, 1)));
     let tile = LinearGradientTile::new(&gradient, 40, 1, &render_context);
 
     assert_eq!(
@@ -1209,7 +1209,7 @@ mod tests {
       LinearGradient::from_str("linear-gradient(to right, grey 1px, transparent 1px)")?;
 
     let context = GlobalContext::default();
-    let dummy_context = RenderContext::new_test(&context, (40, 40).into());
+    let dummy_context = RenderContext::new_test(&context, Viewport::new((40, 40)));
     let tile = LinearGradientTile::new(&gradient, 40, 40, &dummy_context);
 
     // grey at 0,0
@@ -1233,7 +1233,7 @@ mod tests {
       LinearGradient::from_str("linear-gradient(to bottom, grey 1px, transparent 1px)")?;
 
     let context = GlobalContext::default();
-    let dummy_context = RenderContext::new_test(&context, (40, 40).into());
+    let dummy_context = RenderContext::new_test(&context, Viewport::new((40, 40)));
     let tile = LinearGradientTile::new(&gradient, 40, 40, &dummy_context);
 
     // color at top-left (0, 0) should be grey (1px hard stop)
@@ -1300,11 +1300,11 @@ mod tests {
       .build();
 
     let context = GlobalContext::default();
-    let ctx = RenderContext::new_test(&context, (200, 100).into());
+    let ctx = RenderContext::new_test(&context, Viewport::new((200, 100)));
 
     let resolved = resolve_stops_along_axis(
       &gradient.stops,
-      ctx.sizing.viewport.width.unwrap_or_default() as f32,
+      ctx.sizing.viewport.size.width.unwrap_or_default() as f32,
       &ctx,
     );
     assert_eq!(resolved.len(), 3);
@@ -1329,11 +1329,11 @@ mod tests {
       ])
       .build();
     let context = GlobalContext::default();
-    let ctx = RenderContext::new_test(&context, (200, 100).into());
+    let ctx = RenderContext::new_test(&context, Viewport::new((200, 100)));
 
     let resolved = resolve_stops_along_axis(
       &gradient.stops,
-      ctx.sizing.viewport.width.unwrap_or_default() as f32,
+      ctx.sizing.viewport.size.width.unwrap_or_default() as f32,
       &ctx,
     );
     assert_eq!(resolved.len(), 2);

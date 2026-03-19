@@ -188,8 +188,8 @@ pub fn measure_layout<'g>(options: RenderOptions<'g>) -> Result<MeasuredNode> {
     layout_results.root_node_id(),
     Affine::IDENTITY,
     Size {
-      width: viewport.width.map(|value| value as f32),
-      height: viewport.height.map(|value| value as f32),
+      width: viewport.size.width.map(|value| value as f32),
+      height: viewport.size.height.map(|value| value as f32),
     },
   )
 }
@@ -460,8 +460,8 @@ pub fn render<'g>(options: RenderOptions<'g>) -> Result<RgbaImage> {
     &mut canvas,
     Affine::IDENTITY,
     Size {
-      width: viewport.width.map(|value| value as f32),
-      height: viewport.height.map(|value| value as f32),
+      width: viewport.size.width.map(|value| value as f32),
+      height: viewport.size.height.map(|value| value as f32),
     },
   )?;
 
@@ -846,7 +846,7 @@ mod tests {
   fn make_scene<'g>(global: &'g GlobalContext, duration_ms: u32) -> SequentialScene<'g> {
     let options = RenderOptions::builder()
       .global(global)
-      .viewport(Viewport::new(Some(10), Some(10)))
+      .viewport(Viewport::new((10, 10)))
       .node(Node::container([]))
       .build();
 
@@ -960,7 +960,7 @@ mod tests {
 
     let options = RenderOptions::builder()
       .global(&global)
-      .viewport(Viewport::new(Some(200), Some(100)))
+      .viewport(Viewport::new((200, 100)))
       .node(node)
       .stylesheet(
         vec![KeyframesRule {

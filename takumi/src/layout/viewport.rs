@@ -10,10 +10,8 @@ pub const DEFAULT_DEVICE_PIXEL_RATIO: f32 = 1.0;
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
 pub struct Viewport {
-  /// The width of the viewport in pixels.
-  pub width: Option<u32>,
-  /// The height of the viewport in pixels.
-  pub height: Option<u32>,
+  /// Size of the viewport
+  pub size: ViewportSize,
   /// The font size in pixels, used for em and rem units.
   pub font_size: f32,
   /// The device pixel ratio.
@@ -23,12 +21,12 @@ pub struct Viewport {
 impl From<Viewport> for Size<AvailableSpace> {
   fn from(value: Viewport) -> Self {
     Self {
-      width: if let Some(width) = value.width {
+      width: if let Some(width) = value.size.width {
         AvailableSpace::Definite(width as f32)
       } else {
         AvailableSpace::MaxContent
       },
-      height: if let Some(height) = value.height {
+      height: if let Some(height) = value.size.height {
         AvailableSpace::Definite(height as f32)
       } else {
         AvailableSpace::MaxContent
@@ -37,24 +35,17 @@ impl From<Viewport> for Size<AvailableSpace> {
   }
 }
 
-impl From<(u32, u32)> for Viewport {
-  fn from((width, height): (u32, u32)) -> Self {
-    Self::new(Some(width), Some(height))
-  }
-}
-
 impl Default for Viewport {
   fn default() -> Self {
-    Self::new(None, None)
+    Self::new((None, None))
   }
 }
 
 impl Viewport {
   /// Creates a new viewport with the default font size.
-  pub const fn new(width: Option<u32>, height: Option<u32>) -> Self {
+  pub fn new(size: impl Into<ViewportSize>) -> Self {
     Self {
-      width,
-      height,
+      size: size.into(),
       font_size: DEFAULT_FONT_SIZE,
       device_pixel_ratio: DEFAULT_DEVICE_PIXEL_RATIO,
     }
@@ -73,15 +64,60 @@ impl Viewport {
   }
 }
 
+/// Represents Viewport size
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ViewportSize {
+  /// The width of the viewport in pixels.
+  pub width: Option<u32>,
+  /// The height of the viewport in pixels.
+  pub height: Option<u32>,
+}
+
+impl From<(u32, u32)> for ViewportSize {
+  fn from(value: (u32, u32)) -> Self {
+    Self {
+      width: Some(value.0),
+      height: Some(value.1),
+    }
+  }
+}
+
+impl From<(Option<u32>, u32)> for ViewportSize {
+  fn from(value: (Option<u32>, u32)) -> Self {
+    Self {
+      width: value.0,
+      height: Some(value.1),
+    }
+  }
+}
+
+impl From<(u32, Option<u32>)> for ViewportSize {
+  fn from(value: (u32, Option<u32>)) -> Self {
+    Self {
+      width: Some(value.0),
+      height: value.1,
+    }
+  }
+}
+
+impl From<(Option<u32>, Option<u32>)> for ViewportSize {
+  fn from(value: (Option<u32>, Option<u32>)) -> Self {
+    Self {
+      width: value.0,
+      height: value.1,
+    }
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
 
   #[test]
   fn test_viewport_new_defaults() {
-    let v = Viewport::new(Some(800), Some(600));
-    assert_eq!(v.width, Some(800));
-    assert_eq!(v.height, Some(600));
+    let v = Viewport::new((800, 600));
+    assert_eq!(v.size.width, Some(800));
+    assert_eq!(v.size.height, Some(600));
     assert_eq!(v.font_size, DEFAULT_FONT_SIZE);
   }
 }

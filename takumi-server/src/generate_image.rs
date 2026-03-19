@@ -39,7 +39,7 @@ pub async fn generate_image_handler(
   let format = query.format.unwrap_or(ImageOutputFormat::WebP);
 
   let buffer = spawn_blocking(move || -> AxumResult<Vec<u8>> {
-    let viewport = Viewport::new(query.width, query.height);
+    let viewport = Viewport::new((query.width, query.height));
     let dithering = query.dithering.unwrap_or_default();
     let options = RenderOptions::builder()
       .viewport(viewport)

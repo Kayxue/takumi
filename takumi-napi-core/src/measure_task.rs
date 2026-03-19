@@ -34,7 +34,7 @@ impl MeasureTask {
     Ok(MeasureTask {
       node: Some(node),
       state,
-      viewport: Viewport::new(options.width, options.height).with_device_pixel_ratio(
+      viewport: Viewport::new((options.width, options.height)).with_device_pixel_ratio(
         options
           .device_pixel_ratio
           .map(|ratio| ratio as f32)

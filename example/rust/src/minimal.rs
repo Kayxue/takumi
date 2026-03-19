@@ -4,6 +4,7 @@ use std::{borrow::Cow, fs::File};
 use takumi::{
   GlobalContext,
   layout::{
+    Viewport,
     node::Node,
     style::{Length::Px, Style, StyleDeclaration},
   },
@@ -37,7 +38,7 @@ pub fn say_hello_to(name: &str) {
 
   // Create render options
   let options = RenderOptions::builder()
-    .viewport((1200, 630).into())
+    .viewport(Viewport::new((1200, 630)))
     .node(root)
     .global(&context)
     .build();

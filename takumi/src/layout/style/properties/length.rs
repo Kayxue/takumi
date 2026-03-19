@@ -324,8 +324,8 @@ impl CalcFormula {
   }
 
   pub(crate) fn resolve(self, sizing: &Sizing) -> CalcLinear {
-    let viewport_width = sizing.viewport.width.unwrap_or_default() as f32;
-    let viewport_height = sizing.viewport.height.unwrap_or_default() as f32;
+    let viewport_width = sizing.viewport.size.width.unwrap_or_default() as f32;
+    let viewport_height = sizing.viewport.size.height.unwrap_or_default() as f32;
     let viewport_min = viewport_width.min(viewport_height);
     let viewport_max = viewport_width.max(viewport_height);
     let container_width = sizing.query_container_width();
@@ -777,8 +777,8 @@ impl<const DEFAULT_AUTO: bool> Length<DEFAULT_AUTO> {
       Length::Percentage(value) => (value / 100.0) * percentage_full_px,
       Length::Rem(value) => value * sizing.viewport.font_size,
       Length::Em(value) => value * sizing.font_size,
-      Length::Vh(value) => value * sizing.viewport.height.unwrap_or_default() as f32 / 100.0,
-      Length::Vw(value) => value * sizing.viewport.width.unwrap_or_default() as f32 / 100.0,
+      Length::Vh(value) => value * sizing.viewport.size.height.unwrap_or_default() as f32 / 100.0,
+      Length::Vw(value) => value * sizing.viewport.size.width.unwrap_or_default() as f32 / 100.0,
       Length::CqH(value) => value * sizing.query_container_height() / 100.0,
       Length::CqW(value) => value * sizing.query_container_width() / 100.0,
       Length::CqMin(value) => {
@@ -796,13 +796,13 @@ impl<const DEFAULT_AUTO: bool> Length<DEFAULT_AUTO> {
           / 100.0
       }
       Length::VMin(value) => {
-        let viewport_width = sizing.viewport.width.unwrap_or_default() as f32;
-        let viewport_height = sizing.viewport.height.unwrap_or_default() as f32;
+        let viewport_width = sizing.viewport.size.width.unwrap_or_default() as f32;
+        let viewport_height = sizing.viewport.size.height.unwrap_or_default() as f32;
         value * viewport_width.min(viewport_height) / 100.0
       }
       Length::VMax(value) => {
-        let viewport_width = sizing.viewport.width.unwrap_or_default() as f32;
-        let viewport_height = sizing.viewport.height.unwrap_or_default() as f32;
+        let viewport_width = sizing.viewport.size.width.unwrap_or_default() as f32;
+        let viewport_height = sizing.viewport.size.height.unwrap_or_default() as f32;
         value * viewport_width.max(viewport_height) / 100.0
       }
       Length::Cm(value) => value * ONE_CM_IN_PX,
@@ -824,11 +824,11 @@ impl<const DEFAULT_AUTO: bool> Length<DEFAULT_AUTO> {
         value * sizing.viewport.font_size * sizing.viewport.device_pixel_ratio,
       ),
       Length::Em(value) => CompactLength::length(value * sizing.font_size),
-      Length::Vh(value) => {
-        CompactLength::length(sizing.viewport.height.unwrap_or_default() as f32 * value / 100.0)
-      }
+      Length::Vh(value) => CompactLength::length(
+        sizing.viewport.size.height.unwrap_or_default() as f32 * value / 100.0,
+      ),
       Length::Vw(value) => {
-        CompactLength::length(sizing.viewport.width.unwrap_or_default() as f32 * value / 100.0)
+        CompactLength::length(sizing.viewport.size.width.unwrap_or_default() as f32 * value / 100.0)
       }
       Length::CqH(value) => CompactLength::length(sizing.query_container_height() * value / 100.0),
       Length::CqW(value) => CompactLength::length(sizing.query_container_width() * value / 100.0),
@@ -847,13 +847,13 @@ impl<const DEFAULT_AUTO: bool> Length<DEFAULT_AUTO> {
           / 100.0,
       ),
       Length::VMin(value) => {
-        let viewport_width = sizing.viewport.width.unwrap_or_default() as f32;
-        let viewport_height = sizing.viewport.height.unwrap_or_default() as f32;
+        let viewport_width = sizing.viewport.size.width.unwrap_or_default() as f32;
+        let viewport_height = sizing.viewport.size.height.unwrap_or_default() as f32;
         CompactLength::length(viewport_width.min(viewport_height) * value / 100.0)
       }
       Length::VMax(value) => {
-        let viewport_width = sizing.viewport.width.unwrap_or_default() as f32;
-        let viewport_height = sizing.viewport.height.unwrap_or_default() as f32;
+        let viewport_width = sizing.viewport.size.width.unwrap_or_default() as f32;
+        let viewport_height = sizing.viewport.size.height.unwrap_or_default() as f32;
         CompactLength::length(viewport_width.max(viewport_height) * value / 100.0)
       }
       Length::Calc(formula) => {
@@ -869,9 +869,10 @@ impl<const DEFAULT_AUTO: bool> Length<DEFAULT_AUTO> {
 
         CompactLength::calc(sizing.calc_arena.register_linear(linear))
       }
-      _ => {
-        CompactLength::length(self.to_px(sizing, sizing.viewport.width.unwrap_or_default() as f32))
-      }
+      _ => CompactLength::length(self.to_px(
+        sizing,
+        sizing.viewport.size.width.unwrap_or_default() as f32,
+      )),
     }
   }
 
@@ -961,8 +962,7 @@ mod tests {
   fn sizing() -> Sizing {
     Sizing {
       viewport: Viewport {
-        width: Some(200),
-        height: Some(100),
+        size: (200, 100).into(),
         font_size: 16.0,
         device_pixel_ratio: 2.0,
       },

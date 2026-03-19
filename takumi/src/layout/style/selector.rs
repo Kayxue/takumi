@@ -536,10 +536,10 @@ pub(crate) struct MediaQueryList {
 impl MediaFeature {
   fn matches(&self, viewport: Viewport, sizing: &Sizing) -> bool {
     match self {
-      Self::Width(comparison, value) => viewport.width.is_some_and(|width| {
+      Self::Width(comparison, value) => viewport.size.width.is_some_and(|width| {
         compare_media_feature(*comparison, width as f32, value.to_px(sizing, width as f32))
       }),
-      Self::Height(comparison, value) => viewport.height.is_some_and(|height| {
+      Self::Height(comparison, value) => viewport.size.height.is_some_and(|height| {
         compare_media_feature(
           *comparison,
           height as f32,
@@ -547,12 +547,14 @@ impl MediaFeature {
         )
       }),
       Self::Orientation(MediaOrientation::Portrait) => viewport
+        .size
         .width
-        .zip(viewport.height)
+        .zip(viewport.size.height)
         .is_some_and(|(width, height)| height >= width),
       Self::Orientation(MediaOrientation::Landscape) => viewport
+        .size
         .width
-        .zip(viewport.height)
+        .zip(viewport.size.height)
         .is_some_and(|(width, height)| width > height),
     }
   }
@@ -1725,13 +1727,13 @@ mod tests {
       sheet.rules[0]
         .media_queries
         .first()
-        .is_some_and(|media| media.matches(Viewport::new(Some(800), Some(600))))
+        .is_some_and(|media| media.matches(Viewport::new((800, 600))))
     );
     assert!(
       !sheet.rules[0]
         .media_queries
         .first()
-        .is_some_and(|media| media.matches(Viewport::new(Some(500), Some(800))))
+        .is_some_and(|media| media.matches(Viewport::new((500, 800))))
     );
   }
 
@@ -1748,9 +1750,9 @@ mod tests {
     let Some(media) = sheet.rules[0].media_queries.first() else {
       unreachable!("expected media queries on parsed rule");
     };
-    assert!(media.matches(Viewport::new(Some(400), Some(800))));
-    assert!(media.matches(Viewport::new(Some(1280), Some(800))));
-    assert!(!media.matches(Viewport::new(Some(800), Some(800))));
+    assert!(media.matches(Viewport::new((400, 800))));
+    assert!(media.matches(Viewport::new((1280, 800))));
+    assert!(!media.matches(Viewport::new((800, 800))));
   }
 
   #[test]
@@ -1778,13 +1780,13 @@ mod tests {
       sheet.keyframes[0]
         .media_queries
         .first()
-        .is_some_and(|media| media.matches(Viewport::new(Some(800), Some(600))))
+        .is_some_and(|media| media.matches(Viewport::new((800, 600))))
     );
     assert!(
       sheet.property_rules[0]
         .media_queries
         .first()
-        .is_some_and(|media| media.matches(Viewport::new(Some(800), Some(600))))
+        .is_some_and(|media| media.matches(Viewport::new((800, 600))))
     );
   }
 
@@ -1858,7 +1860,7 @@ mod tests {
       sheet.rules[0]
         .media_queries
         .first()
-        .is_some_and(|media| media.matches(Viewport::new(Some(800), Some(600))))
+        .is_some_and(|media| media.matches(Viewport::new((800, 600))))
     );
   }
 
@@ -1878,9 +1880,9 @@ mod tests {
 
     assert_eq!(sheet.rules.len(), 1);
     assert_eq!(sheet.rules[0].media_queries.len(), 2);
-    assert!(sheet.rules[0].media_queries[0].matches(Viewport::new(Some(800), Some(600))));
-    assert!(sheet.rules[0].media_queries[1].matches(Viewport::new(Some(800), Some(600))));
-    assert!(!sheet.rules[0].media_queries[1].matches(Viewport::new(Some(500), Some(800))));
+    assert!(sheet.rules[0].media_queries[0].matches(Viewport::new((800, 600))));
+    assert!(sheet.rules[0].media_queries[1].matches(Viewport::new((800, 600))));
+    assert!(!sheet.rules[0].media_queries[1].matches(Viewport::new((500, 800))));
   }
 
   #[test]

@@ -141,11 +141,11 @@ fn create_test_context() -> GlobalContext {
   context
 }
 
-pub const fn create_test_viewport_with_size(width: u32, height: u32) -> Viewport {
-  Viewport::new(
-    Some((width as f32 * FIXTURE_DEVICE_PIXEL_RATIO) as u32),
-    Some((height as f32 * FIXTURE_DEVICE_PIXEL_RATIO) as u32),
-  )
+pub fn create_test_viewport_with_size(width: u32, height: u32) -> Viewport {
+  Viewport::new((
+    (width as f32 * FIXTURE_DEVICE_PIXEL_RATIO) as u32,
+    (height as f32 * FIXTURE_DEVICE_PIXEL_RATIO) as u32,
+  ))
   .with_device_pixel_ratio(FIXTURE_DEVICE_PIXEL_RATIO)
 }
 

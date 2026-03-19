@@ -457,6 +457,7 @@ mod tests {
   use color::{ColorSpaceTag, HueDirection};
 
   use super::*;
+  use crate::layout::Viewport;
   use crate::layout::style::{
     BackgroundPosition, Color, Length, LengthDefaultsToZero, PositionComponent, PositionKeywordX,
     PositionKeywordY, SpacePair, StopPosition,
@@ -729,10 +730,15 @@ mod tests {
       .build();
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new_test(&context, (200, 100).into());
+    let render_context = RenderContext::new_test(&context, Viewport::new((200, 100)));
     let resolved = resolve_stops_along_axis(
       &gradient.stops,
-      render_context.sizing.viewport.width.unwrap_or_default() as f32,
+      render_context
+        .sizing
+        .viewport
+        .size
+        .width
+        .unwrap_or_default() as f32,
       &render_context,
     );
 
@@ -761,10 +767,15 @@ mod tests {
       .build();
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new_test(&context, (200, 100).into());
+    let render_context = RenderContext::new_test(&context, Viewport::new((200, 100)));
     let resolved = resolve_stops_along_axis(
       &gradient.stops,
-      render_context.sizing.viewport.width.unwrap_or_default() as f32,
+      render_context
+        .sizing
+        .viewport
+        .size
+        .width
+        .unwrap_or_default() as f32,
       &render_context,
     );
 
@@ -791,7 +802,7 @@ mod tests {
       .build();
 
     let context = GlobalContext::default();
-    let dummy_context = RenderContext::new_test(&context, (100, 100).into());
+    let dummy_context = RenderContext::new_test(&context, Viewport::new((100, 100)));
     let tile = RadialGradientTile::new(&gradient, 100, 100, &dummy_context);
 
     // Center (50, 50) should be red
@@ -833,7 +844,7 @@ mod tests {
       .build();
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new_test(&context, (40, 40).into());
+    let render_context = RenderContext::new_test(&context, Viewport::new((40, 40)));
     let tile = RadialGradientTile::new(&gradient, 40, 40, &render_context);
 
     assert_eq!(
@@ -873,7 +884,7 @@ mod tests {
       .build();
 
     let context = GlobalContext::default();
-    let dummy_context = RenderContext::new_test(&context, (100, 100).into());
+    let dummy_context = RenderContext::new_test(&context, Viewport::new((100, 100)));
     let tile = RadialGradientTile::new(&gradient, 100, 100, &dummy_context);
 
     // dx_left=20, dx_right=80, dy_top=20, dy_bottom=80

@@ -2702,7 +2702,7 @@ mod tests {
   fn test_non_identity_transform_detection() {
     let mut style = ComputedStyle::default();
     let sizing = Sizing {
-      viewport: Viewport::new(Some(1200), Some(630)),
+      viewport: Viewport::new((1200, 630)),
       container_size: Size::NONE,
       font_size: 16.0,
       calc_arena: Rc::new(CalcArena::default()),
@@ -2750,7 +2750,7 @@ mod tests {
     .inherit(&ComputedStyle::default());
 
     let sizing = Sizing {
-      viewport: Viewport::new(Some(1200), Some(630)),
+      viewport: Viewport::new((1200, 630)),
       container_size: Size::NONE,
       font_size: 16.0,
       calc_arena: Rc::new(CalcArena::default()),
@@ -2770,7 +2770,7 @@ mod tests {
     ])
     .inherit(&ComputedStyle::default());
     parent.make_computed(&Sizing {
-      viewport: Viewport::new(Some(1200), Some(630)),
+      viewport: Viewport::new((1200, 630)),
       container_size: Size::NONE,
       font_size: 32.0,
       calc_arena: Rc::new(CalcArena::default()),
@@ -2778,7 +2778,7 @@ mod tests {
 
     let inherited_child = Style::default().inherit(&parent);
     let inherited_child_sizing = Sizing {
-      viewport: Viewport::new(Some(1200), Some(630)),
+      viewport: Viewport::new((1200, 630)),
       container_size: Size::NONE,
       font_size: 32.0,
       calc_arena: Rc::new(CalcArena::default()),
@@ -2791,7 +2791,7 @@ mod tests {
     let child_with_own_font_size =
       style_with([StyleDeclaration::font_size(Length::Px(10.0).into())]).inherit(&parent);
     let child_sizing = Sizing {
-      viewport: Viewport::new(Some(1200), Some(630)),
+      viewport: Viewport::new((1200, 630)),
       container_size: Size::NONE,
       font_size: 10.0,
       calc_arena: Rc::new(CalcArena::default()),
@@ -2975,15 +2975,15 @@ mod tests {
       &ComputedStyle::default(),
     );
     let sizing = Sizing {
-      viewport: Viewport::new(Some(1200), Some(630)),
+      viewport: Viewport::new((1200, 630)),
       container_size: Size::NONE,
       font_size: 16.0,
       calc_arena: Rc::new(CalcArena::default()),
     };
-    let radius = style
-      .border_top_left_radius
-      .x
-      .to_px(&sizing, sizing.viewport.width.unwrap_or_default() as f32);
+    let radius = style.border_top_left_radius.x.to_px(
+      &sizing,
+      sizing.viewport.size.width.unwrap_or_default() as f32,
+    );
 
     assert_eq!(
       radius,

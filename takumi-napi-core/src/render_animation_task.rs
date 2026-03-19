@@ -73,7 +73,7 @@ impl RenderAnimationTask {
     Ok(Self {
       scenes: Some(scenes),
       state,
-      viewport: Viewport::new(Some(width), Some(height)).with_device_pixel_ratio(
+      viewport: Viewport::new((width, height)).with_device_pixel_ratio(
         device_pixel_ratio
           .map(|ratio| ratio as f32)
           .unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO),
