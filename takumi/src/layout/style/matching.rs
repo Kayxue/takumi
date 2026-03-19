@@ -446,7 +446,7 @@ pub(crate) fn match_stylesheets(
     }
   }
 
-  for (matched, mut rules) in per_node.iter_mut().zip(matched_rules.into_iter()) {
+  for (matched, mut rules) in per_node.iter_mut().zip(matched_rules) {
     rules.sort_by_key(|rule| {
       (
         rule.important,
@@ -546,7 +546,7 @@ mod tests {
       "#,
     );
 
-    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::default());
     assert_eq!(matched.len(), 1);
     assert_eq!(computed_width_from_matches(&matched[0]), Length::Px(10.0));
   }
@@ -565,7 +565,7 @@ mod tests {
       "#,
     );
 
-    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::default());
     assert_eq!(matched.len(), 2);
     assert_eq!(computed_width_from_matches(&matched[1]), Length::Px(10.0));
   }
@@ -586,7 +586,7 @@ mod tests {
       "#,
     );
 
-    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::default());
     assert_eq!(matched.len(), 1);
     assert_eq!(computed_width_from_matches(&matched[0]), Length::Px(20.0));
   }
@@ -596,7 +596,7 @@ mod tests {
     let root = container_with_class("card");
     let stylesheet = parse_stylesheet(".card { width: 10px; } .card { width: 20px; }");
 
-    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::default());
     assert_eq!(matched.len(), 1);
     assert_eq!(computed_width_from_matches(&matched[0]), Length::Px(20.0));
   }
@@ -618,7 +618,7 @@ mod tests {
       "#,
     ]);
 
-    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::default());
     assert_eq!(matched.len(), 1);
     assert_eq!(computed_width_from_matches(&matched[0]), Length::Px(10.0));
   }
@@ -634,7 +634,7 @@ mod tests {
       "#,
     );
 
-    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::default());
     assert_eq!(matched.len(), 1);
     assert_eq!(computed_width_from_matches(&matched[0]), Length::Px(10.0));
   }
@@ -656,7 +656,7 @@ mod tests {
       "#,
     );
 
-    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::default());
     assert_eq!(matched.len(), 5);
     assert_eq!(computed_width_from_matches(&matched[2]), Length::Px(10.0));
     assert_eq!(computed_height_from_matches(&matched[2]), Length::Px(30.0));
@@ -685,7 +685,7 @@ mod tests {
       "#,
     );
 
-    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::default());
     assert_eq!(matched.len(), 2);
     assert_eq!(computed_width_from_matches(&matched[1]), Length::Px(30.0));
     assert_eq!(computed_height_from_matches(&matched[1]), Length::Px(40.0));
@@ -695,7 +695,7 @@ mod tests {
   fn test_repro_mixed_importance_bug() {
     let stylesheet = parse_stylesheet(".test { width: 10px; height: 20px !important; }");
     let root = Node::container([]).with_class_name("test");
-    let matched = match_stylesheets(&root, &stylesheet, Viewport::new(None, None));
+    let matched = match_stylesheets(&root, &stylesheet, Viewport::default());
 
     // Matched normal: should have width: 10px.
     // Matched important: should have height: 20px.

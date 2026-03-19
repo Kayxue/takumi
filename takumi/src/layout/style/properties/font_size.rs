@@ -192,7 +192,7 @@ mod tests {
   #[test]
   fn resolves_medium_keyword_to_default_font_size() {
     let sizing = Sizing {
-      viewport: Viewport::new(Some(1200), Some(630)),
+      viewport: Viewport::new((1200, 630)),
       container_size: Size::NONE,
       font_size: 16.0,
       calc_arena: Rc::new(CalcArena::default()),

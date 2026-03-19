@@ -226,7 +226,7 @@ impl Renderer {
 
     let render_options = takumi::rendering::RenderOptions::builder()
       .viewport(
-        Viewport::new(options.width, options.height).with_device_pixel_ratio(
+        Viewport::new((options.width, options.height)).with_device_pixel_ratio(
           options
             .device_pixel_ratio
             .unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO),
@@ -281,7 +281,7 @@ impl Renderer {
 
     let render_options = takumi::rendering::RenderOptions::builder()
       .viewport(
-        Viewport::new(options.width, options.height).with_device_pixel_ratio(
+        Viewport::new((options.width, options.height)).with_device_pixel_ratio(
           options
             .device_pixel_ratio
             .unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO),
@@ -357,7 +357,7 @@ impl Renderer {
       return Err(JsValue::from_str("Expected fps to be greater than 0"));
     }
 
-    let viewport = Viewport::new(Some(width), Some(height))
+    let viewport = Viewport::new((width, height))
       .with_device_pixel_ratio(device_pixel_ratio.unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO));
     let draw_debug_border = draw_debug_border.unwrap_or_default();
     let stylesheet = StyleSheet::parse_owned_list_loosy(stylesheets.unwrap_or_default());
@@ -394,12 +394,11 @@ impl Renderer {
     let frames: Vec<AnimationFrameSource> = from_value(frames.into()).map_err(map_error)?;
     let options: EncodeFramesOptions = from_value(options.into()).map_err(map_error)?;
     let fetched_resources = self.fetch_resources_map(options.fetched_resources.as_deref())?;
-    let viewport = Viewport::new(Some(options.width), Some(options.height))
-      .with_device_pixel_ratio(
-        options
-          .device_pixel_ratio
-          .unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO),
-      );
+    let viewport = Viewport::new((options.width, options.height)).with_device_pixel_ratio(
+      options
+        .device_pixel_ratio
+        .unwrap_or(DEFAULT_DEVICE_PIXEL_RATIO),
+    );
     let stylesheet = StyleSheet::parse_owned_list_loosy(options.stylesheets.unwrap_or_default());
     let rendered_frames = frames
       .into_iter()

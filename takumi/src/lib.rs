@@ -53,7 +53,7 @@
 //! );
 //!
 //! // Create a viewport
-//! let viewport = Viewport::new(Some(1200), Some(630));
+//! let viewport = Viewport::new((1200, 630));
 //!
 //! // Create render options
 //! let options = RenderOptions::builder()

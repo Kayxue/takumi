@@ -14,14 +14,14 @@ use takumi::{
 use test_utils::CONTEXT;
 
 fn create_measure_viewport() -> Viewport {
-  (1200, 630).into()
+  Viewport::new((1200, 630))
 }
 
 fn create_measure_viewport_with_dpr(device_pixel_ratio: f32) -> Viewport {
-  Viewport::new(
-    Some((1200.0 * device_pixel_ratio) as u32),
-    Some((630.0 * device_pixel_ratio) as u32),
-  )
+  Viewport::new((
+    (1200.0 * device_pixel_ratio) as u32,
+    (630.0 * device_pixel_ratio) as u32,
+  ))
   .with_device_pixel_ratio(device_pixel_ratio)
 }
 

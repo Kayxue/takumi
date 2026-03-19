@@ -23,7 +23,7 @@ fn run_gradient_render(global: &GlobalContext, background_image_str: &str) {
 
   let node = Node::container([]).with_style(style);
 
-  let viewport = Viewport::new(Some(BENCH_WIDTH), Some(BENCH_HEIGHT));
+  let viewport = Viewport::new((BENCH_WIDTH, BENCH_HEIGHT));
 
   let options = RenderOptions::builder()
     .viewport(viewport)

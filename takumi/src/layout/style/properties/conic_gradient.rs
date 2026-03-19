@@ -394,6 +394,7 @@ mod tests {
   use color::{ColorSpaceTag, HueDirection};
 
   use super::*;
+  use crate::layout::Viewport;
   use crate::layout::style::{Color, Length, SpacePair, StopPosition};
   use crate::{GlobalContext, rendering::RenderContext};
 
@@ -607,7 +608,7 @@ mod tests {
       .build();
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new_test(&context, (100, 100).into());
+    let render_context = RenderContext::new_test(&context, Viewport::new((100, 100)));
     let tile = ConicGradientTile::new(&gradient, 100, 100, &render_context);
 
     // Top center (50, 0) should be red (start of gradient)
@@ -648,7 +649,7 @@ mod tests {
       .build();
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new_test(&context, (100, 100).into());
+    let render_context = RenderContext::new_test(&context, Viewport::new((100, 100)));
     let tile = ConicGradientTile::new(&gradient, 100, 100, &render_context);
 
     // Top-center should be red
@@ -685,7 +686,7 @@ mod tests {
       .build();
 
     let context = GlobalContext::default();
-    let render_context = RenderContext::new_test(&context, (40, 40).into());
+    let render_context = RenderContext::new_test(&context, Viewport::new((40, 40)));
     let tile = ConicGradientTile::new(&gradient, 40, 40, &render_context);
 
     assert_eq!(

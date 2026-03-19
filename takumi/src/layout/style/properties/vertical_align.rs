@@ -218,8 +218,7 @@ mod tests {
   fn sizing() -> Sizing {
     Sizing {
       viewport: Viewport {
-        width: Some(200),
-        height: Some(100),
+        size: (200, 100).into(),
         font_size: 16.0,
         device_pixel_ratio: 2.0,
       },

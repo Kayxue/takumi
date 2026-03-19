@@ -469,7 +469,7 @@ impl Breakpoint {
 
   /// Check if the breakpoint matches the viewport width.
   pub fn matches(&self, viewport: Viewport) -> bool {
-    let Some(viewport_width) = viewport.width else {
+    let Some(viewport_width) = viewport.size.width else {
       return false;
     };
 
@@ -1958,14 +1958,14 @@ mod tests {
 
   #[test]
   fn test_breakpoint_matches() {
-    let viewport = (1000, 1000).into();
+    let viewport = Viewport::new((1000, 1000));
 
     assert!(Breakpoint::parse("sm").is_some_and(|bp| bp.matches(viewport)));
   }
 
   #[test]
   fn test_breakpoint_does_not_match() {
-    let viewport = (1000, 1000).into();
+    let viewport = Viewport::new((1000, 1000));
 
     // 80 * 16 = 1280 > 1000
     assert!(Breakpoint::parse("xl").is_some_and(|bp| !bp.matches(viewport)));
@@ -2025,7 +2025,7 @@ mod tests {
     let Ok(values) = TailwindValues::from_str("blur-sm brightness-150 contrast-125") else {
       unreachable!()
     };
-    let viewport = (100, 100).into();
+    let viewport = Viewport::new((100, 100));
 
     let style =
       Style::from(values.into_declaration_block(viewport)).inherit(&ComputedStyle::default());
@@ -2046,7 +2046,7 @@ mod tests {
     else {
       unreachable!()
     };
-    let viewport = (100, 100).into();
+    let viewport = Viewport::new((100, 100));
 
     let style =
       Style::from(values.into_declaration_block(viewport)).inherit(&ComputedStyle::default());
@@ -2172,7 +2172,7 @@ mod tests {
 
   #[test]
   fn test_linear_gradient_apply() {
-    let viewport = (100, 100).into();
+    let viewport = Viewport::new((100, 100));
     let Ok(values) =
       TailwindValues::from_str("bg-linear-to-r from-red-500 via-green-500 to-blue-500")
     else {
@@ -2212,7 +2212,7 @@ mod tests {
 
   #[test]
   fn test_shadow_color_overrides_shadow_preset_in_any_order() {
-    let viewport = (100, 100).into();
+    let viewport = Viewport::new((100, 100));
 
     for classes in ["shadow-md shadow-red-500", "shadow-red-500 shadow-md"] {
       let Ok(values) = TailwindValues::from_str(classes) else {
@@ -2240,7 +2240,7 @@ mod tests {
 
   #[test]
   fn test_text_shadow_color_overrides_preset_in_any_order() {
-    let viewport = (100, 100).into();
+    let viewport = Viewport::new((100, 100));
 
     for classes in [
       "text-shadow-sm text-shadow-red-500",

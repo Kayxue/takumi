@@ -14,7 +14,7 @@ fn run_effect_render(global: &GlobalContext, effect_tw: &str) {
       .unwrap(),
   );
 
-  let viewport = Viewport::new(Some(512), Some(512));
+  let viewport = Viewport::new((512, 512));
 
   let options = RenderOptions::builder()
     .viewport(viewport)

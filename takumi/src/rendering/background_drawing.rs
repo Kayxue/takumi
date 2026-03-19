@@ -686,7 +686,7 @@ mod tests {
   };
 
   fn test_sizing() -> Sizing {
-    let viewport = Viewport::new(Some(100), Some(100));
+    let viewport = Viewport::new((100, 100));
     Sizing {
       viewport,
       container_size: Size::NONE,

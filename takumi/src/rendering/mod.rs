@@ -59,14 +59,14 @@ impl Sizing {
     self
       .container_size
       .width
-      .unwrap_or(self.viewport.width.unwrap_or_default() as f32)
+      .unwrap_or(self.viewport.size.width.unwrap_or_default() as f32)
   }
 
   pub(crate) fn query_container_height(&self) -> f32 {
     self
       .container_size
       .height
-      .unwrap_or(self.viewport.height.unwrap_or_default() as f32)
+      .unwrap_or(self.viewport.size.height.unwrap_or_default() as f32)
   }
 }
 

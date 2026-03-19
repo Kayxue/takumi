@@ -41,7 +41,7 @@ impl EncodeFramesTask {
     Ok(Self {
       frames: Some(frames),
       state,
-      viewport: Viewport::new(Some(options.width), Some(options.height)).with_device_pixel_ratio(
+      viewport: Viewport::new((options.width, options.height)).with_device_pixel_ratio(
         options
           .device_pixel_ratio
           .map(|ratio| ratio as f32)

@@ -1025,10 +1025,13 @@ mod tests {
 
   use crate::{
     GlobalContext,
-    layout::style::{
-      Angle, BlendMode, Color, ColorInterpolationMethod, ConicGradient, ConicGradientTile, FromCss,
-      GradientStop, Length, LinearGradient, LinearGradientTile, ObjectPosition, RadialGradient,
-      RadialGradientTile, StopPosition,
+    layout::{
+      Viewport,
+      style::{
+        Angle, BlendMode, Color, ColorInterpolationMethod, ConicGradient, ConicGradientTile,
+        FromCss, GradientStop, Length, LinearGradient, LinearGradientTile, ObjectPosition,
+        RadialGradient, RadialGradientTile, StopPosition,
+      },
     },
     rendering::{RenderContext, blend_pixel},
   };
@@ -1099,7 +1102,7 @@ mod tests {
       unreachable!()
     };
     let global_context = GlobalContext::default();
-    let render_context = RenderContext::new_test(&global_context, (32, 16).into());
+    let render_context = RenderContext::new_test(&global_context, Viewport::new((32, 16)));
     let tile = LinearGradientTile::new(&gradient, 32, 16, &render_context);
 
     let mut fast = RgbaImage::from_pixel(40, 24, Rgba([0, 0, 0, 0]));
@@ -1125,7 +1128,7 @@ mod tests {
       unreachable!()
     };
     let global_context = GlobalContext::default();
-    let render_context = RenderContext::new_test(&global_context, (32, 24).into());
+    let render_context = RenderContext::new_test(&global_context, Viewport::new((32, 24)));
     let tile = RadialGradientTile::new(&gradient, 32, 24, &render_context);
 
     let mut fast = RgbaImage::from_pixel(40, 30, Rgba([0, 0, 0, 0]));
@@ -1152,7 +1155,7 @@ mod tests {
     };
 
     let global_context = GlobalContext::default();
-    let render_context = RenderContext::new_test(&global_context, (32, 24).into());
+    let render_context = RenderContext::new_test(&global_context, Viewport::new((32, 24)));
     let tile = ConicGradientTile::new(&gradient, 32, 24, &render_context);
 
     let mut fast = RgbaImage::from_pixel(40, 30, Rgba([0, 0, 0, 0]));
@@ -1180,7 +1183,7 @@ mod tests {
       unreachable!()
     };
     let global_context = GlobalContext::default();
-    let render_context = RenderContext::new_test(&global_context, (32, 16).into());
+    let render_context = RenderContext::new_test(&global_context, Viewport::new((32, 16)));
     let tile = LinearGradientTile::new(&gradient, 32, 16, &render_context);
 
     let mut fast = RgbaImage::from_pixel(40, 24, Rgba([0, 0, 0, 0]));
@@ -1229,7 +1232,7 @@ mod tests {
     };
 
     let global_context = GlobalContext::default();
-    let render_context = RenderContext::new_test(&global_context, (48, 48).into());
+    let render_context = RenderContext::new_test(&global_context, Viewport::new((48, 48)));
     let tile = ConicGradientTile::new(&gradient, 48, 48, &render_context);
 
     let mut fast = RgbaImage::from_pixel(56, 56, Rgba([0, 0, 0, 0]));
@@ -1257,7 +1260,7 @@ mod tests {
       unreachable!()
     };
     let global_context = GlobalContext::default();
-    let render_context = RenderContext::new_test(&global_context, (32, 24).into());
+    let render_context = RenderContext::new_test(&global_context, Viewport::new((32, 24)));
     let tile = RadialGradientTile::new(&gradient, 32, 24, &render_context);
 
     let mut fast = RgbaImage::from_pixel(40, 30, Rgba([0, 0, 0, 0]));

@@ -250,7 +250,7 @@ impl Node {
     }
 
     if let Some(author_tw) = self.metadata.tw.as_ref() {
-      author_tw.collect_fetch_tasks(Viewport::new(None, None), collection);
+      author_tw.collect_fetch_tasks(Viewport::default(), collection);
     }
 
     if let Some(inline) = self.metadata.style.as_ref() {
